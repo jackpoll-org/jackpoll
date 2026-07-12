@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Jackpoll</string>
+    <string name="title_activity_main">Jackpoll</string>
+    <string name="package_name">de.quavon.surveyschool</string>
+    <string name="custom_url_scheme">de.quavon.surveyschool</string>
+</resources>

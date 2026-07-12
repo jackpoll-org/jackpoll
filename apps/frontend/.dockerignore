@@ -1,0 +1,27 @@
+# Build artifacts & deps (reinstalled/rebuilt in the image)
+node_modules
+.next
+out
+build
+
+# VCS / CI / tooling
+.git
+.github
+.gitignore
+
+# Local env & secrets — never bake into an image
+.env
+.env.*
+!.env.swarm.example
+
+# Tests, coverage, editor, OS cruft
+coverage
+*.log
+.DS_Store
+.vscode
+.idea
+
+# Docker / compose (not needed inside the build context)
+Dockerfile
+.dockerignore
+docker-compose*.yml

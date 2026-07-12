@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── shadcn/ui theme presets ───────────────────────────────────────
+   Theme presets (jackpoll, midnight, ember, etc.) that can be activated
+   via data-theme-preset attribute on the html element. */
+@import "./themes.css";
+
+/* ── Default shadcn/ui design tokens ───────────────────────────────
+   Standard shadcn/ui (MIT) :root / .dark token values so that every
+   shadcn component (Button, Card, Input, etc.) renders correctly even
+   without a theme-preset attribute. */
+:root {
+  --base-50: oklch(0.985 0.0013 286.84);
+  --base-100: oklch(0.967 0.0027 286.38);
+  --base-200: oklch(0.92 0.0053 286.32);
+  --base-300: oklch(0.871 0.008 286.29);
+  --base-400: oklch(0.705 0.012 286.07);
+  --base-500: oklch(0.552 0.016 285.94);
+  --base-600: oklch(0.442 0.0147 285.79);
+  --base-700: oklch(0.37 0.012 285.81);
+  --base-800: oklch(0.274 0.008 286.03);
+  --base-900: oklch(0.21 0.0053 285.89);
+  --base-950: oklch(0.141 0.004 285.83);
+  --base-1000: oklch(0.096 0.0027 285.79);
+
+  --background: var(--color-white);
+  --foreground: var(--base-800);
+  --card: var(--color-white);
+  --card-foreground: var(--base-800);
+  --popover: var(--color-white);
+  --popover-foreground: var(--base-800);
+  --primary: var(--base-950);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--base-300);
+  --secondary-foreground: var(--base-800);
+  --muted: var(--color-neutral-100);
+  --muted-foreground: var(--color-neutral-500);
+  --accent: var(--base-200);
+  --accent-foreground: var(--base-800);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: var(--base-200);
+  --input: var(--base-300);
+  --ring: var(--base-800);
+  --chart-1: var(--base-950);
+  --chart-2: var(--base-600);
+  --chart-3: var(--base-800);
+  --chart-4: var(--base-400);
+  --chart-5: var(--base-300);
+  --radius: 0.5rem;
+  --sidebar: var(--base-100);
+  --sidebar-foreground: var(--base-500);
+  --sidebar-primary: var(--base-950);
+  --sidebar-primary-foreground: var(--color-white);
+  --sidebar-accent: var(--base-200);
+  --sidebar-accent-foreground: var(--base-950);
+  --sidebar-border: var(--base-200);
+  --sidebar-ring: var(--base-800);
+}
+
+.dark {
+  --background: var(--base-950);
+  --foreground: var(--base-200);
+  --card: var(--base-950);
+  --card-foreground: var(--base-200);
+  --popover: var(--base-950);
+  --popover-foreground: var(--base-200);
+  --primary: var(--base-50);
+  --primary-foreground: var(--base-900);
+  --secondary: var(--base-500);
+  --secondary-foreground: var(--base-200);
+  --muted: var(--base-900);
+  --muted-foreground: var(--base-400);
+  --accent: var(--base-900);
+  --accent-foreground: var(--base-200);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: var(--base-800);
+  --input: var(--base-700);
+  --ring: var(--base-200);
+  --chart-1: var(--base-50);
+  --chart-2: var(--base-400);
+  --chart-3: var(--base-200);
+  --chart-4: var(--base-600);
+  --chart-5: var(--base-700);
+  --sidebar: var(--base-900);
+  --sidebar-foreground: var(--base-200);
+  --sidebar-primary: var(--base-50);
+  --sidebar-primary-foreground: var(--base-900);
+  --sidebar-accent: var(--base-800);
+  --sidebar-accent-foreground: var(--base-200);
+  --sidebar-border: var(--base-800);
+  --sidebar-ring: var(--base-200);
+}
+
+/* ── Project overrides ─────────────────────────────────────────── */
+
+/* Wordcloud: pop a word in when it first appears or its count rises. The
+   element keys by text+size, so only changed words replay this animation. */
+@keyframes wordcloud-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.wordcloud-pop {
+  animation: wordcloud-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wordcloud-pop {
+    animation: none;
+  }
+}
+
+@theme inline {
+  --animate-scroll: scroll var(--animation-duration, 40s) var(--animation-direction, forwards)
+    linear infinite;
+
+  @keyframes scroll {
+    to {
+      transform: translate(calc(-50% - 0.5rem));
+    }
+  }
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  /* Sidebar shares the main surface colors so it blends with the page
+     background ("same black as the rest"). Kept in sync with themes.css. */
+  --color-sidebar: var(--background);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-primary: var(--primary);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent-foreground: var(--accent-foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* Native wrapper (Capacitor) draws under the iOS status bar / notch via
+     viewport-fit=cover. Stop the whole document from rubber-band scrolling up
+     into the status bar on iOS WKWebView. Harmless (env() = 0, no bounce) on the
+     web. Interactive chrome (header, sidebar) adds safe-area padding itself. */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+/* "Hide app icon" preference — hides the brand logo + name wherever it is tagged
+   (header, sidebar). Set server-side from the ui_hide_brand cookie so there is no
+   flash. Kept UNLAYERED on purpose: the tagged element uses the `flex` utility,
+   and Tailwind's utilities layer would otherwise win over an @layer base rule —
+   an unlayered declaration beats all layered styles. */
+body[data-hide-brand] [data-brand-logo] {
+  display: none !important;
+}
+

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="182" height="28" role="img" aria-label="GDPR: ready">
+  <title>GDPR: ready</title>
+  <g shape-rendering="crispEdges">
+    <rect width="86" height="28" fill="#555"/>
+    <rect x="86" width="96" height="28" fill="#16a34a"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,DejaVu Sans,Geneva,sans-serif" font-size="11" font-weight="bold" letter-spacing="1.2">
+    <text x="43" y="18.5">GDPR</text>
+    <text x="134" y="18.5">READY</text>
+  </g>
+</svg>

@@ -1,0 +1,218 @@
+package org.acme.service;
+
+import java.time.Instant;
+
+import org.acme.dto.ApiResponse;
+import org.acme.dto.AuthDtos;
+import org.acme.entity.EmailCode;
+import org.acme.entity.User;
+import org.acme.repository.UserRepository;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.transaction.Transactional;
+
+/**
+ * Auth service that delegates user management to Keycloak
+ * and syncs user data into the local database.
+ */
+@ApplicationScoped
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final KeycloakService keycloakService;
+    private final EmailCodeService emailCodeService;
+
+    public AuthService(UserRepository userRepository, KeycloakService keycloakService,
+                       EmailCodeService emailCodeService) {
+        this.userRepository = userRepository;
+        this.keycloakService = keycloakService;
+        this.emailCodeService = emailCodeService;
+    }
+
+    // ── Register (#security email-verify) ─────────────────────────
+
+    /**
+     * Create an unverified account and email a verification code. No tokens are
+     * issued — the user must confirm the code, then sign in.
+     */
+    @Transactional
+    public ApiResponse<AuthDtos.RegisterResult> register(AuthDtos.RegisterRequest req) {
+        var result = keycloakService.register(req);
+        if (!result.success()) {
+            return ApiResponse.error(result.error());
+        }
+        syncLocalUser(result.data()); // emailVerified = false
+        emailCodeService.issue(result.data().email(), EmailCode.PURPOSE_VERIFY);
+        return ApiResponse.ok(new AuthDtos.RegisterResult(result.data().email(), true));
+    }
+
+    // ── Login ──────────────────────────────────────────────────────
+
+    @Transactional
+    public ApiResponse<AuthDtos.AuthResponseData> login(AuthDtos.LoginRequest req, boolean offline) {
+        var result = keycloakService.login(req, offline);
+        if (result.success()) {
+            syncLocalUser(result.data().user());
+            return result;
+        }
+        // Valid credentials but unverified: send a fresh code so the user can
+        // finish verifying without a separate resend step.
+        if (KeycloakService.EMAIL_NOT_VERIFIED.equals(result.error())) {
+            emailCodeService.issue(req.email(), EmailCode.PURPOSE_VERIFY);
+        }
+        return result;
+    }
+
+    // ── Email verification ────────────────────────────────────────
+
+    /** Confirm the emailed code, then flip the address to verified in Keycloak
+     *  and the local user. */
+    @Transactional
+    public ApiResponse<Void> verifyEmail(AuthDtos.VerifyEmailRequest req) {
+        if (!emailCodeService.verify(req.email(), EmailCode.PURPOSE_VERIFY, req.code())) {
+            return ApiResponse.error("Invalid or expired code. Please try again.");
+        }
+        keycloakService.setEmailVerified(req.email());
+        userRepository.findByEmail(req.email().trim().toLowerCase()).ifPresent(u -> {
+            u.emailVerified = true;
+            u.updatedAt = Instant.now();
+        });
+        return ApiResponse.ok(null);
+    }
+
+    /** Re-send a verification code. Always reports success (no account
+     *  enumeration); only actually sends for a known, still-unverified user. */
+    public ApiResponse<Void> resendVerification(String email) {
+        userRepository.findByEmail(email.trim().toLowerCase())
+            .filter(u -> !u.emailVerified)
+            .ifPresent(u -> emailCodeService.issue(email, EmailCode.PURPOSE_VERIFY));
+        return ApiResponse.ok(null);
+    }
+
+    // ── Refresh / Logout (issue #35) ──────────────────────────────
+
+    @Transactional
+    public ApiResponse<AuthDtos.AuthResponseData> refresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ApiResponse.error("Your session has expired. Please sign in again.");
+        }
+        var data = keycloakService.refresh(refreshToken);
+        if (data == null) {
+            return ApiResponse.error("Your session has expired. Please sign in again.");
+        }
+        syncLocalUser(data.user());
+        return ApiResponse.ok(data);
+    }
+
+    public void logout(String refreshToken) {
+        keycloakService.logout(refreshToken);
+    }
+
+    /** Log the user out of every device by revoking all Keycloak sessions (#76). */
+    public void logoutAllDevices(String userId) {
+        keycloakService.logoutAllDevices(userId);
+    }
+
+    // ── Current User ──────────────────────────────────────────────
+
+    public ApiResponse<AuthDtos.UserResponse> getCurrentUser(String userId) {
+        var user = userRepository.findByIdOptional(userId).orElse(null);
+        if (user == null) {
+            return ApiResponse.error("User not found");
+        }
+        return ApiResponse.ok(toUserResponse(user));
+    }
+
+    // ── Profile management ────────────────────────────────────────
+
+    @Transactional
+    public ApiResponse<AuthDtos.UserResponse> updateProfile(
+        String userId, AuthDtos.UpdateProfileRequest req) {
+        var user = userRepository.findByIdOptional(userId).orElse(null);
+        if (user == null) {
+            return ApiResponse.error("User not found");
+        }
+        keycloakService.updateProfile(userId, req.name());
+        user.name = req.name().trim();
+        user.updatedAt = java.time.Instant.now();
+        return ApiResponse.ok(toUserResponse(user));
+    }
+
+    public ApiResponse<Void> changePassword(
+        String userId, AuthDtos.ChangePasswordRequest req) {
+        var user = userRepository.findByIdOptional(userId).orElse(null);
+        if (user == null) {
+            return ApiResponse.error("User not found");
+        }
+        return keycloakService.changePassword(
+            user.email, req.currentPassword(), req.newPassword(), userId);
+    }
+
+    // ── Forgot / Reset Password (code flow) ───────────────────────
+
+    /** Email a password-reset code. Always reports success (no enumeration);
+     *  only sends for a known account. */
+    @Transactional
+    public ApiResponse<Void> forgotPassword(AuthDtos.ForgotPasswordRequest req) {
+        userRepository.findByEmail(req.email().trim().toLowerCase())
+            .ifPresent(u -> emailCodeService.issue(req.email(), EmailCode.PURPOSE_RESET));
+        return ApiResponse.ok(null);
+    }
+
+    /** Verify the reset code, then set the new password via the Keycloak admin
+     *  API. A successful reset also implies the address is reachable, so the
+     *  account is marked verified. */
+    @Transactional
+    public ApiResponse<Void> resetPassword(AuthDtos.ResetPasswordRequest req) {
+        if (!emailCodeService.verify(req.email(), EmailCode.PURPOSE_RESET, req.code())) {
+            return ApiResponse.error("Invalid or expired code. Please try again.");
+        }
+        var result = keycloakService.resetPasswordByEmail(req.email(), req.newPassword());
+        if (!result.success()) {
+            return result;
+        }
+        // Reaching the inbox proves the address; ensure the account is verified.
+        keycloakService.setEmailVerified(req.email());
+        userRepository.findByEmail(req.email().trim().toLowerCase()).ifPresent(u -> {
+            u.emailVerified = true;
+            u.updatedAt = Instant.now();
+        });
+        return ApiResponse.ok(null);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+
+    /**
+     * Sync a Keycloak user into the local database.
+     * Creates or updates the local User record.
+     */
+    private void syncLocalUser(AuthDtos.UserResponse keycloakUser) {
+        var existing = userRepository.findByIdOptional(keycloakUser.id()).orElse(null);
+        if (existing == null) {
+            var user = new User();
+            user.id = keycloakUser.id();
+            user.email = keycloakUser.email();
+            user.name = keycloakUser.name();
+            user.emailVerified = keycloakUser.emailVerified();
+            user.createdAt = java.time.Instant.now();
+            user.updatedAt = java.time.Instant.now();
+            userRepository.persist(user);
+        } else {
+            existing.email = keycloakUser.email();
+            existing.name = keycloakUser.name();
+            existing.emailVerified = keycloakUser.emailVerified();
+            existing.updatedAt = java.time.Instant.now();
+            userRepository.persist(existing);
+        }
+    }
+
+    private AuthDtos.UserResponse toUserResponse(User user) {
+        return new AuthDtos.UserResponse(
+            user.id,
+            user.email,
+            user.name,
+            user.emailVerified,
+            user.createdAt.toString()
+        );
+    }
+}

@@ -1,0 +1,2 @@
+app_identifier(ENV["IOS_APP_IDENTIFIER"] || "de.quavon.surveyschool")
+apple_id(ENV["FASTLANE_APPLE_ID"]) if ENV["FASTLANE_APPLE_ID"]

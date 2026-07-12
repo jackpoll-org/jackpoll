@@ -1,0 +1,45 @@
+# React Doctor — finds security, performance, correctness, accessibility,
+# bundle-size, and architecture issues in React codebases.
+#
+# Docs: https://www.react.doctor/ci
+# Source: https://github.com/millionco/react-doctor
+
+name: React Doctor
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "apps/frontend/**"
+      - ".github/workflows/react-doctor.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/frontend/**"
+      - ".github/workflows/react-doctor.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  statuses: write
+
+concurrency:
+  group: react-doctor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  react-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: millionco/react-doctor@v2
+        with:
+          # Frontend lives under apps/frontend in this monorepo.
+          directory: apps/frontend
+        # Advisory by default: React Doctor reports findings on every PR — a
+        # sticky summary comment, inline review comments, and a commit status
+        # with the health score — but never fails the check. When your team
+        # trusts the signal, graduate the gate by setting `blocking` below.
+        # Full reference: https://www.react.doctor/ci

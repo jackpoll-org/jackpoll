@@ -1,0 +1,37 @@
+# Root-level ignores for the Jackpoll monorepo.
+# Each app also has its own .gitignore under apps/*.
+
+# Dependencies
+**/node_modules/
+
+# Build output
+**/.next/
+**/out/
+**/dist/
+**/build/
+apps/backend/target/
+
+# Native mobile build artifacts
+apps/frontend/android/.gradle/
+apps/frontend/android/build/
+apps/frontend/android/app/build/
+apps/frontend/ios/build/
+apps/frontend/ios/App/Pods/
+apps/frontend/ios/DerivedData/
+**/DerivedData/
+
+# Test / tooling output
+**/coverage/
+**/test-results/
+**/playwright-report/
+**/*.tsbuildinfo
+
+# Secrets / local env (never commit real values; keep *.example)
+.env
+**/.env
+**/.env.local
+**/.env.swarm
+!**/.env*.example
+
+# OS / editor
+.DS_Store

@@ -1,0 +1,53 @@
+name: DB migrations
+
+# Apply the Flyway migrations against a throwaway Postgres so a broken or
+# out-of-order migration is caught before it reaches a real database.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/backend/src/main/resources/db/migration/**"
+      - ".github/workflows/migrations.yml"
+  pull_request:
+    paths:
+      - "apps/backend/src/main/resources/db/migration/**"
+      - ".github/workflows/migrations.yml"
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: survey
+          POSTGRES_PASSWORD: survey
+          POSTGRES_DB: survey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U survey -d survey"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Apply migrations with Flyway (fresh database)
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}/apps/backend/src/main/resources/db/migration:/flyway/sql:ro" \
+            flyway/flyway:10-alpine \
+            -url=jdbc:postgresql://localhost:5432/survey \
+            -user=survey -password=survey -connectRetries=15 \
+            migrate info
+
+      - name: Re-run to prove idempotency (no pending migrations)
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}/apps/backend/src/main/resources/db/migration:/flyway/sql:ro" \
+            flyway/flyway:10-alpine \
+            -url=jdbc:postgresql://localhost:5432/survey \
+            -user=survey -password=survey \
+            validate

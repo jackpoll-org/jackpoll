@@ -1,0 +1,18 @@
+Jackpoll (survey-frontend)
+Copyright (c) 2026 Jackpoll
+
+This product includes software developed by the shadcn/ui project.
+
+  shadcn/ui — https://ui.shadcn.com
+  Copyright (c) 2023 shadcn
+  Licensed under the MIT License.
+
+The UI primitives in `app/components/ui/` are the stock shadcn/ui components
+(MIT-licensed), some extended with project-specific changes. They are sourced
+from the official shadcn/ui registry at https://ui.shadcn.com.
+
+The theme presets in `app/themes.css` and `app/lib/themes.ts` (Jackpoll,
+Midnight, Ember, Meadow, Blossom, Harbor, Dusk, Sand) are original color
+palettes authored for this project.
+
+Underlying primitives rely on Radix UI (MIT) and class-variance-authority (Apache-2.0).

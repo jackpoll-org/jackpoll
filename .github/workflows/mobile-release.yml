@@ -1,0 +1,117 @@
+# Signed mobile release builds (#51/#52). Runs on a version tag or manually.
+# Each job no-ops (with a warning) until its signing secrets are configured, so
+# the workflow is safe to add before store accounts exist.
+name: Mobile release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/frontend
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: pnpm install --frozen-lockfile
+
+      - name: Decode keystore
+        id: keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 not set — skipping signed Android build."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed AAB
+        if: steps.keystore.outputs.skip == 'false'
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          pnpm exec cap sync android
+          cd android && ./gradlew bundleRelease --no-daemon
+
+      - name: Upload AAB artifact
+        if: steps.keystore.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: apps/frontend/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 14
+
+      # To publish to the Play Console internal track, add a step with
+      # r0adkll/upload-google-play using secrets.PLAY_SERVICE_ACCOUNT_JSON.
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check signing secrets
+        id: gate
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          if [ -z "$ASC_KEY_CONTENT" ]; then
+            echo "::warning::ASC_KEY_CONTENT not set — skipping iOS TestFlight build."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ruby/setup-ruby@v1
+        if: steps.gate.outputs.skip == 'false'
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/frontend/ios
+
+      - name: Sync web → native
+        if: steps.gate.outputs.skip == 'false'
+        run: pnpm exec cap sync ios
+
+      - name: Build + upload to TestFlight
+        if: steps.gate.outputs.skip == 'false'
+        working-directory: apps/frontend/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          IOS_APP_IDENTIFIER: de.quavon.surveyschool
+        run: bundle exec fastlane beta

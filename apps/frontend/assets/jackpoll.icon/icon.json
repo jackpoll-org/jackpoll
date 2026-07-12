@@ -1,0 +1,38 @@
+{
+  "fill" : {
+    "solid" : "display-p3:0.94251,0.96611,0.92555,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "image-name" : "Stylized-Fruit-Icon.svg",
+          "name" : "Stylized-Fruit-Icon",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 0.27,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

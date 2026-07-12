@@ -1,0 +1,90 @@
+# Full-stack E2E backend (#58): real backend + infra for the Playwright
+# full-stack suite. The frontend runs on the host (next start) and proxies to
+# the backend published on :8080. Plain compose (no swarm) with host ports.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: survey
+      POSTGRES_PASSWORD: survey
+      POSTGRES_DB: survey
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U survey -d survey"]
+      interval: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/survey
+      KC_DB_USERNAME: survey
+      KC_DB_PASSWORD: survey
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KEYCLOAK_CLIENT_SECRET: secret
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ./keycloak/survey-school-realm.json:/opt/keycloak/data/import/survey-school-realm.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/jackpoll-org/backend:latest}
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: survey
+      DB_USERNAME: survey
+      DB_PASSWORD: survey
+      MINIO_URL: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: survey-uploads
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: survey-school
+      KEYCLOAK_CLIENT_ID: survey-backend
+      KEYCLOAK_CLIENT_SECRET: secret
+      KEYCLOAK_ADMIN_USERNAME: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      MAIL_MOCK: "true"
+      APP_BASE_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000
+      SURVEY_SPAM_SECRET: e2e-spam-secret
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/q/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      minio:
+        condition: service_healthy

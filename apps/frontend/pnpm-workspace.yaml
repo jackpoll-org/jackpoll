@@ -1,0 +1,41 @@
+# ── Security overrides: force patched versions of vulnerable transitives ──
+# dompurify <=3.4.10 ALLOWED_ATTR pollution (via jspdf); postcss <8.5.10 XSS;
+# @babel/core <7.29.1 arbitrary file read (via next>styled-jsx). Kept in the
+# 7.x line for @babel/core so styled-jsx stays compatible.
+overrides:
+  "dompurify@<3.4.11": ">=3.4.11"
+  "postcss@<8.5.10": ">=8.5.10"
+  "@babel/core@<7.29.1": "^7.29.1"
+
+# ── Dependency build-script approvals ───────────────────────────────
+# pnpm refuses to run a dependency's install/build scripts until it is
+# explicitly reviewed (a defence against malicious postinstall scripts).
+allowBuilds:
+  sharp: true # native image optimizer used by next/image
+  unrs-resolver: true # native binding for the ESLint import resolver
+  core-js: false # polyfill; its postinstall build is not needed
+
+# ── Supply-chain hardening (react-doctor/require-pnpm-hardening) ─────
+#
+# minimumReleaseAge quarantines newly published versions: pnpm refuses to
+# install a release until it is at least this many minutes old. Most malicious
+# npm releases are caught and unpublished within hours, so a delay means the
+# poisoned version is gone before it can ever reach this project.
+minimumReleaseAge: 10080 # 7 days
+
+# Narrow, owner-reviewed exceptions to the quarantine for legitimate packages
+# that were published recently when this policy was first enabled. Remove an
+# entry once the version clears the 7-day window.
+minimumReleaseAgeExclude:
+  - altcha # privacy CAPTCHA widget (issue #31), reviewed
+  - dompurify # HTML sanitizer (transitive), reviewed
+
+# trustPolicy: no-downgrade rejects any package whose trust evidence
+# (provenance / publisher signatures) has weakened versus an earlier release —
+# a classic sign that an account was compromised and is pushing a tampered build.
+trustPolicy: no-downgrade
+
+# Long-published versions predate npm provenance, so they legitimately have
+# weaker trust evidence than newer releases. Skip the trust check for anything
+# older than 30 days; freshly published versions are still fully checked.
+trustPolicyIgnoreAfter: 43200 # 30 days

@@ -1,0 +1,79 @@
+# Full-stack E2E (#58): boots the real backend + infra and runs the Playwright
+# full-stack suite (incl. an authenticated journey + axe) against the live app.
+# Heavier than the mocked e2e workflow, so it runs on demand and on main.
+name: E2E (full stack)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/frontend/**"
+      - "apps/backend/**"
+      - ".github/workflows/e2e-fullstack.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-fullstack-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/frontend
+
+jobs:
+  fullstack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start backend + infra
+        run: docker compose -f docker-compose.e2e.yml up -d
+
+      - name: Wait for the backend to be healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/q/health/ready >/dev/null 2>&1; then
+              echo "backend ready"; exit 0
+            fi
+            sleep 5
+          done
+          echo "backend did not become healthy"; docker compose -f docker-compose.e2e.yml logs backend keycloak; exit 1
+
+      - name: Build + start the frontend
+        env:
+          BACKEND_URL: http://localhost:8080
+        run: |
+          pnpm build
+          pnpm start &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/login >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Run full-stack E2E
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          E2E_FULLSTACK: "1"
+        run: pnpm e2e:fullstack
+
+      - name: Tear down
+        if: ${{ always() }}
+        run: docker compose -f docker-compose.e2e.yml down -v
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-fullstack-report
+          path: apps/frontend/playwright-report/
+          retention-days: 7

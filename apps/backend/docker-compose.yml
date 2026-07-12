@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: survey-postgres
+    environment:
+      POSTGRES_USER: survey
+      POSTGRES_PASSWORD: survey
+      POSTGRES_DB: survey
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U survey -d survey"]
+      interval: 3s
+      retries: 10
+      start_period: 3s
+
+  minio:
+    image: minio/minio:latest
+    container_name: survey-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      retries: 10
+      start_period: 3s
+
+  # Redis for distributed rate limiting (issue #42). Optional in dev — the
+  # backend defaults to the in-memory limiter; set RATE_LIMIT_BACKEND=redis to use it.
+  redis:
+    image: redis:7-alpine
+    container_name: survey-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 10
+      start_period: 3s
+
+  # Mailpit for email testing in dev
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: survey-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
+      interval: 3s
+      retries: 5
+      start_period: 3s
+
+  # Keycloak for user management & authentication
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    container_name: survey-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/survey
+      KC_DB_USERNAME: survey
+      KC_DB_PASSWORD: survey
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Resolves ${KEYCLOAK_CLIENT_SECRET} in the imported realm. Matches the
+      # backend's dev default so local client-credentials auth works.
+      KEYCLOAK_CLIENT_SECRET: secret
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_PORT: "8080"
+      KC_MANAGEMENT_PORT: "9000"
+    ports:
+      - "8180:8080"   # Keycloak HTTP (avoid conflict with Quarkus on 8080)
+      - "9900:9000"   # Keycloak management / health
+    volumes:
+      - ./src/main/keycloak:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/9000 || exit 1"]
+      interval: 5s
+      retries: 15
+      start_period: 15s
+
+volumes:
+  pgdata:
+  miniodata:

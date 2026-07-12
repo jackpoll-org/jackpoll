@@ -1,0 +1,25 @@
+# The root Dockerfile builds with Maven inside the image, so the build context
+# needs pom.xml + src but not local build output, VCS, IDE or compose files.
+target
+.git
+.github
+.gitignore
+.idea
+.vscode
+*.iml
+.mvn
+mvnw
+mvnw.cmd
+
+# Local env & secrets — never bake into an image
+.env
+.env.*
+!.env.swarm.example
+
+# Docker / compose (not needed inside the build context)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+*.log
+.DS_Store

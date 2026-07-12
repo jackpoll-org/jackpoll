@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Push Notifications (#51). Add the "Push Notifications" capability in Xcode
+	  (Signing & Capabilities) so this file is linked via CODE_SIGN_ENTITLEMENTS;
+	  use "development" while testing.
+	-->
+	<key>aps-environment</key>
+	<string>production</string>
+	<!--
+	  Universal Links (#71). Add the "Associated Domains" capability in Xcode so
+	  this stays linked, and ensure /.well-known/apple-app-site-association on the
+	  host returns the AASA (set APPLE_APP_ID on the frontend deployment). Self-
+	  hosted instances on other hosts route links via the in-app appUrlOpen
+	  handler instead.
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:app.jackpoll.org</string>
+	</array>
+</dict>
+</plist>

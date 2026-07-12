@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Jackpoll</title>
+    <style>
+      /* Matches the splash so the (covered) boot page is never a visible flash. */
+      html, body { margin: 0; min-height: 100%; background: #6d5ce7; }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+        min-height: 100vh;
+      }
+      /* Recovery card — hidden until a probe fails; the splash covers boot. */
+      #recover { display: none; width: 100%; max-width: 360px; }
+      #recover.show { display: block; }
+      .card {
+        background: #fff;
+        color: #1f2430;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+      }
+      h1 { font-size: 18px; margin: 0 0 6px; }
+      p { font-size: 14px; line-height: 1.45; margin: 0 0 16px; color: #5b6172; }
+      p .host { color: #1f2430; font-weight: 600; word-break: break-all; }
+      label { display: block; font-size: 12px; color: #5b6172; margin: 0 0 6px; }
+      input {
+        width: 100%;
+        font-size: 16px;
+        padding: 10px 12px;
+        border: 1px solid #d4d7e0;
+        border-radius: 10px;
+        outline: none;
+        margin: 0 0 12px;
+      }
+      input:focus { border-color: #6d5ce7; }
+      button {
+        width: 100%;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 11px 14px;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+        margin: 0 0 8px;
+      }
+      .primary { background: #6d5ce7; color: #fff; }
+      .ghost { background: transparent; color: #6d5ce7; }
+      .err { color: #c0334e; font-size: 13px; margin: 0 0 10px; min-height: 0; }
+      .row { display: flex; gap: 8px; }
+      .row button { margin-bottom: 0; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <!-- Recovery UI: shown only when the configured instance can't be reached at
+         boot. The bundled page is always local, so this is the in-app way back
+         to a working server (#70). -->
+    <div id="recover">
+      <div class="card">
+        <h1>Can&rsquo;t reach your server</h1>
+        <p>
+          We couldn&rsquo;t connect to
+          <span class="host" id="host"></span>. Check your connection, or point
+          the app at a different Jackpoll server.
+        </p>
+        <p class="err" id="err"></p>
+        <div id="view-actions">
+          <button class="primary" id="retry">Try again</button>
+          <button class="ghost" id="edit">Change server</button>
+          <button class="ghost" id="reset">Reset to default server</button>
+        </div>
+        <div id="view-edit" hidden>
+          <label for="url">Server address</label>
+          <input
+            id="url"
+            type="url"
+            inputmode="url"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="https://survey.example.com"
+          />
+          <div class="row">
+            <button class="primary" id="connect">Connect</button>
+            <button class="ghost" id="cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var DEFAULT_URL = "https://app.jackpoll.org";
+        var KEY = "instance_url";
+        var PROBE_PATH = "/api/auth/oidc-config";
+        var PROBE_TIMEOUT_MS = 8000;
+
+        var recover = document.getElementById("recover");
+        var hostEl = document.getElementById("host");
+        var errEl = document.getElementById("err");
+        var viewActions = document.getElementById("view-actions");
+        var viewEdit = document.getElementById("view-edit");
+        var urlInput = document.getElementById("url");
+
+        function prefs() {
+          return window.Capacitor && window.Capacitor.Plugins
+            ? window.Capacitor.Plugins.Preferences
+            : null;
+        }
+
+        function getStored() {
+          var p = prefs();
+          if (!p) return Promise.resolve(DEFAULT_URL);
+          return p.get({ key: KEY }).then(
+            function (r) { return (r && r.value) || DEFAULT_URL; },
+            function () { return DEFAULT_URL; }
+          );
+        }
+
+        // A deep link the app was cold-launched with (universal/app link). It
+        // wins over the remembered path so tapping a shared/collab/email link
+        // while the app is closed opens that screen, not the dashboard.
+        function getLaunchPath() {
+          var a = window.Capacitor && window.Capacitor.Plugins
+            ? window.Capacitor.Plugins.App
+            : null;
+          if (!a || !a.getLaunchUrl) return Promise.resolve("");
+          return a.getLaunchUrl().then(
+            function (r) {
+              if (!r || !r.url) return "";
+              try {
+                var u = new URL(r.url);
+                var p = u.pathname + u.search + u.hash;
+                return p && p !== "/" ? p : "";
+              } catch (e) { return ""; }
+            },
+            function () { return ""; }
+          );
+        }
+
+        // The in-app path the user was last on (written by the loaded instance),
+        // so a relaunch/reload restores it instead of always opening the root.
+        function getLastPath() {
+          var p = prefs();
+          if (!p) return Promise.resolve("");
+          return p.get({ key: "last_path" }).then(
+            function (r) {
+              var v = r && r.value;
+              return v && v.charAt(0) === "/" ? v : "";
+            },
+            function () { return ""; }
+          );
+        }
+
+        function setStored(url) {
+          var p = prefs();
+          if (!p) return Promise.resolve();
+          return p.set({ key: KEY, value: url }).catch(function () {});
+        }
+
+        function clearStored() {
+          var p = prefs();
+          if (!p) return Promise.resolve();
+          return p.remove({ key: KEY }).catch(function () {});
+        }
+
+        function normalize(raw) {
+          var u = (raw || "").trim().replace(/\/+$/, "");
+          if (u && !/^https?:\/\//i.test(u)) u = "https://" + u;
+          return u;
+        }
+
+        function hostOf(url) {
+          try { return new URL(url).host; } catch (e) { return url; }
+        }
+
+        // Reachability ping. CORS blocks reading the response cross-origin, so a
+        // no-cors fetch only tells us the host answered at all — exactly the
+        // "is the instance up" signal we need before navigating into it.
+        function probe(url) {
+          return new Promise(function (resolve, reject) {
+            var done = false;
+            var timer = setTimeout(function () {
+              if (done) return;
+              done = true;
+              reject(new Error("timeout"));
+            }, PROBE_TIMEOUT_MS);
+            fetch(url + PROBE_PATH, { mode: "no-cors", cache: "no-store" }).then(
+              function () { if (done) return; done = true; clearTimeout(timer); resolve(); },
+              function (e) { if (done) return; done = true; clearTimeout(timer); reject(e); }
+            );
+          });
+        }
+
+        function go(url) { window.location.replace(url); }
+
+        function showRecovery(url) {
+          hostEl.textContent = hostOf(url);
+          errEl.textContent = "";
+          viewEdit.setAttribute("hidden", "");
+          viewActions.removeAttribute("hidden");
+          recover.className = "show";
+        }
+
+        // Probe the configured instance; navigate if reachable, else recover.
+        // On success, restore the last in-app path so a reload doesn't drop the
+        // user back on the dashboard.
+        function boot() {
+          getStored().then(function (url) {
+            probe(url).then(
+              function () {
+                // A cold-launch deep link wins; otherwise restore the last path.
+                getLaunchPath().then(function (launch) {
+                  if (launch) { go(url + launch); return; }
+                  getLastPath().then(function (path) { go(url + path); });
+                });
+              },
+              function () { showRecovery(url); }
+            );
+          });
+        }
+
+        // ── Recovery actions ─────────────────────────────────────────
+        document.getElementById("retry").addEventListener("click", function () {
+          recover.className = "";
+          boot();
+        });
+
+        document.getElementById("reset").addEventListener("click", function () {
+          clearStored().then(function () {
+            recover.className = "";
+            probe(DEFAULT_URL).then(
+              function () { go(DEFAULT_URL); },
+              function () { showRecovery(DEFAULT_URL); }
+            );
+          });
+        });
+
+        document.getElementById("edit").addEventListener("click", function () {
+          getStored().then(function (url) {
+            urlInput.value = url;
+            viewActions.setAttribute("hidden", "");
+            viewEdit.removeAttribute("hidden");
+            urlInput.focus();
+          });
+        });
+
+        document.getElementById("cancel").addEventListener("click", function () {
+          viewEdit.setAttribute("hidden", "");
+          viewActions.removeAttribute("hidden");
+          errEl.textContent = "";
+        });
+
+        document.getElementById("connect").addEventListener("click", function () {
+          var url = normalize(urlInput.value);
+          var parsed;
+          try { parsed = new URL(url); } catch (e) {
+            errEl.textContent = "That doesn't look like a valid address.";
+            return;
+          }
+          if (parsed.protocol !== "https:") {
+            errEl.textContent = "The server address must start with https://.";
+            return;
+          }
+          errEl.textContent = "";
+          var btn = document.getElementById("connect");
+          btn.textContent = "Connecting…";
+          btn.disabled = true;
+          probe(url).then(
+            function () { setStored(url).then(function () { go(url); }); },
+            function () {
+              btn.textContent = "Connect";
+              btn.disabled = false;
+              errEl.textContent = "Couldn't reach that server. Check the address.";
+            }
+          );
+        });
+
+        boot();
+      })();
+    </script>
+  </body>
+</html>

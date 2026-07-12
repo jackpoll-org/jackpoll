@@ -1,0 +1,84 @@
+# Mobile build (issue: mobile app). The apps wrap the live site (Capacitor
+# server.url), so no Next build is needed — `cap sync` copies the fallback
+# webDir and native projects, then each platform compiles.
+#
+# Release signing (Apple cert / Android keystore) is intentionally NOT here —
+# add it with repository secrets when you set up store accounts (see MOBILE.md).
+name: Mobile build
+
+on:
+  pull_request:
+    paths:
+      - "apps/frontend/android/**"
+      - "apps/frontend/ios/**"
+      - "apps/frontend/capacitor.config.ts"
+      - "apps/frontend/package.json"
+      - ".github/workflows/mobile.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/frontend/android/**"
+      - "apps/frontend/ios/**"
+      - "apps/frontend/capacitor.config.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/frontend
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec cap sync android
+      - name: Build debug APK
+        working-directory: apps/frontend/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: apps/frontend/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec cap sync ios
+      - name: Build (simulator, unsigned)
+        working-directory: apps/frontend/ios/App
+        run: |
+          xcodebuild \
+            -scheme App \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
