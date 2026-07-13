@@ -113,5 +113,5 @@ jobs:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          IOS_APP_IDENTIFIER: de.quavon.surveyschool
+          IOS_APP_IDENTIFIER: de.quavon.jackpoll
         run: bundle exec fastlane beta

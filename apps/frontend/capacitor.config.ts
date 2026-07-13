@@ -14,7 +14,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const DEV_SERVER_URL = process.env.CAP_SERVER_URL;
 
 const config: CapacitorConfig = {
-  appId: "de.quavon.surveyschool",
+  appId: "de.quavon.jackpoll",
   appName: "Jackpoll",
   // The bundled instance picker (and offline fallback) is served from here.
   webDir: "mobile/www",

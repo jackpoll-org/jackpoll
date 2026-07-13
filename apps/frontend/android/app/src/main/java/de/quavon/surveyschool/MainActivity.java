@@ -1,4 +1,4 @@
-package de.quavon.surveyschool;
+package de.quavon.jackpoll;
 
 import android.content.SharedPreferences;
 import com.getcapacitor.BridgeActivity;

@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 // comma-separated); otherwise 404.
 export const dynamic = "force-dynamic";
 
-const PACKAGE_NAME = process.env.ANDROID_PACKAGE_NAME || "de.quavon.surveyschool";
+const PACKAGE_NAME = process.env.ANDROID_PACKAGE_NAME || "de.quavon.jackpoll";
 
 export function GET() {
   const raw = process.env.ANDROID_CERT_FINGERPRINT;

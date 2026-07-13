@@ -20,7 +20,7 @@ platform :ios do
       match(
         type: "appstore",
         readonly: true,
-        app_identifier: ENV["IOS_APP_IDENTIFIER"] || "de.quavon.surveyschool",
+        app_identifier: ENV["IOS_APP_IDENTIFIER"] || "de.quavon.jackpoll",
         git_url: ENV["MATCH_GIT_URL"],
         api_key: api_key
       )
