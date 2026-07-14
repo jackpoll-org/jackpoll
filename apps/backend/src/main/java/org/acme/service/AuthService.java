@@ -207,26 +207,15 @@ public class AuthService {
 
     /**
      * Sync a Keycloak user into the local database.
-     * Creates or updates the local User record.
+     * Atomic insert-or-update — see UserRepository#upsert for why a plain
+     * find-then-insert is unsafe with multiple backend replicas.
      */
     private void syncLocalUser(AuthDtos.UserResponse keycloakUser) {
-        var existing = userRepository.findByIdOptional(keycloakUser.id()).orElse(null);
-        if (existing == null) {
-            var user = new User();
-            user.id = keycloakUser.id();
-            user.email = keycloakUser.email();
-            user.name = keycloakUser.name();
-            user.emailVerified = keycloakUser.emailVerified();
-            user.createdAt = java.time.Instant.now();
-            user.updatedAt = java.time.Instant.now();
-            userRepository.persist(user);
-        } else {
-            existing.email = keycloakUser.email();
-            existing.name = keycloakUser.name();
-            existing.emailVerified = keycloakUser.emailVerified();
-            existing.updatedAt = java.time.Instant.now();
-            userRepository.persist(existing);
-        }
+        userRepository.upsert(
+            keycloakUser.id(),
+            keycloakUser.email(),
+            keycloakUser.name(),
+            keycloakUser.emailVerified());
     }
 
     private AuthDtos.UserResponse toUserResponse(User user) {
