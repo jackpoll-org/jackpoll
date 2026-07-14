@@ -8,7 +8,8 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
-        classpath 'com.google.gms:google-services:4.4.4'
+        // Kotlin — UnifiedPush's connector is Kotlin; pin to a current release.
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -21,6 +22,10 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // UnifiedPush connector + embedded FCM distributor (play flavor) are on
+        // Maven Central; JitPack is the fallback for the embedded distributor if
+        // it isn't mirrored to Central for the pinned version.
+        maven { url "https://jitpack.io" }
     }
 }
 

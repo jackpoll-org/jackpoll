@@ -59,10 +59,10 @@ export function PrivacyContent() {
             : "answer content; optionally a respondent's email for receipts (opt-in); uploaded files and signatures."}
         </li>
         <li>
-          <strong>{de ? "Push-Token:" : "Push tokens:"}</strong>{" "}
+          <strong>{de ? "Push-Endpunkt:" : "Push endpoint:"}</strong>{" "}
           {de
-            ? "Geräte-Token bzw. Web-Push-Abonnement, wenn Sie Benachrichtigungen aktivieren."
-            : "device token or Web Push subscription if you enable notifications."}
+            ? "Web-Push-/UnifiedPush-Abonnement (Endpoint-URL + Verschlüsselungsschlüssel), wenn Sie Benachrichtigungen aktivieren."
+            : "Web Push / UnifiedPush subscription (endpoint URL + encryption keys) if you enable notifications."}
         </li>
         <li>
           <strong>{de ? "Sicherheit/Spam-Schutz:" : "Security / spam protection:"}</strong>{" "}
@@ -147,8 +147,8 @@ export function PrivacyContent() {
       <h2>{de ? "5. Empfänger / Auftragsverarbeiter" : "5. Recipients / processors"}</h2>
       <p>
         {de
-          ? "Wir setzen sorgfältig ausgewählte Auftragsverarbeiter ein: Keycloak (Identitätsverwaltung), MinIO/S3 (Datei-Uploads), einen SMTP-Anbieter (E-Mail-Versand) sowie optional Google FCM bzw. Browser-Push-Dienste (nur bei aktivierten Benachrichtigungen). Mit allen externen Verarbeitern bestehen Verträge zur Auftragsverarbeitung (Art. 28 DSGVO)."
-          : "We use carefully selected processors: Keycloak (identity), MinIO/S3 (file uploads), an SMTP provider (email), and optionally Google FCM / browser push services (only when notifications are enabled). Data Processing Agreements (Art. 28 GDPR) are in place with all external processors."}
+          ? "Wir setzen sorgfältig ausgewählte Auftragsverarbeiter ein: Keycloak (Identitätsverwaltung), MinIO/S3 (Datei-Uploads), einen SMTP-Anbieter (E-Mail-Versand) sowie optional Push-Dienste (nur bei aktivierten Benachrichtigungen): Browser-Push bzw. auf Android der von Ihnen gewählte UnifiedPush-Distributor (z. B. ntfy). Nur in der Google-Play-Variante der App kann als Rückfalloption ein eingebetteter Google-FCM-Verteiler genutzt werden; die F-Droid-Variante enthält keine Google-Dienste. Mit allen externen Verarbeitern bestehen Verträge zur Auftragsverarbeitung (Art. 28 DSGVO)."
+          : "We use carefully selected processors: Keycloak (identity), MinIO/S3 (file uploads), an SMTP provider (email), and optionally push services (only when notifications are enabled): browser push, or — on Android — the UnifiedPush distributor you choose (e.g. ntfy). Only the Google Play build of the app may use a bundled Google FCM fallback distributor; the F-Droid build contains no Google services. Data Processing Agreements (Art. 28 GDPR) are in place with all external processors."}
       </p>
 
       {/* 6. Retention */}
@@ -163,8 +163,8 @@ export function PrivacyContent() {
       <h2>{de ? "7. Drittlandübermittlung" : "7. Third-country transfers"}</h2>
       <p>
         {de
-          ? "Die Verarbeitung und Speicherung erfolgt ausschließlich auf Servern in Deutschland. Eine Ausnahme bilden ausschließlich die optionalen Push-Dienste (Google FCM / Browser-Push), die nur bei aktivierten Benachrichtigungen genutzt werden; Web-Push-Inhalte sind dabei Ende-zu-Ende verschlüsselt."
-          : "Processing and storage take place exclusively on servers in Germany. The only exception is the optional push services (Google FCM / browser push), used only when notifications are enabled; Web Push payloads are end-to-end encrypted."}
+          ? "Die Verarbeitung und Speicherung erfolgt ausschließlich auf Servern in Deutschland. Eine Ausnahme bilden ausschließlich die optionalen Push-Dienste (Browser-Push, UnifiedPush-Distributor bzw. nur in der Play-Variante ein eingebetteter Google-FCM-Verteiler), die nur bei aktivierten Benachrichtigungen genutzt werden; Web-Push-Inhalte sind dabei Ende-zu-Ende verschlüsselt."
+          : "Processing and storage take place exclusively on servers in Germany. The only exception is the optional push services (browser push, your UnifiedPush distributor, or — Play build only — a bundled Google FCM fallback), used only when notifications are enabled; Web Push payloads are end-to-end encrypted."}
       </p>
 
       {/* 8. Rights */}

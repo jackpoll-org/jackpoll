@@ -22,19 +22,20 @@ public class DeviceToken extends PanacheEntityBase {
     @Column(name = "user_id", nullable = false, length = 36)
     public String userId;
 
-    /** FCM/APNs registration token — unique across devices. */
+    /** The Web Push endpoint URL — unique across devices. (Column kept as
+     *  "token" for schema compatibility with the earlier FCM/APNs design.) */
     @Column(nullable = false, unique = true, length = 512)
     public String token;
 
-    /** "ios" | "android" | "web". */
+    /** "web" (browser) | "android-up" (UnifiedPush) | legacy "android"/"ios". */
     @Column(length = 16)
     public String platform;
 
-    /** Web Push only (#74): the subscription's ECDH P-256 public key (base64url). */
+    /** The subscription's ECDH P-256 public key (base64url). */
     @Column(length = 255)
     public String p256dh;
 
-    /** Web Push only (#74): the subscription's auth secret (base64url). */
+    /** The subscription's auth secret (base64url). */
     @Column(length = 255)
     public String auth;
 

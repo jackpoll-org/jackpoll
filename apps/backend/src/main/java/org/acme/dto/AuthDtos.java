@@ -121,6 +121,8 @@ public final class AuthDtos {
     public record OidcConfig(
         String keycloakUrl,
         String realm,
-        String clientId
+        String clientId,
+        boolean emailVerificationRequired,
+        boolean debugToolsEnabled
     ) {}
 }

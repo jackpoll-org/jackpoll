@@ -169,6 +169,25 @@ public class EmailService {
         return true;
     }
 
+    // ── Diagnostics (debug page) ──────────────────────────────────
+
+    /**
+     * Send a diagnostic test email. Unlike the best-effort helpers this reports
+     * the outcome so the debug page can show "sent" vs "SMTP not configured".
+     */
+    public boolean sendTestEmail(String toEmail) {
+        String subject = subjectPrefix + " Test email";
+        String body = "This is a test email from Jackpoll. "
+            + "If you received it, your email (SMTP) settings are working.";
+        try {
+            mailer.send(Mail.withText(toEmail, subject, body));
+            return true;
+        } catch (Exception e) {
+            LOG.warnf("Test email failed: %s", e.getMessage());
+            return false;
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────
 
     private void safeSend(Mail mail) {

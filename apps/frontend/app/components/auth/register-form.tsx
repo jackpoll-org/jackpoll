@@ -36,9 +36,15 @@ export function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerMutation.mutateAsync(data);
-      // No auto-login — go verify the emailed code, carrying the address along.
-      router.replace(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      const res = await registerMutation.mutateAsync(data);
+      // Instances with email verification disabled (self-host without a mail
+      // provider) activate the account immediately — send the user to sign in
+      // instead of the "check your email" screen.
+      if (res?.data?.verificationRequired === false) {
+        router.replace(`/login?registered=1`);
+      } else {
+        router.replace(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      }
     } catch {
       // Error is handled via registerMutation.error
     }

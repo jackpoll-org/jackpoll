@@ -39,6 +39,19 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- UnifiedPush: receives endpoint + message events from the active
+             distributor (ntfy, NextPush, or — play flavor only — Embedded FCM). -->
+        <receiver
+            android:name="de.quavon.jackpoll.push.UnifiedPushReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.MESSAGE" />
+                <action android:name="org.unifiedpush.android.connector.UNREGISTERED" />
+                <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT" />
+                <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->
@@ -46,4 +59,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Biometric unlock (opt-in, mobile #54) -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Notifications (Android 13+): required to display pushed messages. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

@@ -43,9 +43,6 @@ importers:
       '@capacitor/preferences':
         specifier: ^8.0.1
         version: 8.0.1(@capacitor/core@8.4.0)
-      '@capacitor/push-notifications':
-        specifier: ^8.1.1
-        version: 8.1.1(@capacitor/core@8.4.0)
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -374,11 +371,6 @@ packages:
 
   '@capacitor/preferences@8.0.1':
     resolution: {integrity: sha512-T6no3ebi79XJCk91U3Jp/liJUwgBdvHR+s6vhvPkPxSuch7z3zx5Rv1bdWM6sWruNx+pViuEGqZvbfCdyBvcHQ==}
-    peerDependencies:
-      '@capacitor/core': '>=8.0.0'
-
-  '@capacitor/push-notifications@8.1.1':
-    resolution: {integrity: sha512-WqzjPKIbYbARMN+GC0XMAJcxJpUUzqgzS/Ny8RODLrro38pQhm3GXYwX2Mwd+LZlLY39rGImkCkrKyQSNfuikA==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
@@ -5794,10 +5786,6 @@ snapshots:
       '@capacitor/core': 8.4.0
 
   '@capacitor/preferences@8.0.1(@capacitor/core@8.4.0)':
-    dependencies:
-      '@capacitor/core': 8.4.0
-
-  '@capacitor/push-notifications@8.1.1(@capacitor/core@8.4.0)':
     dependencies:
       '@capacitor/core': 8.4.0
 

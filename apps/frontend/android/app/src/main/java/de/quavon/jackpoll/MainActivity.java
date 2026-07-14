@@ -1,10 +1,20 @@
 package de.quavon.jackpoll;
 
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.CapConfig;
+import de.quavon.jackpoll.push.PushBridgePlugin;
 
 public class MainActivity extends BridgeActivity {
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        // Register the native UnifiedPush bridge before the WebView bridge boots.
+        registerPlugin(PushBridgePlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+
     // Load the configured self-host instance directly (no bundled bootstrap page,
     // no purple flash). The bridge's server URL is set in the config so the
     // remote instance is treated as the app's own origin — navigations after

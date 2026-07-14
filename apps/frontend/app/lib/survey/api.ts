@@ -447,6 +447,35 @@ export async function getWebPushKeyApi(): Promise<
   return request<{ enabled: boolean; publicKey: string }>("/me/devices/web-push-key");
 }
 
+// ── Diagnostics (debug page) ──────────────────────────────────────
+
+/** Send a test push to all of the current user's registered devices. */
+export async function testPushApi(): Promise<
+  ApiResponse<{ sent: boolean; devices: number }>
+> {
+  return request<{ sent: boolean; devices: number }>("/me/devices/test-push", {
+    method: "POST",
+  });
+}
+
+/** Send a test email to the current user's account address. */
+export async function testEmailApi(): Promise<
+  ApiResponse<{ sent: boolean; email: string }>
+> {
+  return request<{ sent: boolean; email: string }>("/me/email/test", {
+    method: "POST",
+  });
+}
+
+/** Per-instance config (email verification + debug tools flags). */
+export async function getInstanceConfigApi(): Promise<
+  ApiResponse<{ emailVerificationRequired: boolean; debugToolsEnabled: boolean }>
+> {
+  return request<{ emailVerificationRequired: boolean; debugToolsEnabled: boolean }>(
+    "/auth/oidc-config",
+  );
+}
+
 export async function getResultsApi(
   surveyId: string,
   includePreview = false,

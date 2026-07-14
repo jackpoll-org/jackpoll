@@ -1,41 +1,91 @@
-// ── Native push notifications (mobile-app phase 3) ─────────────────
+// ── Native push notifications via UnifiedPush ──────────────────────
 //
-// Registers the device's push token with the backend so owners can be notified
-// of new responses. No-op on the web.
+// Replaces the old FCM-only setup. On Android the native UnifiedPush bridge
+// (registerPlugin "UnifiedPush") resolves a distributor (external like ntfy /
+// NextPush, or — play flavor only — a bundled Embedded FCM fallback) and hands
+// us a Web Push endpoint + keys, which we register with the backend exactly
+// like a browser PushSubscription. No-op on the web (see web-push.ts there).
 
-import { Capacitor } from "@capacitor/core";
-import { PushNotifications } from "@capacitor/push-notifications";
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { registerDeviceApi } from "@/app/lib/survey/api";
 
-export function pushSupported(): boolean {
-  if (!Capacitor.isNativePlatform()) return false;
-  // Android push requires a Firebase `google-services.json`. Without it the
-  // native PushNotifications.register() throws "Default FirebaseApp is not
-  // initialized" on the CapacitorPlugins thread — an uncaught exception that
-  // crashes the whole app (a JS try/catch can't catch it). Until Firebase is
-  // wired up, skip Android entirely so the app no longer crashes after login.
-  if (Capacitor.getPlatform() === "android") return false;
-  return true;
+export type PushOutcome =
+  | "REGISTERING"
+  | "NEEDS_PICKER"
+  | "NEEDS_DISTRIBUTOR"
+  | "UNSUPPORTED";
+
+export interface PushStatus {
+  registered: boolean;
+  distributor: string | null;
+  hasEmbeddedFallback: boolean;
+  installedDistributors: string;
+  endpoint: string | null;
+  pubKey: string | null;
+  auth: string | null;
 }
 
-/**
- * Ask for permission, then register the device token with the backend. Safe to
- * call more than once; listeners are reset each time.
- */
-export async function registerPush(): Promise<void> {
-  if (!pushSupported()) return;
+interface EndpointEvent {
+  endpoint: string;
+  p256dh: string | null;
+  auth: string | null;
+}
 
-  let { receive } = await PushNotifications.checkPermissions();
-  if (receive === "prompt" || receive === "prompt-with-rationale") {
-    receive = (await PushNotifications.requestPermissions()).receive;
-  }
-  if (receive !== "granted") return;
+interface UnifiedPushPlugin {
+  register(): Promise<{ outcome: PushOutcome }>;
+  unregister(): Promise<void>;
+  getStatus(): Promise<PushStatus>;
+  listDistributors(): Promise<{ distributors: string }>;
+  pickDistributor(options: { distributor: string }): Promise<void>;
+  addListener(
+    event: "endpointChanged" | "unregistered" | "registrationFailed",
+    cb: (data: EndpointEvent & { reason?: string }) => void,
+  ): Promise<PluginListenerHandle>;
+}
 
-  await PushNotifications.removeAllListeners();
-  await PushNotifications.addListener("registration", (token) => {
-    void registerDeviceApi(token.value, Capacitor.getPlatform()).catch(() => {
+const UnifiedPush = registerPlugin<UnifiedPushPlugin>("UnifiedPush");
+
+export function pushSupported(): boolean {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+}
+
+let endpointBound = false;
+async function bindEndpointListener(): Promise<void> {
+  if (endpointBound) return;
+  endpointBound = true;
+  await UnifiedPush.addListener("endpointChanged", (e) => {
+    if (!e.endpoint) return;
+    const keys = e.p256dh && e.auth ? { p256dh: e.p256dh, auth: e.auth } : undefined;
+    // "android-up" tells the backend this is a UnifiedPush (Web Push) endpoint.
+    void registerDeviceApi(e.endpoint, "android-up", keys).catch(() => {
       // Best-effort; the user can still use the app without push.
     });
   });
-  await PushNotifications.register();
+}
+
+/** Start/refresh push registration. Returns the immediate outcome for the UI. */
+export async function registerPush(): Promise<PushOutcome> {
+  if (!pushSupported()) return "UNSUPPORTED";
+  await bindEndpointListener();
+  const { outcome } = await UnifiedPush.register();
+  return outcome;
+}
+
+export async function unregisterPush(): Promise<void> {
+  if (pushSupported()) await UnifiedPush.unregister();
+}
+
+export async function getPushStatus(): Promise<PushStatus | null> {
+  if (!pushSupported()) return null;
+  return UnifiedPush.getStatus();
+}
+
+export async function listPushDistributors(): Promise<string[]> {
+  if (!pushSupported()) return [];
+  const { distributors } = await UnifiedPush.listDistributors();
+  return distributors ? distributors.split(",").filter(Boolean) : [];
+}
+
+export async function pickPushDistributor(distributor: string): Promise<void> {
+  if (pushSupported()) await UnifiedPush.pickDistributor({ distributor });
 }

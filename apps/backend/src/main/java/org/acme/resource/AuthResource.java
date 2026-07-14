@@ -96,6 +96,12 @@ public class AuthResource {
     @ConfigProperty(name = "keycloak.client-id", defaultValue = "survey-backend")
     String keycloakClientId;
 
+    @ConfigProperty(name = "app.email-verification-required", defaultValue = "true")
+    boolean emailVerificationRequired;
+
+    @ConfigProperty(name = "app.debug-tools-enabled", defaultValue = "true")
+    boolean debugToolsEnabled;
+
     @POST
     @Path("/register")
     @PermitAll
@@ -363,7 +369,9 @@ public class AuthResource {
     @Path("/oidc-config")
     @PermitAll
     public Response getOidcConfig() {
-        var config = new AuthDtos.OidcConfig(keycloakUrl, keycloakRealm, keycloakClientId);
+        var config = new AuthDtos.OidcConfig(
+            keycloakUrl, keycloakRealm, keycloakClientId,
+            emailVerificationRequired, debugToolsEnabled);
         return Response.ok(ApiResponse.ok(config)).build();
     }
 }

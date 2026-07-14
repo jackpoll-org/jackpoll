@@ -1,0 +1,42 @@
+# F-Droid build metadata TEMPLATE for submission to the fdroiddata repo
+# (https://gitlab.com/fdroid/fdroiddata). Copy to metadata/de.quavon.jackpoll.yml
+# there, adjust the version/commit, and open a merge request.
+#
+# Jackpoll's mobile app is a Capacitor wrapper, so the build needs Node + pnpm to
+# `cap sync` before Gradle. Only the "fdroid" flavor is built — it contains NO
+# Google Play Services / Embedded FCM distributor (that lives in the "play"
+# flavor only), so the app qualifies as FLOSS.
+
+Categories:
+  - Internet
+License: MIT
+AuthorName: Jackpoll
+WebSite: https://jackpoll.org
+SourceCode: https://github.com/jackpoll-org/jackpoll
+IssueTracker: https://github.com/jackpoll-org/jackpoll/issues
+RepoType: git
+Repo: https://github.com/jackpoll-org/jackpoll.git
+
+Builds:
+  - versionName: "1.0"
+    versionCode: 1
+    commit: v1.0
+    subdir: apps/frontend/android/app
+    sudo:
+      - apt-get update
+      - apt-get install -y nodejs npm
+      - npm install -g pnpm@9
+    init:
+      - pushd ../..                       # -> apps/frontend
+      - pnpm install --frozen-lockfile
+      - pnpm exec cap sync android
+      - popd
+    gradle:
+      - fdroid
+    # The unsigned F-Droid release APK (F-Droid signs it with its own key).
+    output: build/outputs/apk/fdroid/release/app-fdroid-release-unsigned.apk
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: "1.0"
+CurrentVersionCode: 1

@@ -1,0 +1,57 @@
+# On every version tag, prove the F-Droid ("fdroid") flavor builds AND contains
+# no Google Play Services / FCM dependency — the FLOSS guarantee F-Droid requires.
+name: F-Droid build check
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/frontend
+
+jobs:
+  fdroid:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec cap sync android
+
+      - name: Assert the fdroid flavor has NO Google Play Services / FCM
+        working-directory: apps/frontend/android
+        run: |
+          ./gradlew :app:dependencies \
+            --configuration fdroidReleaseRuntimeClasspath > deps.txt
+          if grep -Eiq 'com\.google\.android\.gms|play-services|firebase|embedded_fcm|google-services' deps.txt; then
+            echo "::error::A Google Play Services / FCM dependency leaked into the fdroid flavor:"
+            grep -Ei 'com\.google\.android\.gms|play-services|firebase|embedded_fcm|google-services' deps.txt
+            exit 1
+          fi
+          echo "✓ fdroid flavor is free of Google Play Services / FCM"
+
+      - name: Build the fdroid release APK
+        working-directory: apps/frontend/android
+        run: ./gradlew assembleFdroidRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-fdroid-release
+          path: apps/frontend/android/app/build/outputs/apk/fdroid/release/*.apk
+          retention-days: 14

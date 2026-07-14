@@ -1,0 +1,20 @@
+Jackpoll is an open-source tool to build, share and analyze surveys and quizzes — a privacy-friendly, self-hostable alternative to closed survey platforms.
+
+Create surveys with a drag-and-drop builder, run scored quizzes, collect responses and view results with live charts. Everything is open source, and you can run your own instance.
+
+Features:
+• Drag-and-drop survey builder with pages and question logic
+• Multiple question types: short answer, multiple choice, checkboxes, dropdown, rating grid, ranking
+• Quiz mode with correct answers, scoring and automatic grading
+• Real-time results with charts, plus CSV export
+• Collaboration: invite editors, role-based permissions
+• Public share links and embeddable surveys
+• Push notifications via UnifiedPush — no Google dependency in the F-Droid build
+
+Privacy & openness:
+• 100% open source (MIT)
+• Self-hostable: connect the app to your own Jackpoll instance
+• The F-Droid build contains no Google Play Services and no proprietary tracking; push works through any UnifiedPush distributor (e.g. ntfy, NextPush)
+• No ads
+
+The app is a client for a Jackpoll server. Use the official instance or point it at your own self-hosted deployment.

@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.acme.dto.ApiResponse;
 import org.acme.dto.DeviceDtos.RegisterDeviceRequest;
+import org.acme.service.DebugTools;
 import org.acme.service.PushService;
 
 import io.quarkus.security.Authenticated;
@@ -30,6 +31,9 @@ public class DeviceResource {
     PushService push;
 
     @Inject
+    DebugTools debug;
+
+    @Inject
     SecurityIdentity identity;
 
     private String userId() {
@@ -41,6 +45,22 @@ public class DeviceResource {
     public Response register(@Valid RegisterDeviceRequest req) {
         push.register(userId(), req.token(), req.platform(), req.p256dh(), req.auth());
         return Response.ok(ApiResponse.ok(Map.of("registered", true))).build();
+    }
+
+    /**
+     * Diagnostics: send a test push to all of the current user's devices.
+     * Gated by app.debug-tools-enabled and rate-limited to 1/min per user.
+     */
+    @POST
+    @Path("/test-push")
+    public Response testPush() {
+        debug.ensureEnabled();
+        debug.rateLimit(userId(), "test-push");
+        int devices = push.sendTest(userId(), "Jackpoll",
+            "🔔 Test notification from Jackpoll");
+        return Response.ok(ApiResponse.ok(Map.of(
+            "sent", devices > 0,
+            "devices", devices))).build();
     }
 
     /**

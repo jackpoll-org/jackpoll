@@ -8,6 +8,8 @@ import org.acme.entity.EmailCode;
 import org.acme.entity.User;
 import org.acme.repository.UserRepository;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
@@ -21,6 +23,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final KeycloakService keycloakService;
     private final EmailCodeService emailCodeService;
+
+    /**
+     * Whether new accounts must confirm their email before they can sign in.
+     * Default true (secure). Self-hosters WITHOUT a mail provider can set
+     * EMAIL_VERIFICATION_REQUIRED=false so registration works without email.
+     */
+    @ConfigProperty(name = "app.email-verification-required", defaultValue = "true")
+    boolean emailVerificationRequired;
 
     public AuthService(UserRepository userRepository, KeycloakService keycloakService,
                        EmailCodeService emailCodeService) {
@@ -42,8 +52,21 @@ public class AuthService {
             return ApiResponse.error(result.error());
         }
         syncLocalUser(result.data()); // emailVerified = false
-        emailCodeService.issue(result.data().email(), EmailCode.PURPOSE_VERIFY);
-        return ApiResponse.ok(new AuthDtos.RegisterResult(result.data().email(), true));
+        String email = result.data().email();
+
+        // Verification disabled (self-host without a mail provider): activate the
+        // account immediately so the user can sign in without confirming a code.
+        if (!emailVerificationRequired) {
+            keycloakService.setEmailVerified(email);
+            userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(u -> {
+                u.emailVerified = true;
+                u.updatedAt = Instant.now();
+            });
+            return ApiResponse.ok(new AuthDtos.RegisterResult(email, false));
+        }
+
+        emailCodeService.issue(email, EmailCode.PURPOSE_VERIFY);
+        return ApiResponse.ok(new AuthDtos.RegisterResult(email, true));
     }
 
     // ── Login ──────────────────────────────────────────────────────
