@@ -150,12 +150,14 @@ public class KeycloakService {
         AuthDtos.AuthResponseData data;
         try {
             var email = req.email().trim().toLowerCase();
-            var tokenResponse = offline
-                ? tokenClient.tokenWithScope(
-                    realm, "password", clientId, clientSecret, email, req.password(),
-                    "openid offline_access")
-                : tokenClient.token(
-                    realm, "password", clientId, clientSecret, email, req.password());
+            // Always request "openid" explicitly — the client's defaultClientScopes
+            // (web-origins/profile/roles/email) don't include it, so a bare password
+            // grant omits the 'sub' claim and buildAuthResponse falls back to a
+            // fabricated user id that doesn't match the one register() stored,
+            // causing a spurious users_email_key conflict on first login after signup.
+            var tokenResponse = tokenClient.tokenWithScope(
+                realm, "password", clientId, clientSecret, email, req.password(),
+                offline ? "openid offline_access" : "openid");
 
             data = buildAuthResponse(tokenResponse, req.email(), "");
         } catch (Exception e) {
