@@ -95,3 +95,15 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// Apply the Google Services plugin ONLY when building a "play" variant, and only
+// if a google-services.json is present (src/play/ or app/). This keeps the
+// fdroid flavor 100% free of Google: for any fdroid/other task the plugin is
+// never applied, so no google-services.json is required and none is bundled.
+def isPlayTask = gradle.startParameter.taskNames.any { it.toLowerCase().contains("play") }
+def hasGoogleServices = file("src/play/google-services.json").exists() || file("google-services.json").exists()
+if (isPlayTask && hasGoogleServices) {
+    apply plugin: 'com.google.gms.google-services'
+} else if (isPlayTask) {
+    logger.warn("google-services.json missing — the play flavor's Embedded FCM push will not work until you add it (src/play/google-services.json).")
+}

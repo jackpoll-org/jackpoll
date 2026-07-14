@@ -40,7 +40,7 @@ Default `server.url` is `https://survey.quavon.de` (see `capacitor.config.ts`).
 | Feature | Plugin | Where |
 |---|---|---|
 | Camera capture | `@capacitor/camera` | "Take photo" on file-upload questions |
-| Push notifications | `@capacitor/push-notifications` | registers token → `POST /me/devices`; backend sends on new responses (FCM) |
+| Push notifications | UnifiedPush (native bridge) | resolves a distributor → Web Push endpoint → `POST /me/devices`; backend delivers via Web Push (VAPID) |
 | Biometric unlock | `@aparajita/capacitor-biometric-auth` | Face ID / fingerprint gate on the dashboard |
 | Connectivity | `@capacitor/network` | triggers the offline outbox sync |
 
@@ -56,11 +56,18 @@ npx capacitor-assets generate \   # regenerate native icon/splash sets
 
 ## Before publishing (manual, needs accounts)
 
-1. **Push delivery** (FCM HTTP v1): create a Firebase project; add
-   `google-services.json` (Android) + APNs key (iOS); download a **service
-   account** JSON and point the backend at it via `FCM_SERVICE_ACCOUNT` (inline
-   JSON or a mounted file path) + `PUSH_ENABLED=true`. Until then registration
-   works but nothing is delivered.
+1. **Push delivery** (UnifiedPush → Web Push): the backend delivers via **Web
+   Push (VAPID)** — set `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (generate once
+   with `npx web-push generate-vapid-keys`). On Android the app registers through
+   **UnifiedPush**; a distributor turns that into a Web Push endpoint. Two flavors:
+   - **play**: bundles the **Embedded FCM distributor** (Google) so it works with
+     no extra app. Needs a Firebase project — put its `google-services.json` at
+     `android/app/src/play/google-services.json` (a placeholder is committed;
+     replace it, or inject it in CI). The `google-services` plugin is applied
+     **only** for `play` tasks.
+   - **fdroid**: **no Google** — relies on an external distributor. Self-host
+     ships an **ntfy** server; users point the app's distributor there. (See the
+     jackpoll-selfhost repo.)
 2. **iOS** (#51): in Xcode set the signing team and add the **Push
    Notifications** capability (links `ios/App/App/App.entitlements`). For
    automated TestFlight builds set up `fastlane match` (a private signing repo)

@@ -10,6 +10,9 @@ buildscript {
         classpath 'com.android.tools.build:gradle:8.13.0'
         // Kotlin — UnifiedPush's connector is Kotlin; pin to a current release.
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21'
+        // Google Services — applied ONLY for the "play" flavor (Embedded FCM).
+        // Build-time only; the fdroid flavor never applies it (stays FLOSS).
+        classpath 'com.google.gms:google-services:4.4.4'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
