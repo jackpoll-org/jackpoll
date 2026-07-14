@@ -3,7 +3,6 @@ package de.quavon.jackpoll.push
 import android.content.Context
 import android.util.Log
 import org.unifiedpush.android.connector.UnifiedPush
-import org.unifiedpush.android.embedded.fcm.distributor.EmbeddedDistributorReceiver
 
 /**
  * PLAY flavor: an Embedded FCM distributor is bundled. External distributors are

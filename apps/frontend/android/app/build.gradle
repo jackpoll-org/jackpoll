@@ -86,7 +86,7 @@ dependencies {
 
     // Play flavor ONLY: bundled FCM distributor fallback. This is the only place
     // Google Play Services enter the app, and it never ships in the fdroid build.
-    playImplementation "org.unifiedpush.android:embedded_fcm_distributor:$unifiedPushEmbeddedFcm"
+    playImplementation "org.unifiedpush.android:embedded-fcm-distributor:$unifiedPushEmbeddedFcm"
 
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
