@@ -436,6 +436,8 @@ export interface SurveyResults {
   title: string;
   totalResponses: number;
   lastResponseAt?: string | null;
+  /** Mean respondent completion time in ms; null when no timed responses. */
+  avgDurationMs?: number | null;
   questions: QuestionResult[];
   /** Present only for quiz surveys (issue #10). */
   quiz?: QuizStats | null;

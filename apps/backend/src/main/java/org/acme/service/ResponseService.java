@@ -504,6 +504,16 @@ public class ResponseService {
             .map(Instant::toString)
             .orElse(null);
 
+        var avgDurationMs = responses.stream()
+            .map(r -> r.durationMs)
+            .filter(java.util.Objects::nonNull)
+            .mapToLong(Long::longValue)
+            .average()
+            .stream()
+            .mapToObj(avg -> Long.valueOf(Math.round(avg)))
+            .findFirst()
+            .orElse(null);
+
         var questionResults = survey.questions.stream()
             .map(q -> aggregateQuestion(q, responses))
             .toList();
@@ -513,7 +523,8 @@ public class ResponseService {
             : null;
 
         return new SurveyResultsDto(
-            survey.id, survey.title, responses.size(), lastResponseAt, questionResults, quiz);
+            survey.id, survey.title, responses.size(), lastResponseAt, avgDurationMs,
+            questionResults, quiz);
     }
 
     private org.acme.dto.ResponseDtos.QuizStatsDto quizStats(
@@ -551,7 +562,7 @@ public class ResponseService {
             .map(q -> aggregateQuestion(q, responses))
             .toList();
         return new SurveyResultsDto(
-            survey.id, survey.title, responses.size(), null, questions, null);
+            survey.id, survey.title, responses.size(), null, null, questions, null);
     }
 
     /** Server-side guard: free-text and file-upload answers are never exposed. */

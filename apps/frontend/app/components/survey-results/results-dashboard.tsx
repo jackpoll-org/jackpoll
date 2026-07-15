@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Download, Play, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Download,
+  Inbox,
+  Play,
+  RefreshCw,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Card,
@@ -37,18 +47,13 @@ import { QuestionResultCard } from "./question-result-card";
 import { ResultBarChart } from "./result-charts";
 import { ResponsesPanel } from "./responses-panel";
 import { AnalyticsPanel } from "./analytics-panel";
+import { StatTile } from "./stat-tile";
+import {
+  formatAbsolute,
+  formatDuration,
+  formatRelative,
+} from "@/app/lib/survey/format";
 import { useTranslation } from "@/app/i18n/context";
-
-function formatDateTime(iso?: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString();
-}
-
-function formatDuration(ms: number): string {
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-}
 
 function QuizAnalytics({ quiz }: { quiz: QuizStats }) {
   const { t } = useTranslation();
@@ -66,15 +71,15 @@ function QuizAnalytics({ quiz }: { quiz: QuizStats }) {
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <KpiCard
+          <StatTile
             label={t("results.quiz.avgScore")}
             value={`${quiz.averageScore.toFixed(1)} / ${quiz.maxScore}`}
           />
-          <KpiCard
+          <StatTile
             label={t("results.quiz.passRate")}
             value={quiz.passingScore != null ? `${passRate}%` : "—"}
           />
-          <KpiCard
+          <StatTile
             label={t("results.quiz.passedFailed")}
             value={`${quiz.passedCount} / ${quiz.failedCount}`}
           />
@@ -90,21 +95,6 @@ function QuizAnalytics({ quiz }: { quiz: QuizStats }) {
   );
 }
 
-function KpiCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-normal text-muted-foreground">
-          {label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
 function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -115,7 +105,7 @@ function downloadBlob(filename: string, blob: Blob): void {
 }
 
 export function ResultsDashboard({ surveyId }: { surveyId: string }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const survey = useSurvey(surveyId);
   const [showPreview, setShowPreview] = useState(false);
   const results = useSurveyResults(surveyId, showPreview);
@@ -140,13 +130,9 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
     (survey.data?.questions ?? []).map((q) => [q.id, q]),
   );
 
-  const durations = (responses.data ?? [])
-    .map((r) => r.durationMs)
-    .filter((d): d is number => d != null);
-  const avgDuration =
-    durations.length > 0
-      ? durations.reduce((a, b) => a + b, 0) / durations.length
-      : null;
+  // Preview-aware mean completion time, computed authoritatively by the backend
+  // so it stays consistent with the totalResponses/lastResponseAt KPIs.
+  const avgDurationMs = results.data?.avgDurationMs ?? null;
 
   function exportCsv() {
     if (!survey.data || !responses.data) return;
@@ -193,7 +179,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
       await exportResultsPdf({
         survey: survey.data,
         results: results.data,
-        avgDurationMs: avgDuration,
+        avgDurationMs,
       });
       toast.success(t("results.export.pdfReady"), { id: toastId });
     } catch (err) {
@@ -306,21 +292,29 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
 
           <TabsContent value="overview">
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <KpiCard
+            <StatTile
               label={t("results.kpi.total")}
               value={
                 survey.data?.settings.responseLimit
                   ? `${results.data?.totalResponses ?? 0} / ${survey.data.settings.responseLimit}`
                   : String(results.data?.totalResponses ?? 0)
               }
+              icon={<Users className="size-5" />}
             />
-            <KpiCard
+            <StatTile
               label={t("results.kpi.last")}
-              value={formatDateTime(results.data?.lastResponseAt)}
+              value={formatRelative(results.data?.lastResponseAt, locale)}
+              valueTitle={
+                results.data?.lastResponseAt
+                  ? formatAbsolute(results.data.lastResponseAt, locale)
+                  : undefined
+              }
+              icon={<Calendar className="size-5" />}
             />
-            <KpiCard
+            <StatTile
               label={t("results.kpi.avgTime")}
-              value={avgDuration != null ? formatDuration(avgDuration) : "—"}
+              value={formatDuration(avgDurationMs)}
+              icon={<Clock className="size-5" />}
             />
           </div>
 
@@ -330,8 +324,11 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
 
           {(results.data?.totalResponses ?? 0) === 0 ? (
             <Card>
-              <CardContent className="py-16 text-center text-sm text-muted-foreground">
-                {t("results.empty")}
+              <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Inbox className="size-6" />
+                </span>
+                <p className="text-sm text-muted-foreground">{t("results.empty")}</p>
               </CardContent>
             </Card>
           ) : (

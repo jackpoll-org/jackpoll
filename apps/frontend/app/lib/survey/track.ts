@@ -12,6 +12,21 @@ function detectDevice(): string {
 }
 
 /**
+ * Real external referrer only. Same-origin navigations (opening a form from
+ * inside the Jackpoll app — dashboard preview, share link click) would otherwise
+ * report our own host as the "source", so we collapse them to direct (undefined).
+ */
+function externalReferrer(): string | undefined {
+  const ref = document.referrer;
+  if (!ref) return undefined;
+  try {
+    return new URL(ref).host === window.location.host ? undefined : ref;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Cookieless, fire-and-forget analytics beacon (issue #34). Sends only a
  * coarse event with a normalized referrer/UTM/device — no cookies, no
  * identifiers, no personal data — so no consent banner is required.
@@ -21,7 +36,7 @@ export function trackEvent(surveyId: string, event: TrackEvent): void {
 
   const body: Record<string, unknown> = { event };
   if (event === "view") {
-    body.referrer = document.referrer || undefined;
+    body.referrer = externalReferrer();
     body.utmSource =
       new URLSearchParams(window.location.search).get("utm_source") || undefined;
     body.device = detectDevice();

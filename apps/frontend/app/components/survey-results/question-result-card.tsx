@@ -161,12 +161,12 @@ export function QuestionResultCard({ result, question }: QuestionResultCardProps
             {result.average != null && (
               <div className="flex gap-4 text-sm">
                 <span>
-                  <span className="text-muted-foreground">Average:</span>{" "}
+                  <span className="text-muted-foreground">{t("results.average")}:</span>{" "}
                   <span className="font-medium tabular-nums">{fmt(result.average)}</span>
                 </span>
                 {result.median != null && (
                   <span>
-                    <span className="text-muted-foreground">Median:</span>{" "}
+                    <span className="text-muted-foreground">{t("results.median")}:</span>{" "}
                     <span className="font-medium tabular-nums">{fmt(result.median)}</span>
                   </span>
                 )}
@@ -281,7 +281,7 @@ export function QuestionResultCard({ result, question }: QuestionResultCardProps
             {result.title || t("results.untitledQuestion")}
           </CardTitle>
           <Badge variant="secondary" className="shrink-0">
-            {result.answered} answered
+            {t("results.answered", { count: String(result.answered) })}
           </Badge>
         </div>
       </CardHeader>

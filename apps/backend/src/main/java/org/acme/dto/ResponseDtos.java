@@ -77,6 +77,8 @@ public final class ResponseDtos {
         String title,
         long totalResponses,
         String lastResponseAt,
+        /** Mean respondent completion time in ms; null when no timed responses. */
+        Long avgDurationMs,
         List<QuestionResultDto> questions,
         /** Present only for quiz surveys (issue #10). */
         QuizStatsDto quiz
