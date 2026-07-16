@@ -44,6 +44,8 @@ jobs:
       # ── F-Droid flavor (FLOSS, no Google; unsigned — F-Droid re-signs) ──
       - name: Build F-Droid release APK
         working-directory: apps/frontend/android
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew assembleFdroidRelease --no-daemon
       - name: Upload F-Droid APK
         uses: actions/upload-artifact@v4
@@ -74,6 +76,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew bundlePlayRelease --no-daemon
 
       - name: Upload Play AAB
