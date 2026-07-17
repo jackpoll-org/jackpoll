@@ -18,6 +18,7 @@ import {
   getPushStatus,
   listPushDistributors,
   pickPushDistributor,
+  onPushRegistrationFailed,
   type PushStatus,
 } from "@/app/lib/native/push";
 
@@ -34,8 +35,13 @@ export function PushSetup() {
   }, []);
 
   useEffect(() => {
-    if (pushSupported()) void refresh();
-  }, [refresh]);
+    if (!pushSupported()) return;
+    void refresh();
+    return onPushRegistrationFailed((reason) => {
+      toast.error(`${t("push.setup.registrationFailed")} (${reason})`);
+      void refresh();
+    });
+  }, [refresh, t]);
 
   if (!pushSupported()) return null;
 

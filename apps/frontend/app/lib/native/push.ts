@@ -49,6 +49,14 @@ export function pushSupported(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 
+const errorListeners = new Set<(reason: string) => void>();
+
+/** Subscribe to native registration failures (e.g. FCM init errors). Returns an unsubscribe function. */
+export function onPushRegistrationFailed(cb: (reason: string) => void): () => void {
+  errorListeners.add(cb);
+  return () => errorListeners.delete(cb);
+}
+
 let endpointBound = false;
 async function bindEndpointListener(): Promise<void> {
   if (endpointBound) return;
@@ -60,6 +68,14 @@ async function bindEndpointListener(): Promise<void> {
     void registerDeviceApi(e.endpoint, "android-up", keys).catch(() => {
       // Best-effort; the user can still use the app without push.
     });
+  });
+  // Previously dropped silently — the only symptom was "no device registered"
+  // on the debug page, with no indication of why registration never happened.
+  await UnifiedPush.addListener("registrationFailed", (e) => {
+    for (const cb of errorListeners) cb(e.reason ?? "unknown");
+  });
+  await UnifiedPush.addListener("unregistered", () => {
+    for (const cb of errorListeners) cb("unregistered");
   });
 }
 
