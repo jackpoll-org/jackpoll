@@ -30,7 +30,8 @@ class PushBridgePlugin : Plugin() {
 
     @PluginMethod
     fun register(call: PluginCall) {
-        val outcome = PushManager.register(context)
+        val vapid = call.getString("vapid")
+        val outcome = PushManager.register(context, vapid)
         call.resolve(JSObject().put("outcome", outcome.name))
     }
 
@@ -58,7 +59,7 @@ class PushBridgePlugin : Plugin() {
             call.reject("distributor is required")
             return
         }
-        PushManager.useDistributor(context, distributor)
+        PushManager.useDistributor(context, distributor, call.getString("vapid"))
         call.resolve()
     }
 }

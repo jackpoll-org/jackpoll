@@ -36,12 +36,19 @@ object PushManager {
     private fun externalDistributors(ctx: Context): List<String> =
         UnifiedPush.getDistributors(ctx).filter { it != ctx.packageName }
 
-    /** Begin/refresh registration. Returns the immediate outcome for the UI. */
-    fun register(ctx: Context): Outcome {
+    /**
+     * Begin/refresh registration. Returns the immediate outcome for the UI.
+     *
+     * [vapid] is the backend's VAPID public key (GET /me/devices/web-push-key).
+     * The Embedded FCM distributor needs it to build an RFC 8291/8292 Web Push
+     * subscription — without it, registration fails with VAPID_REQUIRED.
+     * External distributors (ntfy, …) ignore it.
+     */
+    fun register(ctx: Context, vapid: String? = null): Outcome {
         // 1. Already have an acknowledged distributor → just (re)register.
         val current = UnifiedPush.getAckDistributor(ctx)
         if (current != null) {
-            UnifiedPush.register(ctx, INSTANCE)
+            UnifiedPush.register(ctx, INSTANCE, vapid = vapid)
             return Outcome.REGISTERING
         }
 
@@ -50,7 +57,7 @@ object PushManager {
         when {
             external.size == 1 -> {
                 UnifiedPush.saveDistributor(ctx, external.first())
-                UnifiedPush.register(ctx, INSTANCE)
+                UnifiedPush.register(ctx, INSTANCE, vapid = vapid)
                 return Outcome.REGISTERING
             }
             external.size > 1 -> return Outcome.NEEDS_PICKER
@@ -58,7 +65,7 @@ object PushManager {
 
         // 3. Flavor fallback (Play: embedded FCM; F-Droid: none).
         return if (PushFlavor.ensureFallbackDistributor(ctx)) {
-            UnifiedPush.register(ctx, INSTANCE)
+            UnifiedPush.register(ctx, INSTANCE, vapid = vapid)
             Outcome.REGISTERING
         } else {
             Outcome.NEEDS_DISTRIBUTOR
@@ -66,9 +73,9 @@ object PushManager {
     }
 
     /** Explicitly pick a distributor (from the UI picker) and register. */
-    fun useDistributor(ctx: Context, distributor: String) {
+    fun useDistributor(ctx: Context, distributor: String, vapid: String? = null) {
         UnifiedPush.saveDistributor(ctx, distributor)
-        UnifiedPush.register(ctx, INSTANCE)
+        UnifiedPush.register(ctx, INSTANCE, vapid = vapid)
     }
 
     /** Stop notifications and forget the distributor. */

@@ -7,7 +7,7 @@
 // like a browser PushSubscription. No-op on the web (see web-push.ts there).
 
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
-import { registerDeviceApi } from "@/app/lib/survey/api";
+import { registerDeviceApi, getWebPushKeyApi } from "@/app/lib/survey/api";
 
 export type PushOutcome =
   | "REGISTERING"
@@ -32,11 +32,11 @@ interface EndpointEvent {
 }
 
 interface UnifiedPushPlugin {
-  register(): Promise<{ outcome: PushOutcome }>;
+  register(options?: { vapid?: string }): Promise<{ outcome: PushOutcome }>;
   unregister(): Promise<void>;
   getStatus(): Promise<PushStatus>;
   listDistributors(): Promise<{ distributors: string }>;
-  pickDistributor(options: { distributor: string }): Promise<void>;
+  pickDistributor(options: { distributor: string; vapid?: string }): Promise<void>;
   addListener(
     event: "endpointChanged" | "unregistered" | "registrationFailed",
     cb: (data: EndpointEvent & { reason?: string }) => void,
@@ -79,11 +79,26 @@ async function bindEndpointListener(): Promise<void> {
   });
 }
 
+/**
+ * The Embedded FCM distributor (Play flavor fallback) needs the backend's
+ * VAPID public key to build a Web Push subscription — without it, native
+ * registration fails with VAPID_REQUIRED. External distributors ignore it.
+ */
+async function fetchVapidKey(): Promise<string | undefined> {
+  try {
+    const res = await getWebPushKeyApi();
+    return res.data?.enabled ? res.data.publicKey : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Start/refresh push registration. Returns the immediate outcome for the UI. */
 export async function registerPush(): Promise<PushOutcome> {
   if (!pushSupported()) return "UNSUPPORTED";
   await bindEndpointListener();
-  const { outcome } = await UnifiedPush.register();
+  const vapid = await fetchVapidKey();
+  const { outcome } = await UnifiedPush.register({ vapid });
   return outcome;
 }
 
@@ -103,5 +118,7 @@ export async function listPushDistributors(): Promise<string[]> {
 }
 
 export async function pickPushDistributor(distributor: string): Promise<void> {
-  if (pushSupported()) await UnifiedPush.pickDistributor({ distributor });
+  if (!pushSupported()) return;
+  const vapid = await fetchVapidKey();
+  await UnifiedPush.pickDistributor({ distributor, vapid });
 }
