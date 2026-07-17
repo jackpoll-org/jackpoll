@@ -13,7 +13,7 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { Spinner } from "@/app/components/ui/spinner";
 import { webPushSupported, subscribeWebPush } from "@/app/lib/native/web-push";
-import { pushSupported, registerPush } from "@/app/lib/native/push";
+import { pushSupported, registerPush, getPushStatus } from "@/app/lib/native/push";
 import { getWebPushKeyApi } from "@/app/lib/survey/api";
 import { useTranslation } from "@/app/i18n/context";
 
@@ -43,9 +43,15 @@ export function PushSettingsCard() {
     async function resolve(): Promise<State> {
       const native = Capacitor.isNativePlatform();
       if (!webPushSupported() && !pushSupported()) return "unsupported";
+      // Native has no browser Notification permission — check the actual
+      // UnifiedPush registration status instead.
+      if (native) {
+        const status = await getPushStatus();
+        return status?.registered ? "granted" : "default";
+      }
       // On the web the only channel is Web Push (VAPID) — confirm the server
       // actually has it configured, otherwise enabling can never work.
-      if (!native && webPushSupported()) {
+      if (webPushSupported()) {
         try {
           const res = await getWebPushKeyApi();
           if (!res.data?.enabled) return "serverDisabled";
@@ -68,12 +74,24 @@ export function PushSettingsCard() {
   async function enable() {
     setBusy(true);
     try {
-      // Each call no-ops on the platform it doesn't apply to (web vs native).
-      if (Capacitor.isNativePlatform()) await registerPush();
-      else await subscribeWebPush();
-      const next = permissionState();
-      setState(next);
-      if (next !== "granted") toast.error(t("settings.push.denied"));
+      if (Capacitor.isNativePlatform()) {
+        const outcome = await registerPush();
+        if (outcome === "NEEDS_DISTRIBUTOR" || outcome === "UNSUPPORTED") {
+          setState("default");
+          toast.error(t("settings.push.denied"));
+        } else {
+          // Endpoint arrives async via a native listener — poll status shortly after.
+          await new Promise((r) => setTimeout(r, 1500));
+          const status = await getPushStatus();
+          setState(status?.registered ? "granted" : "default");
+          if (!status?.registered) toast.error(t("settings.push.denied"));
+        }
+      } else {
+        await subscribeWebPush();
+        const next = permissionState();
+        setState(next);
+        if (next !== "granted") toast.error(t("settings.push.denied"));
+      }
     } catch {
       toast.error(t("settings.push.denied"));
     } finally {
