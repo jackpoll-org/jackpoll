@@ -153,6 +153,45 @@ public class EmailService {
         safeSend(Mail.withText(toEmail, subject, body));
     }
 
+    /** Email a 6-digit code authorising permanent account deletion. Best-effort. */
+    public void sendDeleteAccountCode(String toEmail, String code, long ttlMinutes) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " Confirm account deletion: " + code;
+        String body = """
+            We received a request to permanently delete your Jackpoll account.
+
+            Your confirmation code is:
+
+                %s
+
+            Entering it will permanently delete your account, including your
+            surveys, responses, and uploaded files. This cannot be undone.
+            The code expires in %d minutes. If you didn't request this, you
+            can ignore this email — your account stays unchanged.
+            """.formatted(code, ttlMinutes);
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
+    /** Email a 6-digit code authorising deletion of a user's content data
+     *  while keeping their account and login active. Best-effort. */
+    public void sendDeleteDataCode(String toEmail, String code, long ttlMinutes) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " Confirm data deletion: " + code;
+        String body = """
+            We received a request to delete the data in your Jackpoll account.
+
+            Your confirmation code is:
+
+                %s
+
+            Entering it will permanently delete your surveys, responses, and
+            uploaded files. Your account and login stay active. This cannot
+            be undone. The code expires in %d minutes. If you didn't request
+            this, you can ignore this email — nothing will be deleted.
+            """.formatted(code, ttlMinutes);
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
     // ── Unsubscribe token ─────────────────────────────────────────
 
     public String unsubscribeToken(String surveyId) {

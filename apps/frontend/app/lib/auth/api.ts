@@ -20,7 +20,7 @@ import type {
 
 /** Credential endpoints must never trigger a refresh retry (avoids loops). */
 function refreshable(endpoint: string): boolean {
-  return !/^\/auth\/(refresh|login|register|forgot-password|reset-password|verify-email|resend-verification)/.test(
+  return !/^\/auth\/(refresh|login|register|forgot-password|reset-password|verify-email|resend-verification|delete-account|delete-data)/.test(
     endpoint,
   );
 }
@@ -187,6 +187,48 @@ export async function resetPasswordApi(data: ResetPasswordRequest): Promise<ApiR
   return request<null>(AUTH_ENDPOINTS.resetPassword, {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+// ── Public account/data deletion (no login required) ───────────────
+
+export async function requestAccountDeletionApi(
+  email: string,
+  password: string,
+): Promise<ApiResponse<null>> {
+  return request<null>(AUTH_ENDPOINTS.deleteAccountRequest, {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function confirmAccountDeletionApi(
+  email: string,
+  code: string,
+): Promise<ApiResponse<null>> {
+  return request<null>(AUTH_ENDPOINTS.deleteAccountConfirm, {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+export async function requestDataDeletionApi(
+  email: string,
+  password: string,
+): Promise<ApiResponse<null>> {
+  return request<null>(AUTH_ENDPOINTS.deleteDataRequest, {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function confirmDataDeletionApi(
+  email: string,
+  code: string,
+): Promise<ApiResponse<null>> {
+  return request<null>(AUTH_ENDPOINTS.deleteDataConfirm, {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
   });
 }
 

@@ -8,6 +8,10 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  // Public account/data deletion — reachable without login (Play Store
+  // requirement + real self-service path when the user can't sign in).
+  "/delete-account",
+  "/delete-data",
   // Public survey surfaces — respondents are anonymous (issues #7/#16/#26/#40/#15/#22).
   "/embed", // iframe embed
   "/s", // shareable public link

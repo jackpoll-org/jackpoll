@@ -206,15 +206,26 @@ public class KeycloakService {
     }
 
     /**
+     * Verify a user's password by attempting a password-grant token exchange.
+     * Discards the returned token — this is a credential check, not a login.
+     */
+    public boolean verifyPassword(String email, String password) {
+        try {
+            tokenClient.token(realm, "password", clientId, clientSecret,
+                email.trim().toLowerCase(), password);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
      * Change a user's password after verifying the current one (by attempting a
      * token grant). Returns an error if the current password is wrong.
      */
     public ApiResponse<Void> changePassword(
         String email, String currentPassword, String newPassword, String userId) {
-        try {
-            tokenClient.token(realm, "password", clientId, clientSecret,
-                email.trim().toLowerCase(), currentPassword);
-        } catch (Exception e) {
+        if (!verifyPassword(email, currentPassword)) {
             return ApiResponse.error("Current password is incorrect");
         }
         try {

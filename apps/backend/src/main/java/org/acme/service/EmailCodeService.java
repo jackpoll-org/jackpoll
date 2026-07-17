@@ -77,10 +77,11 @@ public class EmailCodeService {
         row.createdAt = Instant.now();
         codes.persist(row);
 
-        if (EmailCode.PURPOSE_RESET.equals(purpose)) {
-            emailService.sendPasswordResetCode(normalized, code, ttlMinutes);
-        } else {
-            emailService.sendVerificationCode(normalized, code, ttlMinutes);
+        switch (purpose) {
+            case EmailCode.PURPOSE_RESET -> emailService.sendPasswordResetCode(normalized, code, ttlMinutes);
+            case EmailCode.PURPOSE_DELETE_ACCOUNT -> emailService.sendDeleteAccountCode(normalized, code, ttlMinutes);
+            case EmailCode.PURPOSE_DELETE_DATA -> emailService.sendDeleteDataCode(normalized, code, ttlMinutes);
+            default -> emailService.sendVerificationCode(normalized, code, ttlMinutes);
         }
         return code;
     }

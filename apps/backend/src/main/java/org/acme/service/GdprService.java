@@ -80,11 +80,17 @@ public class GdprService {
 
     // ── Erasure (Art. 17) ─────────────────────────────────────────
 
-    /** Permanently delete the user and all of their data (best-effort, atomic). */
+    /**
+     * Erase all of a user's content data (surveys, responses, files, folders,
+     * templates, device tokens, memberships) while leaving the {@code users} row
+     * and Keycloak identity untouched — the account keeps working. Shared by
+     * {@link #deleteAccount} and the standalone "delete my data" flow.
+     */
     @Transactional
-    public void deleteAccount(String userId) {
-        var user = users.findByIdOptional(userId)
-            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    public void clearUserData(String userId) {
+        if (users.findByIdOptional(userId).isEmpty()) {
+            throw new ResourceNotFoundException("User not found");
+        }
 
         for (var survey : surveys.list("ownerId", userId)) {
             var id = survey.id;
@@ -103,6 +109,15 @@ public class GdprService {
         devices.delete("userId", userId);
         folders.delete("ownerId", userId);
         templates.delete("ownerId", userId);
+    }
+
+    /** Permanently delete the user and all of their data (best-effort, atomic). */
+    @Transactional
+    public void deleteAccount(String userId) {
+        var user = users.findByIdOptional(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        clearUserData(userId);
         users.delete(user);
 
         // Erase at the identity provider last; a failure here rolls the tx back.

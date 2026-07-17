@@ -569,6 +569,43 @@ export const en = {
   "auth.reset.codeLabel": "Reset code",
   "auth.reset.instruction":
     "Enter the 6-digit code we sent to {email} and choose a new password.",
+
+  // ── Public account/data deletion (no login required) ──────────────
+  "auth.deleteAccountPublic.title": "Delete your account",
+  "auth.deleteAccountPublic.description":
+    "Permanently delete your account, surveys and responses without signing in. Enter your email and password to get started; we'll email you a code to confirm. This cannot be undone.",
+  "auth.deleteAccountPublic.submit": "Send confirmation code",
+  "auth.deleteAccountPublic.submitting": "Verifying…",
+  "auth.deleteAccountPublic.codeSentTitle": "Check your email",
+  "auth.deleteAccountPublic.codeSentBody":
+    "We've emailed a 6-digit code to {email}. Enter it below to confirm.",
+  "auth.deleteAccountPublic.codeLabel": "Confirmation code",
+  "auth.deleteAccountPublic.confirmWarning":
+    "This permanently deletes your account and all of your data — surveys, responses and uploaded files. This cannot be undone.",
+  "auth.deleteAccountPublic.confirmButton": "Delete my account",
+  "auth.deleteAccountPublic.doneTitle": "Account deleted",
+  "auth.deleteAccountPublic.doneBody": "Your account and all of your data have been deleted.",
+  "auth.deleteAccountPublic.backToHome": "Back to home",
+  "auth.deleteAccountPublic.genericError": "Something went wrong. Please try again.",
+
+  "auth.deleteDataPublic.title": "Delete your data",
+  "auth.deleteDataPublic.description":
+    "Permanently delete your surveys, responses and uploaded files without deleting your account — your login stays active. Enter your email and password to get started; we'll email you a code to confirm. This cannot be undone.",
+  "auth.deleteDataPublic.submit": "Send confirmation code",
+  "auth.deleteDataPublic.submitting": "Verifying…",
+  "auth.deleteDataPublic.codeSentTitle": "Check your email",
+  "auth.deleteDataPublic.codeSentBody":
+    "We've emailed a 6-digit code to {email}. Enter it below to confirm.",
+  "auth.deleteDataPublic.codeLabel": "Confirmation code",
+  "auth.deleteDataPublic.confirmWarning":
+    "This permanently deletes your surveys, responses and uploaded files. Your account and login stay active. This cannot be undone.",
+  "auth.deleteDataPublic.confirmButton": "Delete my data",
+  "auth.deleteDataPublic.doneTitle": "Data deleted",
+  "auth.deleteDataPublic.doneBody":
+    "Your surveys, responses and uploaded files have been deleted. Your account and login stay active.",
+  "auth.deleteDataPublic.backToLogin": "Sign in",
+  "auth.deleteDataPublic.genericError": "Something went wrong. Please try again.",
+
   "nav.backToSurveys": "Back to surveys",
   "auth.validation.emailRequired": "Email is required",
   "auth.validation.emailInvalid": "Please enter a valid email address",
@@ -1600,6 +1637,43 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "auth.reset.codeLabel": "Zurücksetzungscode",
   "auth.reset.instruction":
     "Gib den 6-stelligen Code ein, den wir an {email} gesendet haben, und wähle ein neues Passwort.",
+
+  // ── Öffentliches Löschen von Konto/Daten (ohne Anmeldung) ──────────
+  "auth.deleteAccountPublic.title": "Konto löschen",
+  "auth.deleteAccountPublic.description":
+    "Lösche dein Konto, deine Umfragen und Antworten dauerhaft, ohne dich anzumelden. Gib E-Mail und Passwort ein — wir senden dir einen Code zur Bestätigung. Dies kann nicht rückgängig gemacht werden.",
+  "auth.deleteAccountPublic.submit": "Bestätigungscode senden",
+  "auth.deleteAccountPublic.submitting": "Wird geprüft…",
+  "auth.deleteAccountPublic.codeSentTitle": "Prüfe deine E-Mails",
+  "auth.deleteAccountPublic.codeSentBody":
+    "Wir haben einen 6-stelligen Code an {email} gesendet. Gib ihn unten ein, um zu bestätigen.",
+  "auth.deleteAccountPublic.codeLabel": "Bestätigungscode",
+  "auth.deleteAccountPublic.confirmWarning":
+    "Dies löscht dein Konto und alle deine Daten dauerhaft — Umfragen, Antworten und hochgeladene Dateien. Dies kann nicht rückgängig gemacht werden.",
+  "auth.deleteAccountPublic.confirmButton": "Konto löschen",
+  "auth.deleteAccountPublic.doneTitle": "Konto gelöscht",
+  "auth.deleteAccountPublic.doneBody": "Dein Konto und alle deine Daten wurden gelöscht.",
+  "auth.deleteAccountPublic.backToHome": "Zurück zur Startseite",
+  "auth.deleteAccountPublic.genericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+
+  "auth.deleteDataPublic.title": "Daten löschen",
+  "auth.deleteDataPublic.description":
+    "Lösche deine Umfragen, Antworten und hochgeladenen Dateien dauerhaft, ohne dein Konto zu löschen — dein Login bleibt aktiv. Gib E-Mail und Passwort ein — wir senden dir einen Code zur Bestätigung. Dies kann nicht rückgängig gemacht werden.",
+  "auth.deleteDataPublic.submit": "Bestätigungscode senden",
+  "auth.deleteDataPublic.submitting": "Wird geprüft…",
+  "auth.deleteDataPublic.codeSentTitle": "Prüfe deine E-Mails",
+  "auth.deleteDataPublic.codeSentBody":
+    "Wir haben einen 6-stelligen Code an {email} gesendet. Gib ihn unten ein, um zu bestätigen.",
+  "auth.deleteDataPublic.codeLabel": "Bestätigungscode",
+  "auth.deleteDataPublic.confirmWarning":
+    "Dies löscht deine Umfragen, Antworten und hochgeladenen Dateien dauerhaft. Dein Konto und Login bleiben aktiv. Dies kann nicht rückgängig gemacht werden.",
+  "auth.deleteDataPublic.confirmButton": "Daten löschen",
+  "auth.deleteDataPublic.doneTitle": "Daten gelöscht",
+  "auth.deleteDataPublic.doneBody":
+    "Deine Umfragen, Antworten und hochgeladenen Dateien wurden gelöscht. Dein Konto und Login bleiben aktiv.",
+  "auth.deleteDataPublic.backToLogin": "Anmelden",
+  "auth.deleteDataPublic.genericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+
   "nav.backToSurveys": "Zurück zu den Umfragen",
   "auth.validation.emailRequired": "E-Mail ist erforderlich",
   "auth.validation.emailInvalid": "Bitte gib eine gültige E-Mail-Adresse ein",

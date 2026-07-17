@@ -361,6 +361,82 @@ public class AuthResource {
         return Response.ok(result).build();
     }
 
+    // ── Public account/data deletion (no login required) ───────────
+
+    /** Verify the password and email a code authorising permanent account
+     *  deletion. Combined "invalid email or password" error (matches login). */
+    @POST
+    @Path("/delete-account/request")
+    @PermitAll
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response requestAccountDeletion(
+        @Valid AuthDtos.DeleteRequestRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context io.vertx.core.http.HttpServerRequest http
+    ) {
+        enforceAuthRateLimit("delete-account-request", forwardedFor, http, req.email());
+        var result = authService.requestAccountDeletion(req.email(), req.password());
+        if (!result.success()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(result).build();
+        }
+        return Response.ok(result).build();
+    }
+
+    /** Confirm the emailed code and permanently delete the account. */
+    @POST
+    @Path("/delete-account/confirm")
+    @PermitAll
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response confirmAccountDeletion(
+        @Valid AuthDtos.DeleteConfirmRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context io.vertx.core.http.HttpServerRequest http
+    ) {
+        enforceAuthRateLimit("delete-account-confirm", forwardedFor, http, req.email());
+        var result = authService.confirmAccountDeletion(req.email(), req.code());
+        if (!result.success()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(result).build();
+        }
+        return Response.ok(result).build();
+    }
+
+    /** Verify the password and email a code authorising deletion of the user's
+     *  content data (account and login stay active). */
+    @POST
+    @Path("/delete-data/request")
+    @PermitAll
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response requestDataDeletion(
+        @Valid AuthDtos.DeleteRequestRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context io.vertx.core.http.HttpServerRequest http
+    ) {
+        enforceAuthRateLimit("delete-data-request", forwardedFor, http, req.email());
+        var result = authService.requestDataDeletion(req.email(), req.password());
+        if (!result.success()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(result).build();
+        }
+        return Response.ok(result).build();
+    }
+
+    /** Confirm the emailed code and erase the user's content data. */
+    @POST
+    @Path("/delete-data/confirm")
+    @PermitAll
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response confirmDataDeletion(
+        @Valid AuthDtos.DeleteConfirmRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context io.vertx.core.http.HttpServerRequest http
+    ) {
+        enforceAuthRateLimit("delete-data-confirm", forwardedFor, http, req.email());
+        var result = authService.confirmDataDeletion(req.email(), req.code());
+        if (!result.success()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(result).build();
+        }
+        return Response.ok(result).build();
+    }
+
     /**
      * Returns Keycloak OIDC endpoints for the frontend to use
      * (e.g., for redirect-based login, logout, etc.).

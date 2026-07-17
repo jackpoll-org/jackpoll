@@ -28,6 +28,16 @@ Package: **de.quavon.jackpoll** · Privacy policy: **https://app.jackpoll.org/pr
 Notes for the form: account creation **required**; data is **not sold**; users can **request deletion**
 in-app (Settings → Delete account, GDPR Art. 17). No advertising identifiers.
 
+### Account/data deletion URLs (Play Console → App content → Data safety)
+
+- **Account deletion URL:** `https://app.jackpoll.org/delete-account` — public, no login required.
+  Enter the account's email + password, then confirm with a 6-digit code emailed to that address.
+  Permanently deletes the account, surveys, responses and uploaded files (GDPR Art. 17).
+- **Data deletion URL** (delete some data without deleting the account): `https://app.jackpoll.org/delete-data`
+  — same email + password + emailed code flow, but only erases content (surveys, responses,
+  uploaded files); the account and login stay active. Both pages are also linked from the
+  privacy policy (§8).
+
 ## 9. Store listing texts
 
 ### English

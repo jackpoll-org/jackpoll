@@ -23,6 +23,10 @@ public class EmailCode extends PanacheEntityBase {
     public static final String PURPOSE_VERIFY = "VERIFY";
     /** {@code RESET} — authorise a password reset. */
     public static final String PURPOSE_RESET = "RESET";
+    /** {@code DELETE_ACCOUNT} — authorise permanent account deletion. */
+    public static final String PURPOSE_DELETE_ACCOUNT = "DELETE_ACCOUNT";
+    /** {@code DELETE_DATA} — authorise erasing content data while keeping the account. */
+    public static final String PURPOSE_DELETE_DATA = "DELETE_DATA";
 
     @Id
     @Column(length = 36)
@@ -31,7 +35,7 @@ public class EmailCode extends PanacheEntityBase {
     @Column(nullable = false, length = 255)
     public String email;
 
-    /** {@link #PURPOSE_VERIFY} | {@link #PURPOSE_RESET}. */
+    /** {@link #PURPOSE_VERIFY} | {@link #PURPOSE_RESET} | {@link #PURPOSE_DELETE_ACCOUNT} | {@link #PURPOSE_DELETE_DATA}. */
     @Column(nullable = false, length = 16)
     public String purpose;
 

@@ -1,6 +1,7 @@
 package org.acme.service;
 
 import java.time.Instant;
+import java.util.function.Consumer;
 
 import org.acme.dto.ApiResponse;
 import org.acme.dto.AuthDtos;
@@ -23,6 +24,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final KeycloakService keycloakService;
     private final EmailCodeService emailCodeService;
+    private final GdprService gdprService;
 
     /**
      * Whether new accounts must confirm their email before they can sign in.
@@ -33,10 +35,11 @@ public class AuthService {
     boolean emailVerificationRequired;
 
     public AuthService(UserRepository userRepository, KeycloakService keycloakService,
-                       EmailCodeService emailCodeService) {
+                       EmailCodeService emailCodeService, GdprService gdprService) {
         this.userRepository = userRepository;
         this.keycloakService = keycloakService;
         this.emailCodeService = emailCodeService;
+        this.gdprService = gdprService;
     }
 
     // ── Register (#security email-verify) ─────────────────────────
@@ -201,6 +204,62 @@ public class AuthService {
             u.updatedAt = Instant.now();
         });
         return ApiResponse.ok(null);
+    }
+
+    // ── Public account/data deletion (no login required) ───────────
+
+    /** Request a deletion code: verifies the password and, on success, emails a
+     *  6-digit confirmation code for {@code purpose}. Combined "invalid email or
+     *  password" error on any failure — mirrors {@link #login}'s error shape, so
+     *  this introduces no new account-enumeration surface. */
+    private ApiResponse<Void> requestDeletion(String email, String password, String purpose) {
+        String normalized = email.trim().toLowerCase();
+        if (userRepository.findByEmail(normalized).isEmpty()
+                || !keycloakService.verifyPassword(normalized, password)) {
+            return ApiResponse.error("Invalid email or password");
+        }
+        emailCodeService.issue(normalized, purpose);
+        return ApiResponse.ok(null);
+    }
+
+    /** Verify the emailed code and, on success, look up the user and run
+     *  {@code action} on them. Shared by the account- and data-deletion confirm
+     *  endpoints. */
+    private ApiResponse<Void> withVerifiedUser(
+            String email, String code, String purpose, Consumer<User> action) {
+        String normalized = email.trim().toLowerCase();
+        if (!emailCodeService.verify(normalized, purpose, code)) {
+            return ApiResponse.error("Invalid or expired code. Please try again.");
+        }
+        var user = userRepository.findByEmail(normalized);
+        if (user.isEmpty()) {
+            return ApiResponse.error("Account not found");
+        }
+        action.accept(user.get());
+        return ApiResponse.ok(null);
+    }
+
+    public ApiResponse<Void> requestAccountDeletion(String email, String password) {
+        return requestDeletion(email, password, EmailCode.PURPOSE_DELETE_ACCOUNT);
+    }
+
+    public ApiResponse<Void> requestDataDeletion(String email, String password) {
+        return requestDeletion(email, password, EmailCode.PURPOSE_DELETE_DATA);
+    }
+
+    /** Confirm the code and permanently delete the account and all its data. */
+    @Transactional
+    public ApiResponse<Void> confirmAccountDeletion(String email, String code) {
+        return withVerifiedUser(email, code, EmailCode.PURPOSE_DELETE_ACCOUNT,
+            user -> gdprService.deleteAccount(user.id));
+    }
+
+    /** Confirm the code and erase the user's content data, keeping the account
+     *  and login active. */
+    @Transactional
+    public ApiResponse<Void> confirmDataDeletion(String email, String code) {
+        return withVerifiedUser(email, code, EmailCode.PURPOSE_DELETE_DATA,
+            user -> gdprService.clearUserData(user.id));
     }
 
     // ── Helpers ───────────────────────────────────────────────────

@@ -70,6 +70,19 @@ public final class AuthDtos {
         String newPassword
     ) {}
 
+    // ── Public account/data deletion (no login required) ───────────
+
+    public record DeleteRequestRequest(
+        @NotBlank @Email String email,
+        @NotBlank String password
+    ) {}
+
+    public record DeleteConfirmRequest(
+        @NotBlank @Email String email,
+        @NotBlank @Pattern(regexp = "^[0-9]{6}$", message = "Code must be 6 digits")
+        String code
+    ) {}
+
     // ── Profile management ────────────────────────────────────────
 
     public record UpdateProfileRequest(

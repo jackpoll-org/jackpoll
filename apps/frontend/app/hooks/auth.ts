@@ -15,6 +15,10 @@ import {
   resendVerificationApi,
   forgotPasswordApi,
   resetPasswordApi,
+  requestAccountDeletionApi,
+  confirmAccountDeletionApi,
+  requestDataDeletionApi,
+  confirmDataDeletionApi,
 } from "@/app/lib/auth/api";
 import { authKeys, AUTH_STORAGE_KEY } from "@/app/lib/auth/constants";
 import {
@@ -280,5 +284,35 @@ export function useForgotPassword() {
 export function useResetPassword() {
   return useMutation({
     mutationFn: (data: ResetPasswordRequest) => resetPasswordApi(data),
+  });
+}
+
+// ── Public account/data deletion (no login required) ───────────────
+
+export function useRequestAccountDeletion() {
+  return useMutation({
+    mutationFn: (data: { email: string; password: string }) =>
+      requestAccountDeletionApi(data.email, data.password),
+  });
+}
+
+export function useConfirmAccountDeletion() {
+  return useMutation({
+    mutationFn: (data: { email: string; code: string }) =>
+      confirmAccountDeletionApi(data.email, data.code),
+  });
+}
+
+export function useRequestDataDeletion() {
+  return useMutation({
+    mutationFn: (data: { email: string; password: string }) =>
+      requestDataDeletionApi(data.email, data.password),
+  });
+}
+
+export function useConfirmDataDeletion() {
+  return useMutation({
+    mutationFn: (data: { email: string; code: string }) =>
+      confirmDataDeletionApi(data.email, data.code),
   });
 }

@@ -41,4 +41,8 @@ export const AUTH_ENDPOINTS = {
   resendVerification: "/auth/resend-verification",
   forgotPassword: "/auth/forgot-password",
   resetPassword: "/auth/reset-password",
+  deleteAccountRequest: "/auth/delete-account/request",
+  deleteAccountConfirm: "/auth/delete-account/confirm",
+  deleteDataRequest: "/auth/delete-data/request",
+  deleteDataConfirm: "/auth/delete-data/confirm",
 } as const;

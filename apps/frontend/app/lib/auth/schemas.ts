@@ -83,6 +83,25 @@ export function resetPasswordSchema(t: TranslateFn) {
     });
 }
 
+/** Email + password, shared by the public "delete account" and "delete data"
+ *  flows (step 1: prove ownership before a code is emailed). */
+export function deleteRequestSchema(t: TranslateFn) {
+  return z.object({
+    email: z
+      .string()
+      .min(1, t("auth.validation.emailRequired"))
+      .email(t("auth.validation.emailInvalid")),
+    password: z.string().min(1, t("auth.validation.passwordRequired")),
+  });
+}
+
+/** 6-digit confirmation code, shared by the public deletion flows (step 2). */
+export function deleteConfirmSchema(t: TranslateFn) {
+  return z.object({
+    code: codeRule(t),
+  });
+}
+
 // ── Inferred types ────────────────────────────────────────────────
 
 export type LoginFormData = z.infer<ReturnType<typeof loginSchema>>;
@@ -90,3 +109,5 @@ export type RegisterFormData = z.infer<ReturnType<typeof registerSchema>>;
 export type ForgotPasswordFormData = z.infer<ReturnType<typeof forgotPasswordSchema>>;
 export type ResetPasswordFormData = z.infer<ReturnType<typeof resetPasswordSchema>>;
 export type VerifyEmailFormData = z.infer<ReturnType<typeof verifyEmailSchema>>;
+export type DeleteRequestFormData = z.infer<ReturnType<typeof deleteRequestSchema>>;
+export type DeleteConfirmFormData = z.infer<ReturnType<typeof deleteConfirmSchema>>;
