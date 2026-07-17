@@ -49,13 +49,13 @@ public class ShareLinkService {
 
     @Transactional
     public ShareLinkDto get(String ownerId, String surveyId) {
-        surveyService.requireOwner(ownerId, surveyId);
+        surveyService.requireEditable(ownerId, surveyId);
         return toDto(getOrCreate(surveyId));
     }
 
     @Transactional
     public ShareLinkDto rotate(String ownerId, String surveyId) {
-        surveyService.requireOwner(ownerId, surveyId);
+        surveyService.requireEditable(ownerId, surveyId);
         var link = getOrCreate(surveyId);
         link.slug = uniqueSlug();
         return toDto(link);
@@ -63,7 +63,7 @@ public class ShareLinkService {
 
     @Transactional
     public ShareLinkDto update(String ownerId, String surveyId, UpdateShareLinkRequest req) {
-        surveyService.requireOwner(ownerId, surveyId);
+        surveyService.requireEditable(ownerId, surveyId);
         var link = getOrCreate(surveyId);
         link.expiresAt = req.expiresAt();
         link.maxResponses = req.maxResponses();

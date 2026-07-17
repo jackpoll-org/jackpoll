@@ -3,8 +3,37 @@ import type {
   LogicRule,
   Question,
   Section,
+  Survey,
 } from "@/app/types/survey";
 import type { AnswerValue } from "./validation";
+
+/**
+ * Flatten a survey's questions into the order a respondent actually answers
+ * them: the ungrouped first page, then each section by its `order`, and within
+ * every page the questions in their stored array order. This mirrors how
+ * `buildPages` lays out the survey, so it is the correct basis for "which
+ * questions come before this one".
+ */
+export function orderedQuestions(survey: Survey): Question[] {
+  const sections = (survey.sections ?? []).toSorted((a, b) => a.order - b.order);
+  const inSection = (id: string | null) =>
+    survey.questions.filter((q) => (q.sectionId ?? null) === id);
+  return [inSection(null), ...sections.map((s) => inSection(s.id))].flat();
+}
+
+/**
+ * Questions that precede `questionId` in answer-flow order — the only ones a
+ * conditional rule may reference. Spans earlier pages, not just the current
+ * one, and excludes the question itself and anything after it.
+ */
+export function getPrecedingQuestions(
+  survey: Survey,
+  questionId: string,
+): Question[] {
+  const ordered = orderedQuestions(survey);
+  const index = ordered.findIndex((q) => q.id === questionId);
+  return index <= 0 ? [] : ordered.slice(0, index);
+}
 
 /** Read the conditional-logic rule stored in a question's settings JSON. */
 export function getLogicRule(question: Question): LogicRule | null {

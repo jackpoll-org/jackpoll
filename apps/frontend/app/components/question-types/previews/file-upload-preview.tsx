@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, UploadCloud, X } from "lucide-react";
+import { Camera, File as FileIcon, UploadCloud, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/app/components/ui/spinner";
 import { uploadFileApi, uploadFileUrl } from "@/app/lib/survey/api";
@@ -11,8 +11,27 @@ import type { UploadedFile } from "@/app/types/survey";
 import type { QuestionPreviewProps } from "../types";
 import { useTranslation } from "@/app/i18n/context";
 
-const ALLOWED = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const ALLOWED = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/csv",
+];
 const ALLOWED_SET = new Set(ALLOWED);
+const IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+]);
 
 /** Preview / answer renderer for file-upload questions (images via MinIO). */
 export function FileUploadPreview({
@@ -158,14 +177,28 @@ export function FileUploadPreview({
               key={file.key}
               className="group relative aspect-square overflow-hidden rounded-md border"
             >
-              <Image
-                src={uploadFileUrl(file.key)}
-                alt={file.filename}
-                fill
-                unoptimized
-                sizes="120px"
-                className="object-cover"
-              />
+              {IMAGE_TYPES.has(file.contentType) ? (
+                <Image
+                  src={uploadFileUrl(file.key)}
+                  alt={file.filename}
+                  fill
+                  unoptimized
+                  sizes="120px"
+                  className="object-cover"
+                />
+              ) : (
+                <a
+                  href={uploadFileUrl(file.key)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-full flex-col items-center justify-center gap-1 bg-muted p-2 text-center"
+                >
+                  <FileIcon className="size-6 text-muted-foreground" />
+                  <span className="line-clamp-2 break-all text-xs text-muted-foreground">
+                    {file.filename}
+                  </span>
+                </a>
+              )}
               <button
                 type="button"
                 aria-label={t("qprev.file.removeFile", { name: file.filename })}

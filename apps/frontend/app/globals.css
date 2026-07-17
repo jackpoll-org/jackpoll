@@ -50,6 +50,15 @@
   --chart-3: var(--base-800);
   --chart-4: var(--base-400);
   --chart-5: var(--base-300);
+  /* Overflow slots (#): brand-neutral distinct hues shared by every theme
+     preset, so a chart with more than 5 categories still reads as distinct
+     colors instead of repeating. Presets only define chart-1..5 (their brand
+     tints); these fall through from :root/.dark unchanged. */
+  --chart-6: oklch(0.72 0.19 145);
+  --chart-7: oklch(0.75 0.17 70);
+  --chart-8: oklch(0.62 0.2 320);
+  --chart-9: oklch(0.7 0.15 195);
+  --chart-10: oklch(0.65 0.22 25);
   --radius: 0.5rem;
   --sidebar: var(--base-100);
   --sidebar-foreground: var(--base-500);
@@ -85,6 +94,11 @@
   --chart-3: var(--base-200);
   --chart-4: var(--base-600);
   --chart-5: var(--base-700);
+  --chart-6: oklch(0.78 0.17 145);
+  --chart-7: oklch(0.8 0.15 70);
+  --chart-8: oklch(0.72 0.18 320);
+  --chart-9: oklch(0.78 0.13 195);
+  --chart-10: oklch(0.74 0.19 25);
   --sidebar: var(--base-900);
   --sidebar-foreground: var(--base-200);
   --sidebar-primary: var(--base-50);
@@ -119,6 +133,54 @@
 
 @media (prefers-reduced-motion: reduce) {
   .wordcloud-pop {
+    animation: none;
+  }
+}
+
+/* Live quiz 3-2-1-Go countdown: each digit pops in on its own key-remount. */
+@keyframes countdown-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.countdown-pop {
+  animation: countdown-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Live quiz answer tile reveal (check mark + response count), a smaller-amplitude
+   variant of countdown-pop sized for an inline icon rather than a huge digit. */
+@keyframes tile-reveal-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.tile-reveal-pop {
+  animation: tile-reveal-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .countdown-pop,
+  .tile-reveal-pop {
     animation: none;
   }
 }
@@ -160,6 +222,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
   /* Sidebar shares the main surface colors so it blends with the page
      background ("same black as the rest"). Kept in sync with themes.css. */
   --color-sidebar: var(--background);

@@ -8,10 +8,7 @@ android {
         applicationId "de.quavon.jackpoll"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Play requires a strictly increasing versionCode per upload. CI sets
-        // ANDROID_VERSION_CODE (from the GitHub Actions run number); local/dev
-        // builds fall back to 1.
-        versionCode (System.getenv("ANDROID_VERSION_CODE") ? System.getenv("ANDROID_VERSION_CODE").toInteger() : 1)
+        versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

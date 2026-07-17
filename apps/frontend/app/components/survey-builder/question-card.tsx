@@ -24,7 +24,7 @@ import { Separator } from "@/app/components/ui/separator";
 import { Badge } from "@/app/components/ui/badge";
 import type { Question } from "@/app/types/survey";
 import { getQuestionTypeDefinition } from "@/app/components/question-types/registry";
-import { hasLogic } from "@/app/lib/survey/logic";
+import { getPrecedingQuestions, hasLogic } from "@/app/lib/survey/logic";
 import { useBuilder } from "./builder-context";
 import { useTranslation } from "@/app/i18n/context";
 import { CollabTextInput } from "./collab-text-input";
@@ -62,7 +62,10 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
   const peer = peers[0];
   const def = getQuestionTypeDefinition(question.type);
   const { Editor, icon: Icon } = def;
-  const precedingQuestions = survey.questions.slice(0, index);
+  // Conditional logic may reference any question the respondent answers before
+  // this one — earlier pages included — not just the current page's array
+  // prefix. `index` is page-local, so slicing the flat list with it was wrong.
+  const precedingQuestions = getPrecedingQuestions(survey, question.id);
 
   const {
     attributes,

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
 import { useResolveAccessCode } from "@/app/hooks/survey";
 import { Button } from "@/app/components/ui/button";
@@ -56,9 +58,23 @@ export default function JoinPage() {
     return (
       <div className="min-h-svh bg-background px-4 py-8" style={surveyBackgroundStyle(survey)}>
         <div className="mx-auto w-full max-w-2xl">
-          <div className="mb-4 flex justify-end gap-1">
-            <RespondentThemeToggle />
-            <LanguageSwitcher withIcon />
+          <div className="mb-4 flex items-center justify-between gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSurvey(null);
+                setCode("");
+                setError(null);
+              }}
+            >
+              <ArrowLeft className="size-4" />
+              {t("common.back")}
+            </Button>
+            <div className="flex gap-1">
+              <RespondentThemeToggle />
+              <LanguageSwitcher withIcon />
+            </div>
           </div>
           <SurveyPlayer survey={survey} analytics />
         </div>
@@ -67,7 +83,14 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center px-4">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-4 px-4">
+      <Link
+        href="/surveys"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        {t("nav.backToSurveys")}
+      </Link>
       <Card className="w-full max-w-sm">
         <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle>{t("join.title")}</CardTitle>

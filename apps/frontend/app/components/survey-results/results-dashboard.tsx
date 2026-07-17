@@ -43,7 +43,8 @@ import { downloadXlsxApi } from "@/app/lib/survey/api";
 import { exportResultsPdf } from "@/app/lib/survey/pdf-export";
 import type { QuizStats } from "@/app/types/survey";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
-import { QuestionResultCard } from "./question-result-card";
+import { QuestionResultCard, type ChartType } from "./question-result-card";
+import { ChartColorsDialog } from "./chart-colors-dialog";
 import { ResultBarChart } from "./result-charts";
 import { ResponsesPanel } from "./responses-panel";
 import { AnalyticsPanel } from "./analytics-panel";
@@ -112,6 +113,9 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
   const responses = useResponses(surveyId);
   const deletePreview = useDeletePreviewResponses(surveyId);
   const [exporting, setExporting] = useState(false);
+  // Mirrors each question's on-screen chart-type selection so the PDF export
+  // matches what's currently displayed instead of always drawing bars (#).
+  const [chartTypes, setChartTypes] = useState<Record<string, ChartType>>({});
 
   async function handleDeletePreview() {
     try {
@@ -180,6 +184,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
         survey: survey.data,
         results: results.data,
         avgDurationMs,
+        chartTypes,
       });
       toast.success(t("results.export.pdfReady"), { id: toastId });
     } catch (err) {
@@ -250,6 +255,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
             <RefreshCw className="size-4" />
             {t("results.refresh")}
           </Button>
+          {survey.data && <ChartColorsDialog survey={survey.data} />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" disabled={!responses.data?.length || exporting}>
@@ -338,6 +344,12 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
                   key={result.questionId}
                   result={result}
                   question={questionById.get(result.questionId)}
+                  colors={survey.data?.settings.colorPalette}
+                  onChartTypeChange={(id, t) =>
+                    setChartTypes((prev) =>
+                      prev[id] === t ? prev : { ...prev, [id]: t },
+                    )
+                  }
                 />
               ))}
             </div>

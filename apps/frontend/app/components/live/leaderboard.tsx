@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { useResponses } from "@/app/hooks/survey";
+import { prefersReducedMotion } from "@/app/lib/survey/a11y";
 import { useTranslation } from "@/app/i18n/context";
 
 /**
@@ -22,6 +24,7 @@ export function Leaderboard({
 }) {
   const { t } = useTranslation();
   const responses = useResponses(surveyId);
+  const reduced = prefersReducedMotion();
 
   const board = useMemo(() => {
     const totals = new Map<string, number>();
@@ -51,22 +54,31 @@ export function Leaderboard({
           </p>
         ) : (
           <ol className="grid gap-2">
-            {board.map((entry, i) => (
-              <li
-                key={entry.name}
-                className="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="w-6 text-center text-sm font-bold tabular-nums text-muted-foreground">
-                    {i + 1}
+            <AnimatePresence initial={false}>
+              {board.map((entry, i) => (
+                <motion.li
+                  layout
+                  key={entry.name}
+                  initial={reduced ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={
+                    reduced ? { duration: 0 } : { type: "spring", stiffness: 400, damping: 30 }
+                  }
+                  className="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="w-6 text-center text-sm font-bold tabular-nums text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <span className="truncate font-medium">{entry.name}</span>
                   </span>
-                  <span className="truncate font-medium">{entry.name}</span>
-                </span>
-                <Badge variant="secondary" className="tabular-nums">
-                  {entry.score}
-                </Badge>
-              </li>
-            ))}
+                  <Badge variant="secondary" className="tabular-nums">
+                    {entry.score}
+                  </Badge>
+                </motion.li>
+              ))}
+            </AnimatePresence>
           </ol>
         )}
       </CardContent>

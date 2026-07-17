@@ -2,22 +2,30 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 import { Check, Loader2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Spinner } from "@/app/components/ui/spinner";
+import { CountUp, useAnimatedNumber } from "./count-up";
+import { CountdownOverlay } from "./countdown-overlay";
 import { Leaderboard } from "./leaderboard";
+import { TimerRing } from "./timer-ring";
 import { answerTile } from "@/app/lib/live/answer-tiles";
-import { playCorrect, playWrong } from "@/app/lib/live/sound";
+import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
+import { playCorrect, playTick, playWrong } from "@/app/lib/live/sound";
 import { getQuestionTypeDefinition } from "@/app/components/question-types/registry";
-import { useCountdown, useJoinLive, useLivePresence } from "@/app/hooks/live";
+import { useCountdown, useCountdownFraction, useJoinLive, useLivePresence } from "@/app/hooks/live";
 import type { LivePhase } from "@/app/lib/live/messages";
 import { useBeginToken, useSubmitResponse } from "@/app/hooks/survey";
+import { altchaChallengeUrl } from "@/app/lib/survey/api";
+import { prefersReducedMotion } from "@/app/lib/survey/a11y";
 import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
+import { AltchaWidget } from "@/app/components/survey-player/altcha-widget";
 
 // Big tap-to-answer buttons for single-choice questions (quiz feel, #97).
 const BIG_CHOICE_TYPES = new Set<Question["type"]>(["multiple-choice", "dropdown"]);
@@ -59,6 +67,12 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   const joinLive = useJoinLive(survey.id);
   // Begin token satisfies a survey's minimum-submit-time check (not single-use).
   const beginToken = useBeginToken(survey.id, true).data;
+  // Solved once, right after joining (like a Cloudflare-style gate) rather
+  // than per-answer — every per-question `send()` reuses this same token,
+  // since the backend re-verifies it cryptographically instead of consuming
+  // it (#). Without this, live/instant answers used to 400 with no captcha.
+  const requireCaptcha = !!survey.settings.requireCaptcha;
+  const [captcha, setCaptcha] = useState<string | null>(null);
 
   // Announce presence to the presenter's lobby, then keep re-announcing every
   // few seconds while waiting — so a player who joined before the presenter
@@ -73,25 +87,55 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   }, [joined, phase]);
 
   // Per-question timer (live quiz only). 0 = no timer.
-  const seconds = isQuiz ? survey.settings.liveQuestionSeconds ?? 0 : 0;
+  // A never-configured timer (null/undefined) defaults to a working timer
+  // rather than silently disappearing; an explicit 0 (host opted out) stays 0.
+  const seconds = isQuiz ? survey.settings.liveQuestionSeconds ?? QUIZ_GAME_DEFAULT_SECONDS : 0;
   const remaining = useCountdown(startedAt, seconds);
+  const timerFraction = useCountdownFraction(startedAt, seconds);
   const expired = remaining === 0;
+  // Called unconditionally (rules of hooks) even though only the reveal
+  // screen below renders it, so the running total counts up smoothly.
+  const displayTotal = useAnimatedNumber(total);
 
   useLivePresence(survey.id, true, (state) => {
-    setPhase(state.phase);
     setIndex((prev) => {
       if (prev !== state.index) {
         setValue(undefined);
         setAnsweredIndex(null);
         setLastScore(null);
-        setStartedAt(Date.now());
+        // Timer starts once the real "question" phase arrives, not on index
+        // change — the countdown (if any) plays first with no timer running.
+        setStartedAt(null);
       }
       return state.index;
+    });
+    setPhase((prevPhase) => {
+      if (state.phase === "question" && prevPhase !== "question") {
+        setStartedAt(Date.now());
+      }
+      return state.phase;
     });
   });
 
   const question = index != null ? questions[index] : undefined;
   const answered = answeredIndex === index;
+
+  // Countdown tick in the last 3 seconds, mirroring the host's cue.
+  useEffect(() => {
+    if (isQuiz && phase === "question" && !answered && remaining != null && remaining > 0 && remaining <= 3) {
+      playTick();
+    }
+  }, [remaining, isQuiz, phase, answered]);
+
+  // Rendered on the earliest screens (name entry / lobby / waiting-to-start)
+  // so it's solved before the first question ever arrives; disappears once
+  // verified instead of lingering on every screen.
+  const captchaGate = requireCaptcha && !captcha ? (
+    <AltchaWidget
+      challengeUrl={altchaChallengeUrl(survey.id)}
+      onVerified={setCaptcha}
+    />
+  ) : null;
 
   // Chime only when the presenter reveals, matching the on-screen reveal (and
   // never leaking correctness early).
@@ -110,12 +154,17 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
       toast.error(error);
       return;
     }
+    if (requireCaptcha && !captcha) {
+      toast.error(t("spam.captchaRequired"));
+      return;
+    }
     try {
       const res = await submit.mutateAsync({
         answers: [{ questionId: question.id, value: answer }],
         respondentName: isQuiz && name.trim() ? name.trim() : undefined,
         durationMs: elapsedSince(startedAt),
         beginToken: beginToken ?? undefined,
+        captcha: requireCaptcha ? (captcha ?? undefined) : undefined,
       });
       const gained = res.score ?? 0;
       setLastScore(gained);
@@ -146,6 +195,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
               autoFocus
             />
           </div>
+          {captchaGate}
           <Button
             disabled={!name.trim()}
             onClick={() => {
@@ -169,6 +219,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
         <Check className="size-10 text-green-600" />
         <p className="text-lg font-semibold">{t("live.youreIn", { name })}</p>
         <p className="text-sm text-muted-foreground">{t("live.waitingHost")}</p>
+        {captchaGate}
       </div>
     );
   }
@@ -194,6 +245,17 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
       <div className="flex min-h-[60svh] flex-col items-center justify-center gap-3 text-center">
         <Spinner className="size-6 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t("live.waitingStart")}</p>
+        {captchaGate}
+      </div>
+    );
+  }
+
+  // Same synced 3-2-1-Go the presenter shows, decorative here — the real
+  // per-question timer only starts once the "question" phase actually arrives.
+  if (isQuiz && phase === "countdown") {
+    return (
+      <div className="relative flex min-h-[60svh] flex-col items-center justify-center">
+        <CountdownOverlay active questionKey={index} />
       </div>
     );
   }
@@ -223,13 +285,25 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
               <>
                 <Check className="size-12 text-green-600" />
                 <p className="text-lg font-bold">{t("live.correct")}</p>
-                <p className="text-2xl font-black tabular-nums text-green-600">
-                  +{lastScore}
+                <p className="flex items-baseline text-2xl font-black tabular-nums text-green-600">
+                  +<CountUp value={lastScore ?? 0} />
                 </p>
                 {streak > 1 && (
-                  <p className="text-sm font-medium text-amber-500">
+                  <motion.p
+                    key={streak}
+                    initial={
+                      prefersReducedMotion() ? false : { opacity: 0, scale: 0.5, y: -6 }
+                    }
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={
+                      prefersReducedMotion()
+                        ? { duration: 0 }
+                        : { type: "spring", stiffness: 300, damping: 20 }
+                    }
+                    className="text-sm font-medium text-amber-500"
+                  >
                     {t("live.streak", { count: String(streak) })}
-                  </p>
+                  </motion.p>
                 )}
               </>
             ) : (
@@ -239,7 +313,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
               </>
             )}
             <p className="text-sm text-muted-foreground tabular-nums">
-              {t("live.totalPoints", { total: String(total) })}
+              {t("live.totalPoints", { total: String(displayTotal) })}
             </p>
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="size-3 animate-spin" />
@@ -285,15 +359,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
           <CardTitle className="text-lg font-semibold">
             {question.title || t("player.untitledQuestion")}
           </CardTitle>
-          {remaining != null && (
-            <span
-              className={`shrink-0 rounded-full border px-3 py-1 text-sm font-bold tabular-nums ${
-                remaining <= 5 ? "border-destructive text-destructive" : ""
-              }`}
-            >
-              {remaining}s
-            </span>
-          )}
+          <TimerRing remaining={remaining} fraction={timerFraction} />
         </div>
         {question.description && (
           <p className="text-sm text-muted-foreground">{question.description}</p>
@@ -317,7 +383,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
                   aria-label={opt.label}
                   disabled={submit.isPending}
                   onClick={() => send(opt.id)}
-                  className={`flex min-h-28 items-center justify-center rounded-xl text-white transition-colors disabled:opacity-60 ${tile.color}`}
+                  className={`flex min-h-28 items-center justify-center rounded-xl text-white transition-[color,background-color,transform] duration-150 active:scale-95 disabled:opacity-60 ${tile.color}`}
                 >
                   <tile.Shape className="size-12" strokeWidth={2.5} aria-hidden />
                 </button>

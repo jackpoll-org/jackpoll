@@ -48,6 +48,14 @@ export function ShareLinkCard({ surveyId, origin, isPublished }: ShareLinkCardPr
     return <Spinner className="size-5" />;
   }
 
+  if (link.isError) {
+    return (
+      <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        {link.error instanceof Error ? link.error.message : t("share.link.loadError")}
+      </p>
+    );
+  }
+
   const data = link.data;
   if (!data) return null;
 

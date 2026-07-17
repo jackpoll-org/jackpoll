@@ -50,6 +50,7 @@ public final class SurveyDtos {
         Map<String, Object> settings,
         Integer points,
         List<String> correctAnswers,
+        Boolean caseSensitiveAnswers,
         Boolean showInLiveResults,
         // Multi-page surveys (issue #28) — owning section, null for flat surveys.
         String sectionId
@@ -124,7 +125,9 @@ public final class SurveyDtos {
         Integer liveQuestionSeconds,
         // First-page heading (issue #94 follow-up)
         String firstPageTitle,
-        String firstPageDescription
+        String firstPageDescription,
+        // Custom chart color palette (#); null = theme default.
+        java.util.List<String> colorPalette
     ) {}
 
     // ── Requests ──────────────────────────────────────────────────

@@ -8,6 +8,11 @@ const CLOUD_COLORS = [
   "var(--chart-3)",
   "var(--chart-4)",
   "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
+  "var(--chart-9)",
+  "var(--chart-10)",
 ];
 
 // d3-cloud measures each word on a canvas to lay them out without overlap. The
@@ -35,6 +40,9 @@ interface WordcloudCloudProps {
   maxFontSize?: number;
   /** Smallest font size (px) used for a single-vote word. */
   minFontSize?: number;
+  /** Owner-configured palette override (survey settings); falls back to the
+   *  theme's chart colors when unset or empty. */
+  colors?: string[] | null;
 }
 
 /**
@@ -49,7 +57,9 @@ export function WordcloudCloud({
   height,
   maxFontSize = 80,
   minFontSize = 22,
+  colors,
 }: WordcloudCloudProps) {
+  const palette = colors && colors.length > 0 ? colors : CLOUD_COLORS;
   // Absolute scale: a single vote starts a bit above the floor, each extra vote
   // adds a fixed step, capped at maxFontSize. So popularity reads clearly while
   // a 2× word stays only modestly larger than a 1× word.
@@ -90,7 +100,7 @@ export function WordcloudCloud({
                 dominantBaseline="central"
                 fontFamily={CLOUD_FONT}
                 fontSize={w.size}
-                fill={CLOUD_COLORS[i % CLOUD_COLORS.length]}
+                fill={palette[i % palette.length]}
                 style={{
                   userSelect: "none",
                   transformBox: "fill-box",

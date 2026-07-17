@@ -285,6 +285,10 @@ export function SurveyPlayer({
           setSubmitted(false);
           setResult(null);
           setQueuedOffline(false);
+          setAnswers({});
+          setErrors({});
+          setPage(0);
+          clearLocalDraft(survey.id);
         }}
       />
     );
@@ -340,9 +344,16 @@ export function SurveyPlayer({
   // rather than batched into the survey submit. We omit clientId so the
   // one-per-browser guard doesn't block later words, but DO send the begin token
   // — it's not single-use and satisfies a survey's minimum-submit-time check.
+  // The captcha token isn't consumed server-side either (SpamProtectionService
+  // re-verifies it cryptographically each call), so the same solved token is
+  // reused across every word in the page without asking the respondent again.
   async function submitWord(question: Question, value: AnswerValue) {
     const words = Array.isArray(value) ? value : [];
     if (words.length === 0) return;
+    if (requireCaptcha && !captcha) {
+      toast.error(t("spam.captchaRequired"));
+      return;
+    }
     if (analytics && !startedTracked.current) {
       startedTracked.current = true;
       trackEvent(survey.id, "start");
@@ -352,6 +363,7 @@ export function SurveyPlayer({
       answers: [{ questionId: question.id, value: words }],
       honeypot: analytics ? honeypot.current : undefined,
       beginToken: analytics ? (beginToken ?? undefined) : undefined,
+      captcha: requireCaptcha ? (captcha ?? undefined) : undefined,
       preview: preview || undefined,
     });
     if (analytics) trackEvent(survey.id, "submit");
@@ -598,6 +610,17 @@ export function SurveyPlayer({
         )}
       </div>
 
+      {/* Solved once, right at entry (like a Cloudflare-style gate), instead of
+          at final submit — the token isn't consumed server-side so the same
+          solve covers every submission, including instant ones (wordcloud
+          words) that used to hit a 400 with no captcha attached (#). */}
+      {requireCaptcha && !isEditing && currentPageIndex === 0 && (
+        <AltchaWidget
+          challengeUrl={altchaChallengeUrl(survey.id)}
+          onVerified={setCaptcha}
+        />
+      )}
+
       {requireName && currentPageIndex === 0 && (
         <div className="grid gap-1.5">
           <Label htmlFor="respondent-name">
@@ -741,18 +764,6 @@ export function SurveyPlayer({
           {privacyNotice && (
             <p className="whitespace-pre-wrap text-muted-foreground">{privacyNotice}</p>
           )}
-          <p className="text-xs text-muted-foreground">
-            {t("privacy.respondentInfo")}{" "}
-            <a
-              href="/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              {t("legal.privacy")}
-            </a>
-            .
-          </p>
           {requireConsent && (
             <label
               htmlFor="respondent-consent"
@@ -785,13 +796,6 @@ export function SurveyPlayer({
           />
           <p className="text-xs text-muted-foreground">{t("receipt.note")}</p>
         </div>
-      )}
-
-      {requireCaptcha && isLastPage && !isEditing && (
-        <AltchaWidget
-          challengeUrl={altchaChallengeUrl(survey.id)}
-          onVerified={setCaptcha}
-        />
       )}
 
       <div className="flex flex-wrap items-center gap-3">

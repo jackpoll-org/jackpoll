@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/app/components/ui/select";
 import { useBuilder } from "./builder-context";
+import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
 import { useTranslation } from "@/app/i18n/context";
 import { BrandingCard } from "./branding-card";
 import { ProtectionCard } from "./protection-card";
@@ -80,7 +81,16 @@ export function BuilderSettings() {
             onCheckedChange={(c) =>
               // Live mode drives everyone through questions together; it needs
               // live results on to show each question's answers as they arrive.
-              updateSettings({ liveMode: c, ...(c ? { showLiveResults: true } : {}) })
+              // If Quiz mode is already on, the seconds field below becomes
+              // visible right now — persist its shown default immediately
+              // instead of leaving it null until the user happens to edit it.
+              updateSettings({
+                liveMode: c,
+                ...(c ? { showLiveResults: true } : {}),
+                ...(c && settings.isQuiz && settings.liveQuestionSeconds == null
+                  ? { liveQuestionSeconds: QUIZ_GAME_DEFAULT_SECONDS }
+                  : {}),
+              })
             }
           />
           <Label htmlFor="live-mode" className="font-normal">
@@ -101,7 +111,7 @@ export function BuilderSettings() {
               type="number"
               min={0}
               max={300}
-              value={settings.liveQuestionSeconds ?? 20}
+              value={settings.liveQuestionSeconds ?? QUIZ_GAME_DEFAULT_SECONDS}
               onChange={(e) =>
                 updateSettings({
                   liveQuestionSeconds: Math.max(0, Math.min(300, Number(e.target.value) || 0)),
@@ -197,7 +207,17 @@ export function BuilderSettings() {
           <Switch
             id="is-quiz"
             checked={settings.isQuiz}
-            onCheckedChange={(c) => updateSettings({ isQuiz: c })}
+            onCheckedChange={(c) =>
+              // If Live mode is already on, the seconds field above becomes
+              // visible right now — persist its shown default immediately,
+              // same reasoning as the Live mode toggle above.
+              updateSettings({
+                isQuiz: c,
+                ...(c && settings.liveMode && settings.liveQuestionSeconds == null
+                  ? { liveQuestionSeconds: QUIZ_GAME_DEFAULT_SECONDS }
+                  : {}),
+              })
+            }
           />
           <Label htmlFor="is-quiz" className="font-normal">
             {t("builder.settings.quizToggle")}

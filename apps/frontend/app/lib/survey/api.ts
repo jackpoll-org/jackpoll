@@ -496,6 +496,20 @@ export async function setLiveStateApi(
   });
 }
 
+/**
+ * Presenter live mode: fetch the last broadcast index/phase (#). A resync
+ * fallback for a participant whose WebSocket may have silently missed a push
+ * — polled periodically by useLivePresence, not the primary delivery path.
+ * `null` data means the presenter hasn't broadcast anything yet.
+ */
+export async function getLiveStateApi(
+  surveyId: string,
+): Promise<ApiResponse<{ index: number; phase: string } | null>> {
+  return request<{ index: number; phase: string } | null>(
+    SURVEY_ENDPOINTS.liveState(surveyId),
+  );
+}
+
 /** Participant lobby check-in: announce a nickname so the presenter can list it. */
 export async function liveJoinApi(
   surveyId: string,

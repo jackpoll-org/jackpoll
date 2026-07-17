@@ -36,6 +36,16 @@ export function AccessCodeCard({ surveyId, isPublished }: AccessCodeCardProps) {
     return <Spinner className="size-5" />;
   }
 
+  if (accessCode.isError) {
+    return (
+      <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        {accessCode.error instanceof Error
+          ? accessCode.error.message
+          : t("share.link.loadError")}
+      </p>
+    );
+  }
+
   const data = accessCode.data;
   if (!data) return null;
 

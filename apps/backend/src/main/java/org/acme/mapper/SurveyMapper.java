@@ -99,7 +99,8 @@ public class SurveyMapper {
             s.liveMode,
             s.liveQuestionSeconds,
             s.firstPageTitle,
-            s.firstPageDescription
+            s.firstPageDescription,
+            s.colorPalette
         );
     }
 
@@ -117,6 +118,7 @@ public class SurveyMapper {
             q.settings,
             q.points,
             includeAnswers ? q.correctAnswers : null,
+            q.caseSensitiveAnswers,
             q.showInLiveResults,
             q.sectionId
         );
@@ -245,6 +247,7 @@ public class SurveyMapper {
         s.liveQuestionSeconds = d.liveQuestionSeconds();
         s.firstPageTitle = d.firstPageTitle();
         s.firstPageDescription = d.firstPageDescription();
+        s.colorPalette = d.colorPalette();
         return s;
     }
 
@@ -273,6 +276,7 @@ public class SurveyMapper {
         q.settings = d.settings();
         q.points = d.points();
         q.correctAnswers = d.correctAnswers();
+        q.caseSensitiveAnswers = d.caseSensitiveAnswers();
         q.showInLiveResults = d.showInLiveResults();
         q.sectionId = d.sectionId();
 

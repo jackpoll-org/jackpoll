@@ -26,8 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -44,8 +42,6 @@ jobs:
       # ── F-Droid flavor (FLOSS, no Google; unsigned — F-Droid re-signs) ──
       - name: Build F-Droid release APK
         working-directory: apps/frontend/android
-        env:
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew assembleFdroidRelease --no-daemon
       - name: Upload F-Droid APK
         uses: actions/upload-artifact@v4
@@ -76,7 +72,6 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew bundlePlayRelease --no-daemon
 
       - name: Upload Play AAB
@@ -87,7 +82,7 @@ jobs:
           path: apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab
           retention-days: 14
 
-      # ── Optional: publish to the Play Console (closed testing track) ──
+      # ── Optional: publish to the Play Console (internal track) ──
       # Needs secrets.PLAY_SERVICE_ACCOUNT_JSON (a Google Play service-account
       # JSON with "Release apps to testing tracks"). Uploads as a DRAFT so you
       # promote/publish manually in the console.
@@ -103,14 +98,14 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload to Play Console (closed testing, draft)
+      - name: Upload to Play Console (internal, draft)
         if: steps.keystore.outputs.skip == 'false' && steps.play.outputs.skip == 'false'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: de.quavon.jackpoll
           releaseFiles: apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab
-          track: alpha
+          track: internal
           status: draft
 
   ios:
@@ -119,8 +114,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

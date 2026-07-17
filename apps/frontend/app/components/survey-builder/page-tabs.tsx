@@ -62,8 +62,8 @@ export function PageTabs() {
   return (
     <Card>
       <CardContent className="grid gap-3 py-4">
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
             {pages.map((page) => (
               <button
                 key={page.id ?? "__page1__"}

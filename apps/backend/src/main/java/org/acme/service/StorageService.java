@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.acme.dto.UploadDtos.UploadResult;
@@ -31,13 +32,26 @@ import jakarta.ws.rs.NotFoundException;
 @ApplicationScoped
 public class StorageService {
 
-    /** Allowed image content types → file extension. */
-    private static final Map<String, String> ALLOWED_TYPES = Map.of(
-        "image/jpeg", "jpg",
-        "image/png", "png",
-        "image/gif", "gif",
-        "image/webp", "webp"
+    /** Allowed content types → file extension. */
+    private static final Map<String, String> ALLOWED_TYPES = Map.ofEntries(
+        Map.entry("image/jpeg", "jpg"),
+        Map.entry("image/png", "png"),
+        Map.entry("image/gif", "gif"),
+        Map.entry("image/webp", "webp"),
+        Map.entry("image/svg+xml", "svg"),
+        Map.entry("application/pdf", "pdf"),
+        Map.entry(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"),
+        Map.entry(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"),
+        Map.entry(
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx"),
+        Map.entry("text/plain", "txt"),
+        Map.entry("text/csv", "csv")
     );
+
+    /** Types with no magic-byte signature — trusted only after a text heuristic passes. */
+    private static final Set<String> TEXT_TYPES = Set.of("text/plain", "text/csv");
 
     @Inject
     MinioClient minio;
@@ -77,11 +91,28 @@ public class StorageService {
         byte[] bytes = readBounded(data);
 
         // Trust the bytes, not the client header (issue #43): the real type must
-        // be a supported image. This blocks renamed/MIME-spoofed uploads.
+        // match a supported format's signature. This blocks renamed/MIME-spoofed
+        // uploads. Plain text/CSV have no signature, so those fall back to a
+        // printable-text heuristic gated on the client-declared type.
         var detectedType = FileContentValidator.sniffImageType(bytes);
+        if (detectedType == null && FileContentValidator.isPdf(bytes)) {
+            detectedType = "application/pdf";
+        }
+        if (detectedType == null) {
+            detectedType = FileContentValidator.sniffOoxmlType(bytes);
+        }
+        if (detectedType == null && FileContentValidator.isSafeSvg(bytes)) {
+            detectedType = "image/svg+xml";
+        }
+        if (detectedType == null
+            && TEXT_TYPES.contains(contentType)
+            && FileContentValidator.looksLikeText(bytes)) {
+            detectedType = contentType;
+        }
         if (detectedType == null || !ALLOWED_TYPES.containsKey(detectedType)) {
             throw new InvalidUploadException(
-                "Unsupported or corrupt file. Allowed image types: JPG, PNG, GIF, WEBP.");
+                "Unsupported or corrupt file. Allowed: images (JPG, PNG, GIF, WEBP, SVG), "
+                    + "PDF, Word/Excel/PowerPoint, TXT, CSV.");
         }
 
         // Optional antivirus scan (issue #43) — throws on a detected threat.

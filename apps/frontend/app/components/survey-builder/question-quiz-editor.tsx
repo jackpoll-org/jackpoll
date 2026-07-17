@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -17,6 +18,47 @@ const SCORABLE = new Set<Question["type"]>([
   "slider",
   "rating",
 ]);
+
+/**
+ * Textarea for short-answer accepted answers, one per line. Keeps its own raw
+ * text state so a newline the user just typed isn't immediately stripped by
+ * the blank-line filter applied to the stored `correctAnswers` (that filter
+ * used to run on every keystroke and feed straight back into the controlled
+ * value, collapsing the newline before the user could start a second line).
+ */
+function AcceptedAnswersEditor({
+  correct,
+  setCorrect,
+  placeholder,
+  label,
+}: {
+  correct: string[];
+  setCorrect: (next: string[]) => void;
+  placeholder: string;
+  label: string;
+}) {
+  const [rawText, setRawText] = useState(() => correct.join("\n"));
+
+  return (
+    <div className="grid gap-1">
+      <Label className="text-xs">{label}</Label>
+      <Textarea
+        value={rawText}
+        onChange={(e) => {
+          const next = e.target.value;
+          setRawText(next);
+          setCorrect(
+            next.split("\n").flatMap((s) => {
+              const trimmed = s.trim();
+              return trimmed ? [trimmed] : [];
+            }),
+          );
+        }}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
 
 /** Quiz config for a question: points + correct answer(s) (issue #10). */
 export function QuestionQuizEditor({ question, onChange }: QuestionEditorProps) {
@@ -110,20 +152,29 @@ export function QuestionQuizEditor({ question, onChange }: QuestionEditorProps) 
 
     // short-answer
     return (
-      <div className="grid gap-1">
-        <Label className="text-xs">{t("builder.quiz.acceptedAnswers")}</Label>
-        <Textarea
-          value={correct.join("\n")}
-          onChange={(e) =>
-            setCorrect(
-              e.target.value.split("\n").flatMap((s) => {
-                const trimmed = s.trim();
-                return trimmed ? [trimmed] : [];
-              }),
-            )
-          }
+      <div className="grid gap-2">
+        <AcceptedAnswersEditor
+          key={question.id}
+          correct={correct}
+          setCorrect={setCorrect}
           placeholder={t("builder.quiz.acceptedPlaceholder")}
+          label={t("builder.quiz.acceptedAnswers")}
         />
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`case-sensitive-${question.id}`}
+            checked={question.caseSensitiveAnswers ?? false}
+            onCheckedChange={(c) =>
+              onChange({ caseSensitiveAnswers: c === true })
+            }
+          />
+          <Label
+            htmlFor={`case-sensitive-${question.id}`}
+            className="font-normal text-xs"
+          >
+            {t("builder.quiz.caseSensitive")}
+          </Label>
+        </div>
       </div>
     );
   }

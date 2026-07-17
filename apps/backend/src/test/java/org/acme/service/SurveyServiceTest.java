@@ -118,7 +118,7 @@ class SurveyServiceTest {
             null,
             List.of(new OptionDto(null, "Row 1", null, null), new OptionDto(null, "Row 2", null, null)),
             List.of(new OptionDto(null, "Col 1", null, null)),
-            null, null, null, null, null);
+            null, null, null, null, null, null);
         var req = new UpdateSurveyRequest("Updated", "d", SurveyStatus.PUBLISHED, null, List.of(grid), null, null, null, null);
 
         var dto = service.update(OWNER, "s1", req);

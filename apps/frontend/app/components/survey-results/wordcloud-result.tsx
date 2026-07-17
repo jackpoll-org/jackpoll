@@ -40,6 +40,8 @@ function toWords(optionCounts: Record<string, number> | null | undefined): Cloud
 
 interface WordcloudResultProps {
   result: QuestionResult;
+  /** Owner-configured palette override (survey settings). */
+  colors?: string[] | null;
 }
 
 /**
@@ -47,7 +49,7 @@ interface WordcloudResultProps {
  * with a fullscreen "present" mode for live audiences. The data refreshes live
  * via the results WebSocket (see hooks/results-live.ts) or polling fallback.
  */
-export function WordcloudResult({ result }: WordcloudResultProps) {
+export function WordcloudResult({ result, colors }: WordcloudResultProps) {
   const { t } = useTranslation();
   const { ref, width } = useElementWidth();
   const [presenting, setPresenting] = useState(false);
@@ -152,6 +154,7 @@ export function WordcloudResult({ result }: WordcloudResultProps) {
             width={width}
             height={presenting ? Math.max(height, 360) : height}
             maxFontSize={presenting ? 160 : 80}
+            colors={colors}
           />
         )}
       </div>

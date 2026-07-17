@@ -43,13 +43,13 @@ public class AccessCodeService {
 
     @Transactional
     public AccessCodeDto get(String ownerId, String surveyId) {
-        surveyService.requireOwner(ownerId, surveyId);
+        surveyService.requireEditable(ownerId, surveyId);
         return toDto(getOrCreate(surveyId));
     }
 
     @Transactional
     public AccessCodeDto rotate(String ownerId, String surveyId) {
-        surveyService.requireOwner(ownerId, surveyId);
+        surveyService.requireEditable(ownerId, surveyId);
         var entity = getOrCreate(surveyId);
         entity.code = uniqueCode();
         entity.lastRotatedAt = Instant.now();
@@ -58,7 +58,7 @@ public class AccessCodeService {
 
     @Transactional
     public AccessCodeDto setRequireCode(String ownerId, String surveyId, boolean requireCode) {
-        surveyService.requireOwner(ownerId, surveyId);
+        surveyService.requireEditable(ownerId, surveyId);
         var entity = getOrCreate(surveyId);
         entity.requireCode = requireCode;
         return toDto(entity);

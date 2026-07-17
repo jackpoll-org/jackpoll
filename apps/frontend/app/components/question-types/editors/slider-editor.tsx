@@ -55,9 +55,13 @@ export function SliderEditor({ question, onChange }: QuestionEditorProps) {
           <Input
             id={`${question.id}-step`}
             type="number"
-            min={1}
+            min={0}
+            step="any"
             value={cfg.step}
-            onChange={(e) => patch({ step: Number(e.target.value) || 1 })}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              patch({ step: next > 0 ? next : 1 });
+            }}
           />
         </div>
       </div>

@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { FileText, KeyRound, LayoutGrid, List, Search, X } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { FileText, LayoutGrid, List, Search, X } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -39,6 +37,7 @@ import {
   SelectValue,
 } from "@/app/components/ui/select";
 import { TemplatePickerDialog } from "./template-picker-dialog";
+import { JoinByCodeDialog } from "./join-by-code-dialog";
 import { SurveyCard } from "./survey-card";
 import { FolderBar } from "./folder-bar";
 import { FolderExplorer } from "./folder-explorer";
@@ -187,12 +186,7 @@ export function SurveyDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline">
-            <Link href="/join">
-              <KeyRound className="size-4" />
-              {t("dashboard.joinByCode")}
-            </Link>
-          </Button>
+          <JoinByCodeDialog />
           <TemplatePickerDialog autoOpen={autoCreate} customTemplates={customTemplates} />
         </div>
       </div>

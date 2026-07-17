@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -51,7 +52,25 @@ public class LiveResource {
         return Response.ok(ApiResponse.ok(null)).build();
     }
 
+    /**
+     * The presenter's last broadcast position, for a participant to poll as a
+     * resync fallback if it suspects it missed a push (e.g. after its
+     * WebSocket silently died and reconnected). Anonymous, exposes nothing
+     * privileged — the same index/phase every participant already receives
+     * over the socket.
+     */
+    @GET
+    @Path("/state")
+    @PermitAll
+    public Response getState(@PathParam("id") String id) {
+        var state = liveService.getState(id);
+        var dto = state == null ? null : new LiveStateDto(state.index(), state.phase());
+        return Response.ok(ApiResponse.ok(dto)).build();
+    }
+
     public record LiveStateRequest(int index, @Size(max = 32) String phase) {}
 
     public record JoinRequest(@Size(max = 100) String name) {}
+
+    public record LiveStateDto(int index, String phase) {}
 }

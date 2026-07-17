@@ -37,7 +37,7 @@ public class UploadResource {
 
     /** Only ever serve generated upload keys — blocks traversal / arbitrary reads. */
     private static final Pattern KEY = Pattern.compile(
-        "uploads/[A-Za-z0-9-]+\\.(?:jpg|png|gif|webp)");
+        "uploads/[A-Za-z0-9-]+\\.(?:jpg|png|gif|webp|svg|pdf|docx|xlsx|pptx|txt|csv)");
 
     @Inject
     StorageService storage;

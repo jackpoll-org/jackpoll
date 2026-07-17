@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   Card,
@@ -32,7 +32,7 @@ import {
 } from "./result-charts";
 import { WordcloudResult } from "./wordcloud-result";
 
-type ChartType = "bar" | "pie" | "donut" | "line";
+export type ChartType = "bar" | "pie" | "donut" | "line";
 const CHART_LABEL_KEY: Record<ChartType, TranslationKey> = {
   bar: "results.chart.bar",
   pie: "results.chart.pie",
@@ -40,18 +40,29 @@ const CHART_LABEL_KEY: Record<ChartType, TranslationKey> = {
   line: "results.chart.line",
 };
 
-/** A chart with a per-question type picker (issue #87). */
+/** A chart with a per-question type picker (issue #87). Reports the selected
+ *  type upward (via `onTypeChange`) so the PDF export can match it (#). */
 function SelectableChart({
   data,
   allowed,
   defaultType,
+  colors,
+  onTypeChange,
 }: {
   data: BarDatum[];
   allowed: ChartType[];
   defaultType: ChartType;
+  colors?: string[] | null;
+  onTypeChange?: (type: ChartType) => void;
 }) {
   const { t } = useTranslation();
   const [type, setType] = useState<ChartType>(defaultType);
+
+  useEffect(() => {
+    onTypeChange?.(type);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type]);
+
   return (
     <div className="grid gap-2">
       <div className="flex justify-end">
@@ -69,8 +80,8 @@ function SelectableChart({
         </Select>
       </div>
       {type === "bar" && <ResultBarChart data={data} />}
-      {type === "pie" && <ResultPieChart data={data} />}
-      {type === "donut" && <ResultPieChart data={data} donut />}
+      {type === "pie" && <ResultPieChart data={data} colors={colors} />}
+      {type === "donut" && <ResultPieChart data={data} donut colors={colors} />}
       {type === "line" && <ResultLineChart data={data} />}
     </div>
   );
@@ -79,6 +90,10 @@ function SelectableChart({
 interface QuestionResultCardProps {
   result: QuestionResult;
   question?: Question;
+  /** Owner-configured chart palette override (survey settings). */
+  colors?: string[] | null;
+  /** Reports the on-screen chart type selection so PDF export can match it (#). */
+  onChartTypeChange?: (questionId: string, type: ChartType) => void;
 }
 
 function EmptyState() {
@@ -118,7 +133,12 @@ function QuotaSummary({ question }: { question?: Question }) {
   );
 }
 
-export function QuestionResultCard({ result, question }: QuestionResultCardProps) {
+export function QuestionResultCard({
+  result,
+  question,
+  colors,
+  onChartTypeChange,
+}: QuestionResultCardProps) {
   const { t } = useTranslation();
   const labels = labelMap(question);
   const label = (id: string) => labels[id] ?? id;
@@ -142,6 +162,8 @@ export function QuestionResultCard({ result, question }: QuestionResultCardProps
               data={data}
               allowed={["bar", "pie", "donut"]}
               defaultType={single ? "pie" : "bar"}
+              colors={colors}
+              onTypeChange={(t) => onChartTypeChange?.(result.questionId, t)}
             />
             <QuotaSummary question={question} />
           </div>
@@ -157,7 +179,13 @@ export function QuestionResultCard({ result, question }: QuestionResultCardProps
         const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
         return (
           <div className="grid gap-3">
-            <SelectableChart data={data} allowed={["bar", "line"]} defaultType="bar" />
+            <SelectableChart
+              data={data}
+              allowed={["bar", "line"]}
+              defaultType="bar"
+              colors={colors}
+              onTypeChange={(t) => onChartTypeChange?.(result.questionId, t)}
+            />
             {result.average != null && (
               <div className="flex gap-4 text-sm">
                 <span>
@@ -184,7 +212,7 @@ export function QuestionResultCard({ result, question }: QuestionResultCardProps
         );
         const series = colIds.map((id) => ({ key: id, label: label(id) }));
         const data = rows.map((r) => ({ row: label(r.rowId), ...r.columnCounts }));
-        return <ResultStackedBarChart data={data} series={series} />;
+        return <ResultStackedBarChart data={data} series={series} colors={colors} />;
       }
 
       case "rating-grid": {
@@ -195,13 +223,13 @@ export function QuestionResultCard({ result, question }: QuestionResultCardProps
         ).toSorted((a, b) => Number(a) - Number(b));
         const series = colIds.map((id) => ({ key: id, label: id }));
         const data = rows.map((r) => ({ row: label(r.rowId), ...r.columnCounts }));
-        return <ResultStackedBarChart data={data} series={series} />;
+        return <ResultStackedBarChart data={data} series={series} colors={colors} />;
       }
 
       case "wordcloud":
         // optionCounts is a word → frequency map; render it as a live cloud
         // with a fullscreen presentation mode.
-        return <WordcloudResult result={result} />;
+        return <WordcloudResult result={result} colors={colors} />;
 
       case "short-answer": {
         // Group identical answers, treating case/whitespace as the same (#).

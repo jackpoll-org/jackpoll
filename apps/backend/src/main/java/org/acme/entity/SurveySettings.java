@@ -94,6 +94,9 @@ public class SurveySettings {
      *  more (#). 0 = no timer / no speed bonus. */
     public Integer liveQuestionSeconds;
 
+    /** Custom chart color palette (CSS colors, in cycle order); null = theme default. */
+    public java.util.List<String> colorPalette;
+
     public static SurveySettings defaults() {
         var s = new SurveySettings();
         s.allowMultipleResponses = false;

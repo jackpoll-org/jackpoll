@@ -22,6 +22,11 @@ const CHART_COLORS = [
   "var(--chart-3)",
   "var(--chart-4)",
   "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
+  "var(--chart-9)",
+  "var(--chart-10)",
 ];
 
 const tooltipStyle = {
@@ -58,10 +63,15 @@ export function ResultBarChart({ data }: { data: BarDatum[] }) {
 export function ResultPieChart({
   data,
   donut = false,
+  colors,
 }: {
   data: BarDatum[];
   donut?: boolean;
+  /** Owner-configured palette override (survey settings); falls back to the
+   *  theme's chart colors when unset or empty. */
+  colors?: string[] | null;
 }) {
+  const palette = colors && colors.length > 0 ? colors : CHART_COLORS;
   return (
     <ResponsiveContainer width="100%" height={Math.max(220, data.length * 28)}>
       <PieChart>
@@ -74,7 +84,7 @@ export function ResultPieChart({
           paddingAngle={donut ? 2 : 0}
         >
           {data.map((_, i) => (
-            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            <Cell key={i} fill={palette[i % palette.length]} />
           ))}
         </Pie>
         <Tooltip contentStyle={tooltipStyle} />
@@ -114,10 +124,15 @@ export interface StackedSeries {
 export function ResultStackedBarChart({
   data,
   series,
+  colors,
 }: {
   data: Array<Record<string, string | number>>;
   series: StackedSeries[];
+  /** Owner-configured palette override (survey settings); falls back to the
+   *  theme's chart colors when unset or empty. */
+  colors?: string[] | null;
 }) {
+  const palette = colors && colors.length > 0 ? colors : CHART_COLORS;
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 48)}>
       <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24 }}>
@@ -132,7 +147,7 @@ export function ResultStackedBarChart({
             dataKey={s.key}
             name={s.label}
             stackId="grid"
-            fill={CHART_COLORS[i % CHART_COLORS.length]}
+            fill={palette[i % palette.length]}
             radius={2}
           />
         ))}

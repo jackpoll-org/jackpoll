@@ -69,6 +69,10 @@ public class Question extends PanacheEntityBase {
     @Column(name = "correct_answers", columnDefinition = "jsonb")
     public List<String> correctAnswers;
 
+    /** Case-sensitive grading for short-answer quiz questions; null/false = case-insensitive. */
+    @Column(name = "case_sensitive_answers")
+    public Boolean caseSensitiveAnswers;
+
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("order ASC")
     public List<QuestionOption> options = new ArrayList<>();

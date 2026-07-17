@@ -6,15 +6,17 @@ import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/app/components/ui/button";
 import { QuestionResultCard } from "@/app/components/survey-results/question-result-card";
+import { CountdownOverlay } from "./countdown-overlay";
 import { Leaderboard } from "./leaderboard";
 import { LobbyView } from "./lobby-view";
 import { Podium } from "./podium";
+import { TimerRing } from "./timer-ring";
 import { answerTile } from "@/app/lib/live/answer-tiles";
-import { isQuizGame } from "@/app/lib/live/quiz-game";
+import { QUIZ_GAME_DEFAULT_SECONDS, isQuizGame } from "@/app/lib/live/quiz-game";
 import { playReveal, playTick } from "@/app/lib/live/sound";
 import { useSurvey, useSurveyResults } from "@/app/hooks/survey";
 import { useLiveResultsSocket } from "@/app/hooks/results-live";
-import { useCountdown, useLiveRoster, useSetLiveState } from "@/app/hooks/live";
+import { useCountdown, useCountdownFraction, useLiveRoster, useSetLiveState } from "@/app/hooks/live";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
 
@@ -67,7 +69,7 @@ function GameAnswerTiles({
           <div
             key={opt.id}
             className={cn(
-              "relative flex items-center gap-4 rounded-xl px-5 py-6 text-xl font-semibold text-white",
+              "relative flex items-center gap-4 rounded-xl px-5 py-6 text-xl font-semibold text-white transition-all duration-300 ease-out",
               tile.color.split(" ")[0],
               reveal && !isCorrect && "opacity-40",
               reveal && isCorrect && `ring-4 ring-offset-2 ${tile.ring}`,
@@ -75,10 +77,10 @@ function GameAnswerTiles({
           >
             <tile.Shape className="size-8 shrink-0" strokeWidth={2.5} aria-hidden />
             <span className="min-w-0 flex-1 break-words">{opt.label}</span>
-            {reveal && isCorrect && <Check className="size-7 shrink-0" />}
             {reveal && (
-              <span className="shrink-0 tabular-nums text-lg">
-                {counts[opt.id] ?? 0}
+              <span key={opt.id} className="tile-reveal-pop flex shrink-0 items-center gap-2">
+                {isCorrect && <Check className="size-7 shrink-0" />}
+                <span className="tabular-nums text-lg">{counts[opt.id] ?? 0}</span>
               </span>
             )}
           </div>
@@ -102,36 +104,52 @@ function PresenterInner({ survey }: { survey: Survey }) {
   // Per-question flow for a Quiz game: read the options → reveal the correct
   // answer → show a quick standings screen → advance.
   const [stage, setStage] = useState<"asking" | "reveal" | "standings">("asking");
-  // Brief 3-2-1 "get ready" shown over the tiles at the start of each question.
-  const [intro, setIntro] = useState(false);
+  // Synced 3-2-1-Go shown (on host + every phone) before a question opens; the
+  // real per-question timer only starts once this finishes (see handleCountdownComplete).
+  const [countdownActive, setCountdownActive] = useState(false);
   const results = useSurveyResults(survey.id);
   const roster = useLiveRoster(survey.id, game);
   useLiveResultsSocket(survey.id); // keep the shown result fresh in real time
   const live = useSetLiveState(survey.id);
   const inLobby = game && !started;
 
-  const seconds = survey.settings.isQuiz ? survey.settings.liveQuestionSeconds ?? 0 : 0;
+  // A never-configured timer (null/undefined) defaults to a working timer
+  // rather than silently disappearing; an explicit 0 (host opted out) stays 0.
+  const seconds = survey.settings.isQuiz
+    ? survey.settings.liveQuestionSeconds ?? QUIZ_GAME_DEFAULT_SECONDS
+    : 0;
   const remaining = useCountdown(startedAt, seconds);
+  const timerFraction = useCountdownFraction(startedAt, seconds);
   const go = (next: number) => {
     setIndex(next);
-    setStartedAt(Date.now()); // restart the countdown for the new question
     setStage("asking");
-    if (next < questions.length) setIntro(true);
+    if (game && next < questions.length) {
+      // Timer starts once the countdown completes, not now (handleCountdownComplete).
+      setCountdownActive(true);
+    } else {
+      setStartedAt(Date.now());
+    }
   };
 
-  // Clear the get-ready overlay shortly after a question opens.
-  useEffect(() => {
-    if (!intro) return;
-    const id = setTimeout(() => setIntro(false), 1600);
-    return () => clearTimeout(id);
-  }, [intro]);
+  const handleCountdownComplete = () => {
+    setStartedAt(Date.now()); // per-question timer starts now, not when go() was called
+    setCountdownActive(false);
+  };
 
-  // Countdown tick in the last 5 seconds, and a sting on reveal.
+  // Countdown tick in the last 3 seconds, and a sting on reveal.
   useEffect(() => {
-    if (game && started && stage === "asking" && !intro && remaining != null && remaining > 0 && remaining <= 5) {
+    if (
+      game &&
+      started &&
+      stage === "asking" &&
+      !countdownActive &&
+      remaining != null &&
+      remaining > 0 &&
+      remaining <= 3
+    ) {
       playTick();
     }
-  }, [remaining, game, started, stage, intro]);
+  }, [remaining, game, started, stage, countdownActive]);
   useEffect(() => {
     if (game && stage === "reveal") playReveal();
   }, [stage, game]);
@@ -140,9 +158,11 @@ function PresenterInner({ survey }: { survey: Survey }) {
   useEffect(() => {
     // Timer hit 0 → move from asking to the reveal; syncing UI stage to an
     // external countdown is exactly what an effect is for.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (game && started && stage === "asking" && remaining === 0) setStage("reveal");
-  }, [game, started, stage, remaining]);
+    if (game && started && stage === "asking" && !countdownActive && remaining === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStage("reveal");
+    }
+  }, [game, started, stage, countdownActive, remaining]);
 
   // Broadcast the current position + phase to participants on mount and each
   // move (lobby while waiting to start, then question/results).
@@ -156,14 +176,16 @@ function PresenterInner({ survey }: { survey: Survey }) {
         ? "lobby"
         : index >= questions.length
           ? "results"
-          : game && (stage === "reveal" || stage === "standings")
-            ? "reveal"
-            : "question";
+          : game && countdownActive
+            ? "countdown"
+            : game && (stage === "reveal" || stage === "standings")
+              ? "reveal"
+              : "question";
     liveRef.current.mutate({
       index: Math.min(Math.max(index, 0), questions.length - 1),
       phase,
     });
-  }, [index, started, game, stage, questions.length]);
+  }, [index, started, game, stage, questions.length, countdownActive]);
 
   if (questions.length === 0) {
     return (
@@ -208,7 +230,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
   const atStart = index === 0;
   const atLastQuestion = index === questions.length - 1;
   const showTimer =
-    !isResults && remaining != null && (!game || stage === "asking");
+    !isResults && !countdownActive && remaining != null && (!game || stage === "asking");
 
   // Advance: non-game jumps straight to the next question; a game walks through
   // asking → reveal → standings first.
@@ -248,15 +270,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
               })}
             </span>
           )}
-          {showTimer && (
-            <span
-              className={`rounded-full border px-3 py-1 text-sm font-bold tabular-nums ${
-                remaining! <= 5 ? "border-destructive text-destructive" : ""
-              }`}
-            >
-              {remaining}s
-            </span>
-          )}
+          {showTimer && <TimerRing remaining={remaining} fraction={timerFraction} />}
           {game && !isResults && stage === "asking" && result && (
             <span className="text-sm text-muted-foreground tabular-nums">
               {roster.length > 0
@@ -280,69 +294,79 @@ function PresenterInner({ survey }: { survey: Survey }) {
         {title}
       </h1>
 
-      {isResults ? (
-        <div className="mx-auto min-h-0 w-full max-w-2xl flex-1 overflow-y-auto">
-          {survey.settings.isQuiz ? (
-            <Podium surveyId={survey.id} />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-              <p>{t("live.ended")}</p>
-              <Button asChild variant="outline">
-                <Link href={`/surveys/${survey.id}/results`}>
-                  {t("live.viewFullResults")}
-                </Link>
-              </Button>
-            </div>
-          )}
-        </div>
-      ) : game && stage === "standings" ? (
-        <div className="mx-auto min-h-0 w-full max-w-xl flex-1 overflow-y-auto">
-          <Leaderboard surveyId={survey.id} limit={5} />
-        </div>
-      ) : game && (question.options?.length ?? 0) > 0 ? (
-        <div className="relative mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto">
-          <GameAnswerTiles
-            question={question}
-            result={result}
-            reveal={stage === "reveal"}
-          />
-          {intro && stage === "asking" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 backdrop-blur-sm">
-              <p className="text-lg font-medium text-muted-foreground">
-                {t("live.getReady")}
-              </p>
-              <p className="text-7xl font-black tracking-widest">3·2·1</p>
-            </div>
-          )}
-        </div>
-      ) : (
-        // Non-tile questions (sliders) and non-game presenter surveys keep the
-        // aggregated result card + running leaderboard.
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-3">
-          <div className={survey.settings.isQuiz ? "lg:col-span-2" : "lg:col-span-3"}>
-            {result && result.answered > 0 ? (
-              <QuestionResultCard result={result} question={question} />
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {isResults ? (
+          <div className="mx-auto min-h-0 w-full max-w-2xl flex-1 overflow-y-auto">
+            {survey.settings.isQuiz ? (
+              <Podium surveyId={survey.id} />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                {t("live.awaitingAnswers")}
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                <p>{t("live.ended")}</p>
+                <Button asChild variant="outline">
+                  <Link href={`/surveys/${survey.id}/results`}>
+                    {t("live.viewFullResults")}
+                  </Link>
+                </Button>
               </div>
             )}
           </div>
-          {survey.settings.isQuiz && <Leaderboard surveyId={survey.id} />}
-        </div>
-      )}
+        ) : game && stage === "standings" ? (
+          <div className="mx-auto min-h-0 w-full max-w-xl flex-1 overflow-y-auto">
+            <Leaderboard surveyId={survey.id} limit={5} />
+          </div>
+        ) : game && (question.options?.length ?? 0) > 0 ? (
+          <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto">
+            <GameAnswerTiles
+              question={question}
+              result={result}
+              reveal={stage === "reveal"}
+            />
+          </div>
+        ) : (
+          // Non-tile questions (sliders) and non-game presenter surveys keep the
+          // aggregated result card + running leaderboard. For a game, hide both
+          // until the host reveals — otherwise the room can read the aggregate
+          // (and who's currently winning) before the official reveal moment,
+          // same protection GameAnswerTiles already gives tile questions.
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-3">
+            <div className={survey.settings.isQuiz ? "lg:col-span-2" : "lg:col-span-3"}>
+              {game && stage === "asking" ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  {t("live.resultsHiddenUntilReveal")}
+                </div>
+              ) : result && result.answered > 0 ? (
+                <QuestionResultCard result={result} question={question} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  {t("live.awaitingAnswers")}
+                </div>
+              )}
+            </div>
+            {survey.settings.isQuiz && !(game && stage === "asking") && (
+              <Leaderboard surveyId={survey.id} />
+            )}
+          </div>
+        )}
+        {game && stage === "asking" && (
+          <CountdownOverlay
+            active={countdownActive}
+            onComplete={handleCountdownComplete}
+            questionKey={index}
+          />
+        )}
+      </div>
 
       <div className="flex items-center justify-between gap-4">
         <Button
           variant="outline"
           size="lg"
-          disabled={atStart || (game && stage !== "asking")}
+          disabled={atStart || (game && stage !== "asking") || countdownActive}
           onClick={() => go(Math.max(0, index - 1))}
         >
           <ChevronLeft className="size-5" />
           {t("live.prev")}
         </Button>
-        <Button size="lg" disabled={nextDisabled} onClick={handleNext}>
+        <Button size="lg" disabled={nextDisabled || countdownActive} onClick={handleNext}>
           {nextLabel}
           <ChevronRight className="size-5" />
         </Button>

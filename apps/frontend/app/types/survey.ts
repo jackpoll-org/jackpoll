@@ -104,6 +104,8 @@ export interface Question {
   /** Quiz mode (issue #10) — unused in milestone 1. */
   points?: number | null;
   correctAnswers?: string[] | null;
+  /** Case-sensitive grading for short-answer quiz questions; default false. */
+  caseSensitiveAnswers?: boolean | null;
   /** Per-question live-results override (issue #21); null = type default. */
   showInLiveResults?: boolean | null;
   /** Owning section for multi-page surveys (issue #28); null = flat/ungrouped. */
@@ -178,6 +180,8 @@ export interface SurveySettings {
   liveMode?: boolean;
   /** Live quiz per-question countdown in seconds (faster = more points, #). */
   liveQuestionSeconds?: number | null;
+  /** Custom chart color palette (CSS colors, in cycle order); unset = theme default. */
+  colorPalette?: string[] | null;
 }
 
 /** A score-based outcome / result page shown after a quiz submit (issue #83). */

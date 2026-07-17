@@ -190,7 +190,7 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
   );
 
   const statusBadge = (
-    <span className="flex shrink-0 items-center gap-1">
+    <span className="flex flex-wrap items-center justify-end gap-1">
       {shared && (
         <Badge variant="outline" className="shrink-0">
           {t("dashboard.shared.badge")}
@@ -212,7 +212,7 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
           isDragging && "opacity-40",
         )}
       >
-        <div className="flex items-center gap-3 p-3">
+        <div className="flex flex-wrap items-center gap-3 p-3">
           {dragHandle}
           <div className="min-w-0 flex-1">
             <CardTitle className="truncate text-base">{editLink}</CardTitle>
@@ -237,7 +237,7 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
       )}
     >
       <CardHeader>
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             {/* Stretched link: covers the whole card so clicking anywhere
                 opens the builder. Interactive controls below sit on a higher
@@ -249,7 +249,7 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
               </CardDescription>
             )}
           </div>
-          <div className="flex shrink-0 items-start gap-1">
+          <div className="flex max-w-full flex-wrap items-start justify-end gap-1">
             {statusBadge}
             {dragHandle}
           </div>
@@ -270,7 +270,7 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
           </div>
         )}
 
-        <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
           <span>{tPlural("card.questionCount", questionCount)}</span>
           {actions}
         </div>

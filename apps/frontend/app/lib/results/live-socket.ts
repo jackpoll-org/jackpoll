@@ -59,10 +59,20 @@ export class ResultsLiveSocket {
       return;
     }
     const rs = this.ws?.readyState;
-    if (rs === WebSocket.OPEN || rs === WebSocket.CONNECTING) return;
+    // Don't interrupt an in-flight connection attempt.
+    if (rs === WebSocket.CONNECTING) return;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    // A socket the browser still reports as OPEN can be a zombie — dead but
+    // never sent a close/error frame (locked screen, flaky mobile network,
+    // carrier NAT timeout). Force-drop and reopen it rather than trusting
+    // readyState, so a phone waking up always gets a fresh connection.
+    if (rs === WebSocket.OPEN && this.ws) {
+      this.ws.onclose = null; // don't also trigger the automatic reconnect-on-close path
+      this.ws.onerror = null;
+      this.ws.close();
     }
     this.connect();
   };

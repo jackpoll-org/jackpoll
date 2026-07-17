@@ -70,7 +70,9 @@ public final class QuizScoring {
             case SHORT_ANSWER -> {
                 if (!(value instanceof String s)) return false;
                 var answer = s.trim();
-                return correct.stream().anyMatch(c -> c.trim().equalsIgnoreCase(answer));
+                boolean caseSensitive = Boolean.TRUE.equals(q.caseSensitiveAnswers);
+                return correct.stream()
+                    .anyMatch(c -> caseSensitive ? c.trim().equals(answer) : c.trim().equalsIgnoreCase(answer));
             }
             case SLIDER, RATING -> {
                 // Correct within an optional tolerance of the target number (#55/#77).
