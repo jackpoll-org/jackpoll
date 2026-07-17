@@ -118,7 +118,7 @@ function RankRow({
       {interactive && (
         <button
           type="button"
-          className="cursor-grab text-muted-foreground active:cursor-grabbing"
+          className="touch-none cursor-grab text-muted-foreground active:cursor-grabbing"
           aria-label={t("builder.question.dragReorder")}
           {...attributes}
           {...listeners}
