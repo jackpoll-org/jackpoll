@@ -1,6 +1,11 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
+// Play requires a strictly increasing versionCode per upload; CI sets
+// ANDROID_VERSION_CODE for the Play build only (F-Droid builds from source
+// directly and keeps using the fallback below).
+def resolvedVersionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
+
 android {
     namespace = "de.quavon.jackpoll"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -8,7 +13,7 @@ android {
         applicationId "de.quavon.jackpoll"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode resolvedVersionCode
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

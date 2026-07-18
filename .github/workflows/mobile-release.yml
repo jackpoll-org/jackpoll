@@ -19,15 +19,13 @@ jobs:
   # Builds BOTH release artifacts on a version tag:
   #   • fdroid → unsigned APK (F-Droid signs it) — always built.
   #   • play   → signed AAB (needs the keystore secrets) + optional automatic
-  #              upload to the Play Console open testing track.
+  #              upload to the Play Console internal track.
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -84,7 +82,7 @@ jobs:
           path: apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab
           retention-days: 14
 
-      # ── Optional: publish to the Play Console (open testing track) ──
+      # ── Optional: publish to the Play Console (internal track) ──
       # Needs secrets.PLAY_SERVICE_ACCOUNT_JSON (a Google Play service-account
       # JSON with "Release apps to testing tracks"). Uploads as a DRAFT so you
       # promote/publish manually in the console.
@@ -100,14 +98,14 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload to Play Console (open testing, draft)
+      - name: Upload to Play Console (internal, draft)
         if: steps.keystore.outputs.skip == 'false' && steps.play.outputs.skip == 'false'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: de.quavon.jackpoll
           releaseFiles: apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab
-          track: beta
+          track: internal
           status: draft
 
   ios:
@@ -116,8 +114,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
