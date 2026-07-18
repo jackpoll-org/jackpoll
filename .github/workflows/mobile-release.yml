@@ -19,7 +19,7 @@ jobs:
   # Builds BOTH release artifacts on a version tag:
   #   • fdroid → unsigned APK (F-Droid signs it) — always built.
   #   • play   → signed AAB (needs the keystore secrets) + optional automatic
-  #              upload to the Play Console internal track.
+  #              upload to the Play Console open testing track.
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -82,7 +82,7 @@ jobs:
           path: apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab
           retention-days: 14
 
-      # ── Optional: publish to the Play Console (internal track) ──
+      # ── Optional: publish to the Play Console (open testing track) ──
       # Needs secrets.PLAY_SERVICE_ACCOUNT_JSON (a Google Play service-account
       # JSON with "Release apps to testing tracks"). Uploads as a DRAFT so you
       # promote/publish manually in the console.
@@ -98,14 +98,14 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload to Play Console (internal, draft)
+      - name: Upload to Play Console (open testing, draft)
         if: steps.keystore.outputs.skip == 'false' && steps.play.outputs.skip == 'false'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: de.quavon.jackpoll
           releaseFiles: apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab
-          track: internal
+          track: beta
           status: draft
 
   ios:
