@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { UserMenu } from "@/app/components/auth/user-menu";
+import { NotificationBell } from "@/app/components/common/notification-bell";
 import { ThemeCustomizerPanel } from "@/app/components/common/theme-panel";
 import { useTranslation } from "@/app/i18n/context";
 
@@ -20,6 +21,7 @@ export function Header() {
           {t("nav.brand")}
         </Link>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <ThemeCustomizerPanel />
           <UserMenu />
         </div>

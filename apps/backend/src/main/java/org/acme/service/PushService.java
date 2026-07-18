@@ -8,8 +8,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.acme.entity.DeviceToken;
+import org.acme.entity.NotificationChannel;
+import org.acme.entity.NotificationEventType;
 import org.acme.repository.DeviceTokenRepository;
-import org.acme.repository.UserRepository;
+import org.acme.repository.NotificationPreferenceRepository;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -54,7 +56,7 @@ public class PushService {
     DeviceTokenRepository devices;
 
     @Inject
-    UserRepository users;
+    NotificationPreferenceRepository preferences;
 
     private static final ExecutorService PUSH_EXECUTOR =
         Executors.newSingleThreadExecutor(r -> {
@@ -127,19 +129,20 @@ public class PushService {
     /**
      * Best-effort Web Push to every registered device of {@code userId}. Reads
      * the devices in the caller's transaction, then sends off-thread. Respects
-     * the owner's per-channel preferences ("web" endpoints = web channel, all
-     * others = mobile channel). No-op when Web Push isn't configured.
+     * the owner's per-event, per-channel preferences ("web" endpoints = web
+     * channel, all others = mobile channel). No-op when Web Push isn't configured.
      */
-    public void notifyUser(String userId, String title, String body) {
-        deliver(userId, title, body);
+    public void notifyUser(String userId, NotificationEventType type, String title, String body) {
+        deliver(userId, type, title, body);
     }
 
     /**
      * Send a message and return how many deliverable endpoints it targeted (for
      * the debug "test push" endpoint). 0 means the user has no usable device.
+     * Ignores preferences — it's an explicit debug action, not a real event.
      */
     public int sendTest(String userId, String title, String body) {
-        return deliver(userId, title, body);
+        return deliver(userId, null, title, body);
     }
 
     /** How many of the user's devices can actually receive Web Push. */
@@ -149,11 +152,12 @@ public class PushService {
             .count();
     }
 
-    private int deliver(String userId, String title, String body) {
+    private int deliver(String userId, NotificationEventType type, String title, String body) {
         if (!webConfigured()) return 0;
-        var prefs = users.findByIdOptional(userId).orElse(null);
-        final boolean wantMobile = prefs == null || prefs.notifyNewResponseMobile;
-        final boolean wantWeb = prefs == null || prefs.notifyNewResponseWeb;
+        final boolean wantMobile = type == null
+            || preferences.isEnabled(userId, type.key(), NotificationChannel.MOBILE_PUSH.key());
+        final boolean wantWeb = type == null
+            || preferences.isEnabled(userId, type.key(), NotificationChannel.WEB_PUSH.key());
         if (!wantMobile && !wantWeb) return 0;
         List<Target> targets = devices.findByUser(userId).stream()
             .map(d -> new Target(d.token, d.platform, d.p256dh, d.auth))

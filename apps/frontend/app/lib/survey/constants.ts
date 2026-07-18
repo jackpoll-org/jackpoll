@@ -32,6 +32,15 @@ export const foldersKey = ["folders"] as const;
 /** Query key for account-level notification preferences (issue #89). */
 export const notificationPrefsKey = ["notification-preferences"] as const;
 
+/** Query key factory for the in-app notification center (issue #89). */
+export const notificationsKeys = {
+  all: ["notifications"] as const,
+  lists: () => [...notificationsKeys.all, "list"] as const,
+  list: (page: number, limit: number) =>
+    [...notificationsKeys.lists(), { page, limit }] as const,
+  unreadCount: () => [...notificationsKeys.all, "unread-count"] as const,
+};
+
 /** Survey endpoints relative to API_BASE_URL (proxied to backend /api/v1). */
 export const SURVEY_ENDPOINTS = {
   list: "/surveys",
@@ -81,6 +90,10 @@ export const SURVEY_ENDPOINTS = {
   templates: "/templates",
   template: (id: string) => `/templates/${id}`,
   notificationPreferences: "/notification-preferences",
+  notifications: "/notifications",
+  notificationsUnreadCount: "/notifications/unread-count",
+  notificationRead: (id: string) => `/notifications/${id}/read`,
+  notificationsReadAll: "/notifications/read-all",
 } as const;
 
 /** Query key for the user's saved templates (issue #20). */
@@ -88,6 +101,9 @@ export const templatesKey = ["templates"] as const;
 
 /** How often (ms) the results dashboard polls for new responses. */
 export const RESULTS_POLL_INTERVAL_MS = 15000;
+
+/** How often (ms) the notification bell polls for the unread count (issue #89). */
+export const NOTIFICATIONS_POLL_INTERVAL_MS = 30000;
 
 /** Default page size for the survey dashboard list. */
 export const DEFAULT_PAGE_SIZE = 20;

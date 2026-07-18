@@ -90,6 +90,11 @@ public class Survey extends PanacheEntityBase {
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;
 
+    // Last response-count threshold already notified for (#89's response-
+    // milestone event) — fires once per crossing, not on every response after.
+    @Column(name = "milestone_notified", nullable = false)
+    public int milestoneNotified = 0;
+
     @PrePersist
     void onCreate() {
         var now = Instant.now();

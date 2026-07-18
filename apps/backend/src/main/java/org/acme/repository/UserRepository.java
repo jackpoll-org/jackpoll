@@ -54,15 +54,12 @@ public class UserRepository implements PanacheRepositoryBase<User, String> {
             .setParameter(2, id)
             .executeUpdate();
         // Case 1: insert, or update in place when this exact id already exists.
-        // The notify_* channel switches are NOT NULL; set them to the account
-        // default (all on) on insert only — an existing row keeps whatever the
-        // user has toggled (the conflict branch never touches them), matching the
-        // pre-upsert new User() behaviour.
+        // Notification preferences (#89) now live in a separate table keyed by
+        // (user_id, event_type, channel) — a missing row defaults to enabled, so
+        // there is nothing to seed here on insert.
         em.createNativeQuery("""
-                INSERT INTO users (id, email, name, email_verified, created_at, updated_at,
-                    notify_new_response_email, notify_new_response_mobile,
-                    notify_new_response_web, notify_daily_digest_email)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?5, true, true, true, true)
+                INSERT INTO users (id, email, name, email_verified, created_at, updated_at)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?5)
                 ON CONFLICT (id) DO UPDATE SET
                     email = excluded.email,
                     name = excluded.name,

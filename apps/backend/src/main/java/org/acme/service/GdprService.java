@@ -12,6 +12,8 @@ import org.acme.repository.CollabLinkRepository;
 import org.acme.repository.CollaboratorRepository;
 import org.acme.repository.DeviceTokenRepository;
 import org.acme.repository.FolderRepository;
+import org.acme.repository.NotificationPreferenceRepository;
+import org.acme.repository.NotificationRepository;
 import org.acme.repository.ResponseDraftRepository;
 import org.acme.repository.ShareLinkRepository;
 import org.acme.repository.SurveyRepository;
@@ -47,6 +49,8 @@ public class GdprService {
     @Inject DeviceTokenRepository devices;
     @Inject FolderRepository folders;
     @Inject TemplateRepository templates;
+    @Inject NotificationPreferenceRepository notificationPrefs;
+    @Inject NotificationRepository notifications;
 
     // ── Export (Art. 15 / 20) ─────────────────────────────────────
 
@@ -109,6 +113,8 @@ public class GdprService {
         devices.delete("userId", userId);
         folders.delete("ownerId", userId);
         templates.delete("ownerId", userId);
+        notificationPrefs.deleteAllForUser(userId); // account-level channel overrides (#89)
+        notifications.deleteAllForUser(userId); // in-app notification history (#89)
     }
 
     /** Permanently delete the user and all of their data (best-effort, atomic). */

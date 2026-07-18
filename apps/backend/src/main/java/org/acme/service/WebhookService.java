@@ -23,9 +23,14 @@ import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.WebhookDtos.CreateWebhookRequest;
 import org.acme.dto.WebhookDtos.WebhookDto;
 import org.acme.dto.WebhookDtos.WebhookTestResult;
+import org.acme.entity.NotificationChannel;
+import org.acme.entity.NotificationEventType;
 import org.acme.entity.Webhook;
 import org.acme.exception.ResourceNotFoundException;
 import org.acme.exception.SpamRejectedException;
+import org.acme.repository.NotificationPreferenceRepository;
+import org.acme.repository.SurveyRepository;
+import org.acme.repository.UserRepository;
 import org.acme.repository.WebhookRepository;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -49,6 +54,9 @@ public class WebhookService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int MAX_ATTEMPTS = 3;
 
+    /** Consecutive-failure streak that triggers the "webhook failing" notification (#89). */
+    private static final int FAILURE_NOTIFY_THRESHOLD = 5;
+
     private static final ExecutorService POOL = Executors.newFixedThreadPool(4, r -> {
         var t = new Thread(r, "webhook-dispatch");
         t.setDaemon(true);
@@ -68,6 +76,24 @@ public class WebhookService {
 
     @Inject
     WebhookRepository webhooks;
+
+    @Inject
+    SurveyRepository surveys;
+
+    @Inject
+    UserRepository users;
+
+    @Inject
+    PushService pushService;
+
+    @Inject
+    EmailService emailService;
+
+    @Inject
+    NotificationRecordService notificationRecordService;
+
+    @Inject
+    NotificationPreferenceRepository notificationPrefs;
 
     @ConfigProperty(name = "survey.webhook.allow-private", defaultValue = "false")
     boolean allowPrivate;
@@ -205,6 +231,34 @@ public class WebhookService {
         hook.lastError = outcome.error != null
             ? outcome.error.substring(0, Math.min(outcome.error.length(), 500)) : null;
         hook.lastDeliveryAt = Instant.now();
+
+        boolean success = outcome.status != null && outcome.status < 400;
+        if (success) {
+            hook.consecutiveFailures = 0;
+            hook.failureNotified = false;
+            return;
+        }
+        hook.consecutiveFailures++;
+        if (hook.consecutiveFailures >= FAILURE_NOTIFY_THRESHOLD && !hook.failureNotified) {
+            hook.failureNotified = true;
+            notifyFailing(hook);
+        }
+    }
+
+    /** Notify the survey owner once a webhook's failure streak crosses the threshold (#89). */
+    private void notifyFailing(Webhook hook) {
+        var survey = surveys.findByIdOptional(hook.surveyId).orElse(null);
+        if (survey == null) return;
+        var type = NotificationEventType.WEBHOOK_FAILING;
+        String title = "Webhook failing";
+        String body = "Deliveries to " + hook.url + " on \"" + survey.title + "\" have failed repeatedly.";
+        pushService.notifyUser(survey.ownerId, type, title, body);
+        notificationRecordService.record(survey.ownerId, type, title, body,
+            "/surveys/" + survey.id + "/webhooks");
+        if (notificationPrefs.isEnabled(survey.ownerId, type.key(), NotificationChannel.EMAIL.key())) {
+            users.findByIdOptional(survey.ownerId).ifPresent(
+                owner -> emailService.sendWebhookFailing(owner.email, survey.title, hook.url));
+        }
     }
 
     private void recordOutcome(String webhookId, Outcome outcome) {

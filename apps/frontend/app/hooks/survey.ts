@@ -16,6 +16,10 @@ import {
   reorderSurveysApi,
   getNotificationPrefsApi,
   updateNotificationPrefsApi,
+  listNotificationsApi,
+  getUnreadNotificationCountApi,
+  markNotificationReadApi,
+  markAllNotificationsReadApi,
   deleteResponseApi,
   deleteSurveyApi,
   editResponseApi,
@@ -56,8 +60,10 @@ import {
 import {
   DEFAULT_PAGE_SIZE,
   RESULTS_POLL_INTERVAL_MS,
+  NOTIFICATIONS_POLL_INTERVAL_MS,
   foldersKey,
   notificationPrefsKey,
+  notificationsKeys,
   surveyKeys,
 } from "@/app/lib/survey/constants";
 import { cloneQuestions } from "@/app/lib/survey/clone";
@@ -302,6 +308,63 @@ export function useUpdateNotificationPrefs() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(notificationPrefsKey, data);
+    },
+  });
+}
+
+// ── In-app notification center (issue #89) ────────────────────────
+
+export function useNotifications(page = 0, limit = 20, enabled = true) {
+  return useQuery({
+    queryKey: notificationsKeys.list(page, limit),
+    queryFn: async () => {
+      const res = await listNotificationsApi(page, limit);
+      if (!res.success || !res.data) {
+        throw new Error(res.error ?? "Failed to load notifications");
+      }
+      return { items: res.data, total: res.meta?.total ?? res.data.length };
+    },
+    enabled,
+  });
+}
+
+export function useUnreadNotificationCount(enabled = true) {
+  return useQuery({
+    queryKey: notificationsKeys.unreadCount(),
+    queryFn: async () => {
+      const res = await getUnreadNotificationCountApi();
+      if (!res.success || !res.data) {
+        throw new Error(res.error ?? "Failed to load unread count");
+      }
+      return res.data.count;
+    },
+    refetchInterval: NOTIFICATIONS_POLL_INTERVAL_MS,
+    enabled,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await markNotificationReadApi(id);
+      if (!res.success) throw new Error(res.error ?? "Failed to mark notification read");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await markAllNotificationsReadApi();
+      if (!res.success) throw new Error(res.error ?? "Failed to mark all notifications read");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
     },
   });
 }

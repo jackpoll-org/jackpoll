@@ -10,6 +10,7 @@ import type { ApiResponse } from "@/app/types/auth";
 import type {
   AccessCode,
   AddCollaboratorRequest,
+  AppNotification,
   CollabLink,
   Collaborator,
   CreateSurveyRequest,
@@ -324,6 +325,31 @@ export async function updateNotificationPrefsApi(
     method: "PUT",
     body: JSON.stringify(prefs),
   });
+}
+
+// ── In-app notification center (issue #89) ────────────────────────
+
+export async function listNotificationsApi(
+  page: number,
+  limit: number,
+): Promise<ApiResponse<AppNotification[]>> {
+  return request<AppNotification[]>(
+    `${SURVEY_ENDPOINTS.notifications}?page=${page}&limit=${limit}`,
+  );
+}
+
+export async function getUnreadNotificationCountApi(): Promise<
+  ApiResponse<{ count: number }>
+> {
+  return request<{ count: number }>(SURVEY_ENDPOINTS.notificationsUnreadCount);
+}
+
+export async function markNotificationReadApi(id: string): Promise<ApiResponse<null>> {
+  return request<null>(SURVEY_ENDPOINTS.notificationRead(id), { method: "PUT" });
+}
+
+export async function markAllNotificationsReadApi(): Promise<ApiResponse<null>> {
+  return request<null>(SURVEY_ENDPOINTS.notificationsReadAll, { method: "PUT" });
 }
 
 // ── Webhooks (issue #36) ──────────────────────────────────────────

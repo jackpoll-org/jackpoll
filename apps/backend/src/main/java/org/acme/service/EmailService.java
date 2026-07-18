@@ -8,7 +8,10 @@ import java.util.HexFormat;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.acme.entity.NotificationChannel;
+import org.acme.entity.NotificationEventType;
 import org.acme.entity.Survey;
+import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.ResponseRepository;
 import org.acme.repository.SurveyRepository;
 import org.acme.repository.UserRepository;
@@ -43,6 +46,9 @@ public class EmailService {
 
     @Inject
     ResponseRepository responses;
+
+    @Inject
+    NotificationPreferenceRepository notificationPrefs;
 
     @ConfigProperty(name = "survey.mail.subject-prefix", defaultValue = "[Survey School]")
     String subjectPrefix;
@@ -100,8 +106,11 @@ public class EmailService {
             long count = responses.countBySurveySince(survey.id, since);
             if (count == 0) continue;
             // Respect the owner's account-level daily-digest email pref (#89).
+            if (!notificationPrefs.isEnabled(survey.ownerId,
+                    NotificationEventType.DAILY_DIGEST.key(), NotificationChannel.EMAIL.key())) {
+                continue;
+            }
             String ownerEmail = users.findByIdOptional(survey.ownerId)
-                .filter(u -> u.notifyDailyDigestEmail)
                 .map(u -> u.email).orElse(null);
             if (ownerEmail == null) continue;
             String subject = subjectPrefix + " Daily digest: " + safeTitle(survey.title);
@@ -113,6 +122,86 @@ public class EmailService {
                     appUrl + "/surveys/" + survey.id + "/results");
             safeSend(Mail.withText(ownerEmail, subject, body));
         }
+    }
+
+    // ── Response milestone (#89) ──────────────────────────────────
+
+    public void sendMilestoneNotification(String toEmail, String surveyTitle, int milestone) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " Milestone reached: " + safeTitle(surveyTitle);
+        String body = """
+            "%s" just hit %d responses!
+
+            View results: %s
+            """.formatted(safeTitle(surveyTitle), milestone, appUrl);
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
+    // ── Collaboration (#89) ───────────────────────────────────────
+
+    public void sendCollaboratorInvite(String toEmail, String surveyTitle, String inviterName) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " " + inviterName + " invited you to collaborate";
+        String body = """
+            %s invited you to collaborate on "%s".
+
+            Open Jackpoll to accept: %s
+            """.formatted(inviterName, safeTitle(surveyTitle), appUrl);
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
+    public void sendCollaboratorAccepted(String toEmail, String surveyTitle, String collaboratorName) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " " + collaboratorName + " accepted your invite";
+        String body = """
+            %s accepted your invitation to collaborate on "%s".
+            """.formatted(collaboratorName, safeTitle(surveyTitle));
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
+    public void sendCollaboratorDeclined(String toEmail, String surveyTitle, String collaboratorName) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " " + collaboratorName + " declined your invite";
+        String body = """
+            %s declined your invitation to collaborate on "%s".
+            """.formatted(collaboratorName, safeTitle(surveyTitle));
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
+    public void sendCollaboratorRemoved(String toEmail, String surveyTitle, String ownerName) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " Removed from " + safeTitle(surveyTitle);
+        String body = """
+            %s removed you as a collaborator on "%s".
+            """.formatted(ownerName, safeTitle(surveyTitle));
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
+    // ── Survey auto-closed (#89) ──────────────────────────────────
+
+    public void sendSurveyAutoClosed(String toEmail, String surveyTitle) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " Survey closed: " + safeTitle(surveyTitle);
+        String body = """
+            "%s" has automatically closed (its scheduled close time or response
+            limit was reached) and is no longer accepting responses.
+
+            View results: %s
+            """.formatted(safeTitle(surveyTitle), appUrl);
+        safeSend(Mail.withText(toEmail, subject, body));
+    }
+
+    // ── Webhook failing (#89) ─────────────────────────────────────
+
+    public void sendWebhookFailing(String toEmail, String surveyTitle, String webhookUrl) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String subject = subjectPrefix + " Webhook failing on " + safeTitle(surveyTitle);
+        String body = """
+            Deliveries to your webhook %s on "%s" have failed repeatedly.
+
+            Check the webhook configuration in Jackpoll: %s
+            """.formatted(webhookUrl, safeTitle(surveyTitle), appUrl);
+        safeSend(Mail.withText(toEmail, subject, body));
     }
 
     // ── Account email codes (#security email-verify) ──────────────

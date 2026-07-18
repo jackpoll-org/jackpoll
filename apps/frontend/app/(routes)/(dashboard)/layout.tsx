@@ -6,6 +6,7 @@ import { PushRegister } from "@/app/components/native/push-register";
 import { RememberRoute } from "@/app/components/native/remember-route";
 import { AppSidebar } from "@/app/components/common/app-sidebar";
 import { GlobalSearch } from "@/app/components/common/global-search";
+import { NotificationBell } from "@/app/components/common/notification-bell";
 import { ThemeCustomizerPanel } from "@/app/components/common/theme-panel";
 import { Separator } from "@/app/components/ui/separator";
 import {
@@ -38,7 +39,8 @@ export default function DashboardLayout({
               <div className="min-w-0 flex-1">
                 <GlobalSearch />
               </div>
-              <div className="shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
+                <NotificationBell />
                 <ThemeCustomizerPanel />
               </div>
             </div>

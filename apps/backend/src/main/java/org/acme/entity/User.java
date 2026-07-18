@@ -33,21 +33,6 @@ public class User extends PanacheEntityBase {
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;
 
-    // ── Notification preferences (issue #89) ──────────────────────
-    // Account-level channel master switches; default true preserves the
-    // pre-#89 behaviour. Gated on top of the per-survey ownerNotify cadence.
-    @Column(name = "notify_new_response_email", nullable = false)
-    public boolean notifyNewResponseEmail = true;
-
-    @Column(name = "notify_new_response_mobile", nullable = false)
-    public boolean notifyNewResponseMobile = true;
-
-    @Column(name = "notify_new_response_web", nullable = false)
-    public boolean notifyNewResponseWeb = true;
-
-    @Column(name = "notify_daily_digest_email", nullable = false)
-    public boolean notifyDailyDigestEmail = true;
-
     @PrePersist
     void onCreate() {
         var now = Instant.now();

@@ -199,16 +199,47 @@ export interface Folder {
   name: string;
 }
 
-/** Account-level notification preferences (issue #89). */
+/** Every account-level notification event a user can toggle (issue #89). */
+export type NotificationEventKey =
+  | "new_response"
+  | "daily_digest"
+  | "collaborator_invited"
+  | "collaborator_accepted"
+  | "collaborator_declined"
+  | "collaborator_removed"
+  | "response_milestone"
+  | "survey_auto_closed"
+  | "webhook_failing";
+
+export type NotificationChannelKey = "email" | "mobile_push" | "web_push" | "in_app";
+
+/** Channels valid for each event — daily digest is email-only, everything else is all four. */
+export const EVENT_CHANNELS: Record<NotificationEventKey, NotificationChannelKey[]> = {
+  new_response: ["email", "mobile_push", "web_push", "in_app"],
+  daily_digest: ["email"],
+  collaborator_invited: ["email", "mobile_push", "web_push", "in_app"],
+  collaborator_accepted: ["email", "mobile_push", "web_push", "in_app"],
+  collaborator_declined: ["email", "mobile_push", "web_push", "in_app"],
+  collaborator_removed: ["email", "mobile_push", "web_push", "in_app"],
+  response_milestone: ["email", "mobile_push", "web_push", "in_app"],
+  survey_auto_closed: ["email", "mobile_push", "web_push", "in_app"],
+  webhook_failing: ["email", "mobile_push", "web_push", "in_app"],
+};
+
+/** Account-level notification preferences (issue #89): event x channel matrix. */
 export interface NotificationPreferences {
-  newResponse: {
-    email: boolean;
-    mobilePush: boolean;
-    webPush: boolean;
-  };
-  dailyDigest: {
-    email: boolean;
-  };
+  byEvent: Partial<Record<NotificationEventKey, Partial<Record<NotificationChannelKey, boolean>>>>;
+}
+
+/** A single in-app notification center record (issue #89). */
+export interface AppNotification {
+  id: string;
+  eventType: NotificationEventKey;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface Survey {

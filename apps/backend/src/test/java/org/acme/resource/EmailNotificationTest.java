@@ -119,6 +119,25 @@ class EmailNotificationTest {
     }
 
     @Test
+    @TestSecurity(user = "owner-milestone")
+    void milestoneEmailSentOnThresholdCrossing() {
+        String ownerEmail = ensureOwner("owner-milestone");
+        // "off" isolates the milestone email from the per-response owner notification.
+        String id = createSurvey("{\"ownerNotify\":\"off\"}");
+
+        for (int i = 0; i < 10; i++) {
+            given()
+                .contentType(ContentType.JSON)
+                .body("{\"answers\":[]}")
+                .when().post(SURVEYS + "/" + id + "/responses")
+                .then().statusCode(201);
+        }
+
+        // The lowest milestone threshold (10) fires exactly once.
+        assertEquals(1, mailbox.getMessagesSentTo(ownerEmail).size());
+    }
+
+    @Test
     @TestSecurity(user = "owner-unsub")
     void unsubscribeLinkDisablesNotifications() {
         ensureOwner("owner-unsub");

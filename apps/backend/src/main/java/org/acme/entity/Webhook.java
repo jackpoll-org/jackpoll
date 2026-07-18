@@ -48,6 +48,15 @@ public class Webhook extends PanacheEntityBase {
     @Column(name = "last_delivery_at")
     public Instant lastDeliveryAt;
 
+    // ── Failure streak (#89's webhook-failing event) ───────────────
+    /** Consecutive failed deliveries; reset to 0 on the next success. */
+    @Column(name = "consecutive_failures", nullable = false)
+    public int consecutiveFailures = 0;
+
+    /** Whether we've already notified the owner for the current failure streak. */
+    @Column(name = "failure_notified", nullable = false)
+    public boolean failureNotified = false;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) createdAt = Instant.now();

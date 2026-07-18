@@ -19,6 +19,8 @@ import org.acme.dto.ResponseDtos.ResponseEditView;
 import org.acme.dto.ResponseDtos.RowResultDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
 import org.acme.dto.ResponseDtos.SurveyResultsDto;
+import org.acme.entity.NotificationChannel;
+import org.acme.entity.NotificationEventType;
 import org.acme.entity.OptionKind;
 import org.acme.entity.Question;
 import org.acme.entity.QuestionOption;
@@ -30,6 +32,7 @@ import org.acme.entity.SurveyStatus;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.exception.QuotaExceededException;
 import org.acme.exception.ResourceNotFoundException;
+import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.OptionRepository;
 import org.acme.repository.ResponseRepository;
 import org.acme.repository.SurveyRepository;
@@ -82,7 +85,17 @@ public class ResponseService {
     org.acme.repository.UserRepository userRepository;
 
     @Inject
+    NotificationPreferenceRepository notificationPrefs;
+
+    @Inject
+    NotificationRecordService notificationRecordService;
+
+    @Inject
     PdfService pdfService;
+
+    /** Response-count thresholds that trigger a milestone notification (#89). */
+    private static final int[] MILESTONE_THRESHOLDS =
+        { 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000 };
 
     @org.eclipse.microprofile.config.inject.ConfigProperty(
         name = "survey.mail.async", defaultValue = "true")
@@ -110,7 +123,8 @@ public class ResponseService {
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + surveyId));
 
         // Close time (#16) and response limit (#19).
-        SurveyAvailability.ensureOpen(survey, responseRepository.countBySurvey(surveyId));
+        long countBeforeSubmit = responseRepository.countBySurvey(surveyId);
+        SurveyAvailability.ensureOpen(survey, countBeforeSubmit);
 
         // Share-link expiry / response cap (issue #16).
         shareLinkService.ensureSurveyAcceptingResponses(surveyId);
@@ -219,7 +233,17 @@ public class ResponseService {
 
         // Native push to the owner's devices (mobile app) — opt-in, best-effort.
         pushService.notifyUser(
-            survey.ownerId, survey.title, "You received a new response.");
+            survey.ownerId, NotificationEventType.NEW_RESPONSE,
+            survey.title, "You received a new response.");
+
+        // In-app notification (#89) — opt-in, best-effort.
+        notificationRecordService.record(
+            survey.ownerId, NotificationEventType.NEW_RESPONSE,
+            survey.title, "You received a new response.",
+            "/surveys/" + survey.id + "/results");
+
+        // Response-milestone notification (#89) — fires once per threshold crossing.
+        maybeNotifyMilestone(survey, countBeforeSubmit + 1);
 
         // Live-results push (wordcloud / presentation mode) — best-effort, never
         // blocks or fails the submission. When live results are enabled we push
@@ -289,9 +313,9 @@ public class ResponseService {
         // Owner email also requires the account-level "new response → email"
         // preference to be on (issue #89), on top of the per-survey cadence.
         String ownerEmail = "each".equals(settings.ownerNotify)
-            ? userRepository.findByIdOptional(survey.ownerId)
-                .filter(u -> u.notifyNewResponseEmail)
-                .map(u -> u.email).orElse(null)
+            && notificationPrefs.isEnabled(survey.ownerId,
+                NotificationEventType.NEW_RESPONSE.key(), NotificationChannel.EMAIL.key())
+            ? userRepository.findByIdOptional(survey.ownerId).map(u -> u.email).orElse(null)
             : null;
         boolean wantReceipt = settings.respondentReceipts
             && respondentEmail != null && !respondentEmail.isBlank();
@@ -322,6 +346,45 @@ public class ResponseService {
             });
         } else {
             task.run();
+        }
+    }
+
+    /**
+     * Fire a response-milestone notification (#89) the first time {@code
+     * newCount} reaches or passes a threshold beyond what's already been
+     * notified for this survey — never on every response after.
+     */
+    private void maybeNotifyMilestone(Survey survey, long newCount) {
+        int highestCrossed = survey.milestoneNotified;
+        for (int threshold : MILESTONE_THRESHOLDS) {
+            if (newCount >= threshold && threshold > highestCrossed) {
+                highestCrossed = threshold;
+            }
+        }
+        if (highestCrossed == survey.milestoneNotified) return;
+        survey.milestoneNotified = highestCrossed;
+        final int milestone = highestCrossed;
+
+        String title = "Milestone reached";
+        String body = survey.title + " just hit " + milestone + " responses!";
+        pushService.notifyUser(survey.ownerId, NotificationEventType.RESPONSE_MILESTONE, title, body);
+        notificationRecordService.record(survey.ownerId, NotificationEventType.RESPONSE_MILESTONE,
+            title, body, "/surveys/" + survey.id + "/results");
+        if (notificationPrefs.isEnabled(survey.ownerId,
+                NotificationEventType.RESPONSE_MILESTONE.key(), NotificationChannel.EMAIL.key())) {
+            userRepository.findByIdOptional(survey.ownerId).ifPresent(owner -> {
+                if (mailAsync) {
+                    MAIL_EXECUTOR.execute(() -> {
+                        try {
+                            emailService.sendMilestoneNotification(owner.email, survey.title, milestone);
+                        } catch (Exception ignored) {
+                            // best-effort
+                        }
+                    });
+                } else {
+                    emailService.sendMilestoneNotification(owner.email, survey.title, milestone);
+                }
+            });
         }
     }
 

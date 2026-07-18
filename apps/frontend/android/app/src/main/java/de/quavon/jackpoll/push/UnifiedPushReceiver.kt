@@ -38,7 +38,7 @@ class UnifiedPushReceiver : MessagingReceiver() {
     }
 
     override fun onMessage(context: Context, message: PushMessage, instance: String) {
-        val text = try { String(message.content) } catch (t: Throwable) { "" }
+        val text = try { String(message.content, Charsets.UTF_8) } catch (t: Throwable) { "" }
         val (title, body) = parse(text)
         notify(context, title, body)
     }

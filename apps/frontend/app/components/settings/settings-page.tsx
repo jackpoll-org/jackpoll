@@ -12,7 +12,7 @@ import {
 import { LanguageSwitcher } from "@/app/components/common/language-switcher";
 import { AppearanceCard } from "./appearance-card";
 import { PushSettingsCard } from "./push-settings-card";
-import { NotificationPrefsCard } from "./notification-prefs-card";
+import { NotificationsLinkCard } from "./notification-prefs-card";
 import { SurveysCard } from "./surveys-card";
 import { DeviceCard } from "./device-card";
 import { getInstanceConfigApi } from "@/app/lib/survey/api";
@@ -54,7 +54,7 @@ export function SettingsPage() {
         </Card>
 
         <PushSettingsCard />
-        <NotificationPrefsCard />
+        <NotificationsLinkCard />
         <SurveysCard />
         <DeviceCard />
 

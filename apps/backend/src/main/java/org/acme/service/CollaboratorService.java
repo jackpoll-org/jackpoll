@@ -7,10 +7,13 @@ import org.acme.dto.CollaboratorDtos.AddCollaboratorRequest;
 import org.acme.dto.CollaboratorDtos.CollaboratorDto;
 import org.acme.dto.CollaboratorDtos.InvitationDto;
 import org.acme.entity.CollaboratorStatus;
+import org.acme.entity.NotificationChannel;
+import org.acme.entity.NotificationEventType;
 import org.acme.entity.SurveyCollaborator;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.exception.ResourceNotFoundException;
 import org.acme.repository.CollaboratorRepository;
+import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.SurveyRepository;
 import org.acme.repository.UserRepository;
 
@@ -36,6 +39,15 @@ public class CollaboratorService {
 
     @Inject
     PushService pushService;
+
+    @Inject
+    EmailService emailService;
+
+    @Inject
+    NotificationRecordService notificationRecordService;
+
+    @Inject
+    NotificationPreferenceRepository notificationPrefs;
 
     public List<CollaboratorDto> list(String requesterId, String surveyId) {
         surveyService.requireReadable(requesterId, surveyId);
@@ -71,22 +83,42 @@ public class CollaboratorService {
         collaborator.status = CollaboratorStatus.PENDING;
         collaborators.persist(collaborator);
 
-        // Notify the invitee on their devices (best-effort) so they can accept
-        // the invitation in the app.
+        // Notify the invitee (best-effort) so they can accept the invitation.
         var owner = users.findByIdOptional(ownerId).orElse(null);
         var ownerName = owner != null && owner.name != null ? owner.name : "Someone";
-        pushService.notifyUser(
-            user.id,
-            "Collaboration invite",
-            ownerName + " invited you to collaborate on \"" + survey.title + "\".");
+        String inviteBody = ownerName + " invited you to collaborate on \"" + survey.title + "\".";
+        pushService.notifyUser(user.id, NotificationEventType.COLLABORATOR_INVITED,
+            "Collaboration invite", inviteBody);
+        notificationRecordService.record(user.id, NotificationEventType.COLLABORATOR_INVITED,
+            "Collaboration invite", inviteBody, "/surveys/" + surveyId);
+        if (notificationPrefs.isEnabled(user.id,
+                NotificationEventType.COLLABORATOR_INVITED.key(), NotificationChannel.EMAIL.key())) {
+            emailService.sendCollaboratorInvite(user.email, survey.title, ownerName);
+        }
 
         return toDto(collaborator);
     }
 
     @Transactional
     public void remove(String ownerId, String surveyId, String userId) {
-        surveyService.requireOwner(ownerId, surveyId);
+        var survey = surveyService.requireOwner(ownerId, surveyId);
+        notifyRemoved(survey.id, survey.title, ownerId, userId);
         collaborators.deleteBySurveyAndUser(surveyId, userId);
+    }
+
+    /** Notify the removed collaborator (called before their row is deleted). */
+    private void notifyRemoved(String surveyId, String surveyTitle, String ownerId, String removedUserId) {
+        var owner = users.findByIdOptional(ownerId).orElse(null);
+        var ownerName = owner != null && owner.name != null ? owner.name : "The owner";
+        var type = NotificationEventType.COLLABORATOR_REMOVED;
+        String title = "Removed from " + surveyTitle;
+        String body = ownerName + " removed you as a collaborator on \"" + surveyTitle + "\".";
+        pushService.notifyUser(removedUserId, type, title, body);
+        notificationRecordService.record(removedUserId, type, title, body, "/surveys");
+        if (notificationPrefs.isEnabled(removedUserId, type.key(), NotificationChannel.EMAIL.key())) {
+            users.findByIdOptional(removedUserId).ifPresent(
+                u -> emailService.sendCollaboratorRemoved(u.email, surveyTitle, ownerName));
+        }
     }
 
     // ── Invitee-facing (#8) ───────────────────────────────────────
@@ -114,12 +146,38 @@ public class CollaboratorService {
         var invite = collaborators.findBySurveyAndUser(surveyId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("No invitation for this survey."));
         invite.status = CollaboratorStatus.ACCEPTED;
+        notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_ACCEPTED,
+            "Invite accepted", " accepted your invitation to collaborate on \"",
+            EmailService::sendCollaboratorAccepted);
     }
 
     /** Decline (or remove yourself from) a collaboration. */
     @Transactional
     public void decline(String userId, String surveyId) {
+        notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_DECLINED,
+            "Invite declined", " declined your invitation to collaborate on \"",
+            EmailService::sendCollaboratorDeclined);
         collaborators.deleteBySurveyAndUser(surveyId, userId);
+    }
+
+    private interface CollabEmailSender {
+        void send(EmailService emailService, String toEmail, String surveyTitle, String personName);
+    }
+
+    /** Notify the survey owner that {@code actingUserId} responded to their invite. */
+    private void notifyOwnerOfResponse(String surveyId, String actingUserId,
+            NotificationEventType type, String pushTitle, String bodySuffix, CollabEmailSender sender) {
+        var survey = surveys.findByIdOptional(surveyId).orElse(null);
+        if (survey == null) return;
+        var actingUser = users.findByIdOptional(actingUserId).orElse(null);
+        var actingName = actingUser != null && actingUser.name != null ? actingUser.name : "Someone";
+        String body = actingName + bodySuffix + survey.title + "\".";
+        pushService.notifyUser(survey.ownerId, type, pushTitle, body);
+        notificationRecordService.record(survey.ownerId, type, pushTitle, body, "/surveys/" + surveyId);
+        if (notificationPrefs.isEnabled(survey.ownerId, type.key(), NotificationChannel.EMAIL.key())) {
+            var owner = users.findByIdOptional(survey.ownerId).orElse(null);
+            if (owner != null) sender.send(emailService, owner.email, survey.title, actingName);
+        }
     }
 
     private CollaboratorDto toDto(SurveyCollaborator c) {
