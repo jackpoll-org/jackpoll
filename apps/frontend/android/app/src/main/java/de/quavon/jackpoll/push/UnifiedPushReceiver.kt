@@ -38,6 +38,13 @@ class UnifiedPushReceiver : MessagingReceiver() {
     }
 
     override fun onMessage(context: Context, message: PushMessage, instance: String) {
+        // The connector only hands us plaintext when it could decrypt the Web
+        // Push body (RFC 8291, aes128gcm). If decryption failed, content is raw
+        // ciphertext — rendering it produces garbled notifications, so drop it.
+        if (!message.decrypted) {
+            Log.w(TAG, "dropping undecryptable push message")
+            return
+        }
         val text = try { String(message.content, Charsets.UTF_8) } catch (t: Throwable) { "" }
         val (title, body) = parse(text)
         notify(context, title, body)

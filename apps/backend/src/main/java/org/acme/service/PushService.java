@@ -231,7 +231,12 @@ public class PushService {
                 new nl.martijndwars.webpush.Subscription.Keys(target.p256dh(), target.auth()));
             var notification = new nl.martijndwars.webpush.Notification(
                 subscription, buildWebPayload(title, body));
-            var response = client.send(notification);
+            // Encrypt with RFC 8291 "aes128gcm". The single-arg send() defaults
+            // to the legacy draft-04 "aesgcm" encoding, which the UnifiedPush
+            // connector (RFC 8291 only) cannot decrypt — the app then shows the
+            // raw ciphertext as garbled notification text.
+            var response = client.send(
+                notification, nl.martijndwars.webpush.Encoding.AES128GCM);
             int status = response.getStatusLine().getStatusCode();
             if (status >= 200 && status < 300) return SendResult.OK;
             // 404 Not Found / 410 Gone = the subscription expired or the user
