@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/app/components/ui/card";
+import { Button } from "@/app/components/ui/button";
 import { Switch } from "@/app/components/ui/switch";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import {
@@ -65,6 +66,21 @@ const CHANNEL_LABEL_KEYS: Record<NotificationChannelKey, TranslationKey> = {
 };
 
 const ALL_CHANNELS: NotificationChannelKey[] = ["email", "mobile_push", "web_push", "in_app"];
+const ALL_EVENTS: NotificationEventKey[] = GROUPS.flatMap((group) => group.events);
+
+/** Sets every valid channel of the given events to off, preserving the rest of the matrix. */
+function buildAllOff(
+  events: NotificationEventKey[],
+  prefs: NotificationPreferences,
+): NotificationPreferences {
+  const byEvent = { ...prefs.byEvent };
+  for (const event of events) {
+    byEvent[event] = Object.fromEntries(
+      EVENT_CHANNELS[event].map((channel) => [channel, false]),
+    );
+  }
+  return { byEvent };
+}
 
 export function NotificationSettingsPage() {
   const { t } = useTranslation();
@@ -86,6 +102,16 @@ export function NotificationSettingsPage() {
     }
   }
 
+  async function turnOff(events: NotificationEventKey[], successKey: TranslationKey) {
+    if (!prefs.data) return;
+    try {
+      await update.mutateAsync(buildAllOff(events, prefs.data));
+      toast.success(t(successKey));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("settings.notify.saveFailed"));
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
       <div className="mb-6">
@@ -96,8 +122,22 @@ export function NotificationSettingsPage() {
           <ArrowLeft className="size-4" />
           {t("settings.title")}
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">{t("settings.notify.linkTitle")}</h1>
-        <p className="text-sm text-muted-foreground">{t("settings.notify.prefsDescription")}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{t("settings.notify.linkTitle")}</h1>
+            <p className="text-sm text-muted-foreground">{t("settings.notify.prefsDescription")}</p>
+          </div>
+          {prefs.data && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={update.isPending}
+              onClick={() => turnOff(ALL_EVENTS, "settings.notify.turnedAllOff")}
+            >
+              {t("settings.notify.turnAllOff")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {prefs.isLoading ? (
@@ -117,6 +157,7 @@ export function NotificationSettingsPage() {
               prefs={prefs.data!}
               disabled={update.isPending}
               onToggle={toggle}
+              onTurnOff={() => turnOff(group.events, "settings.notify.turnedGroupOff")}
               t={t}
             />
           ))}
@@ -132,6 +173,7 @@ function EventGroup({
   prefs,
   disabled,
   onToggle,
+  onTurnOff,
   t,
 }: {
   titleKey: TranslationKey;
@@ -139,12 +181,16 @@ function EventGroup({
   prefs: NotificationPreferences;
   disabled: boolean;
   onToggle: (event: NotificationEventKey, channel: NotificationChannelKey, value: boolean) => void;
+  onTurnOff: () => void;
   t: TranslateFn;
 }) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle className="text-base">{t(titleKey)}</CardTitle>
+        <Button variant="ghost" size="sm" disabled={disabled} onClick={onTurnOff}>
+          {t("settings.notify.turnGroupOff")}
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {events.map((event) => (

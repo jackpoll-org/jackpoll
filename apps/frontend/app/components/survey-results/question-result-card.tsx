@@ -16,10 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/ui/select";
+import { cn } from "@/lib/utils";
 import { uploadFileUrl } from "@/app/lib/survey/api";
 import { labelMap } from "@/app/lib/survey/export";
-import { groupTextAnswers } from "@/app/lib/survey/results";
+import { groupTextAnswers, groupDateAnswers } from "@/app/lib/survey/results";
+import { formatDateOnly } from "@/app/lib/survey/format";
 import { remainingFor } from "@/app/lib/survey/quota";
+import { dateConfig } from "@/app/components/question-types/editors/date-editor";
 import type { Question, QuestionResult } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
 import type { TranslationKey } from "@/app/i18n/translations";
@@ -139,7 +142,7 @@ export function QuestionResultCard({
   colors,
   onChartTypeChange,
 }: QuestionResultCardProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const labels = labelMap(question);
   const label = (id: string) => labels[id] ?? id;
 
@@ -254,15 +257,39 @@ export function QuestionResultCard({
       }
 
       case "date": {
+        // Group by date (and by time within a date) instead of repeating the
+        // same date once per response (#).
         const answers = result.textAnswers ?? [];
+        const cfg = dateConfig(question?.settings);
+        const groups = groupDateAnswers(answers, cfg.mode);
         return (
           <ul className="grid gap-2">
-            {answers.map((text, i) => (
+            {groups.map((g) => (
               <li
-                key={`${i}:${text}`}
+                key={g.date || "time-only"}
                 className="rounded-md border bg-muted/40 px-3 py-2 text-sm"
               >
-                {text}
+                {cfg.mode !== "time" && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{formatDateOnly(g.date, locale)}</span>
+                    <Badge variant="secondary" className="shrink-0 tabular-nums">
+                      ×{g.count}
+                    </Badge>
+                  </div>
+                )}
+                {g.times.length > 0 && (
+                  <ul className={cn("grid gap-1", cfg.mode !== "time" && "mt-1.5 border-t pt-1.5")}>
+                    {g.times.map((tm) => (
+                      <li
+                        key={tm.time}
+                        className="flex items-center justify-between gap-3 text-muted-foreground"
+                      >
+                        <span>{tm.time}</span>
+                        {tm.count > 1 && <span className="tabular-nums">×{tm.count}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

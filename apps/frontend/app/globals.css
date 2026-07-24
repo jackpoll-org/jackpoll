@@ -256,6 +256,10 @@
   html,
   body {
     overscroll-behavior: none;
+    /* Guard against any single element (a border, shadow, or a Radix
+       popover portal) being a few px wider than the viewport — without
+       this, that alone lets the whole page rubber-band sideways on mobile. */
+    overflow-x: hidden;
   }
 }
 

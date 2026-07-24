@@ -8,6 +8,7 @@ import { Button } from "@/app/components/ui/button";
 import { Spinner } from "@/app/components/ui/spinner";
 import { useShareLink } from "@/app/hooks/survey";
 import { downloadText } from "@/app/lib/survey/export";
+import { saveDataUrlFile } from "@/app/lib/native/file-share";
 import { useTranslation } from "@/app/i18n/context";
 
 interface QrCodeCardProps {
@@ -50,10 +51,9 @@ export function QrCodeCard({ surveyId, origin, isPublished }: QrCodeCardProps) {
   function downloadPng() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const a = document.createElement("a");
-    a.href = canvas.toDataURL("image/png");
-    a.download = "survey-qr.png";
-    a.click();
+    saveDataUrlFile("survey-qr.png", canvas.toDataURL("image/png")).catch(() =>
+      toast.error(t("common.saveFailed")),
+    );
   }
 
   function downloadSvg() {

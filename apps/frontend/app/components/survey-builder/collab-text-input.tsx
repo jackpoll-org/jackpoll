@@ -106,8 +106,10 @@ export function CollabTextInput({
     );
   }, [carets, value, scrollTick, input]);
 
+  // min-w-0 flex-1: this span is the flex item in the title rows — without them
+  // it won't shrink below the input's intrinsic width, overflowing on mobile.
   return (
-    <span ref={wrapRef} className="relative block">
+    <span ref={wrapRef} className="relative block min-w-0 flex-1">
       <Input
         value={value}
         onChange={(e) => {

@@ -14,7 +14,7 @@ export function SettingRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <div className="grid gap-0.5">
+      <div className="grid min-w-0 gap-0.5">
         <Label htmlFor={htmlFor} className="font-normal">
           {title}
         </Label>

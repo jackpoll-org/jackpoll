@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import type {
   Option,
   Question,
@@ -5,6 +6,7 @@ import type {
   SurveyResponseDto,
   UploadedFile,
 } from "@/app/types/survey";
+import { saveTextFile } from "@/app/lib/native/file-share";
 
 /** Build a label lookup (option/row/column id → label) for a question. */
 export function labelMap(question: Question | undefined): Record<string, string> {
@@ -82,17 +84,15 @@ export function buildResponsesCsv(
     .join("\n");
 }
 
-/** Trigger a browser download of text content. */
+/** Trigger a text-content download — browser download on web, native share
+ *  sheet inside the iOS/Android app (`<a download>` is a no-op there). */
 export function downloadText(
   filename: string,
   content: string,
   mime: string,
 ): void {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveTextFile(filename, content, mime).catch(() => {
+    const de = typeof document !== "undefined" && document.documentElement.lang === "de";
+    toast.error(de ? "Datei konnte nicht gespeichert werden" : "Failed to save file");
+  });
 }

@@ -94,7 +94,7 @@ export function EmbedDialog({ surveyId, status }: EmbedDialogProps) {
             </p>
           )}
           <Textarea readOnly value={snippet} rows={3} className="font-mono text-xs" />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button onClick={copy} disabled={!mounted}>
               <Copy className="size-4" />
               {t("share.embed.copyCode")}

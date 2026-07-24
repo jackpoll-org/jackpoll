@@ -98,8 +98,8 @@ export function ShareLinkCard({ surveyId, origin, isPublished }: ShareLinkCardPr
 
   return (
     <div className="grid gap-3" key={data.slug}>
-      <div className="flex items-center gap-2">
-        <Input readOnly value={url} className="font-mono text-xs" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input readOnly value={url} className="min-w-0 flex-1 font-mono text-xs" />
         <Button onClick={copy}>
           <Copy className="size-4" />
           {t("common.copy")}

@@ -24,6 +24,14 @@ export function formatDuration(ms: number | null | undefined): string {
   return `${m}m ${String(s).padStart(2, "0")}s`;
 }
 
+/** Localized date-only formatting for a plain "YYYY-MM-DD" value (no timezone
+ *  shifting, unlike `new Date(iso)` on a date-only string). */
+export function formatDateOnly(value: string, locale: string): string {
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return value;
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(y, m - 1, d));
+}
+
 /** Absolute local timestamp, e.g. for tooltips. */
 export function formatAbsolute(iso: string | null | undefined, locale: string): string {
   if (!iso) return "—";
