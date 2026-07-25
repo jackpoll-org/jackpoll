@@ -256,10 +256,25 @@
   html,
   body {
     overscroll-behavior: none;
-    /* Guard against any single element (a border, shadow, or a Radix
-       popover portal) being a few px wider than the viewport — without
-       this, that alone lets the whole page rubber-band sideways on mobile. */
+  }
+  /* Guard against any single element (a border, shadow, or a Radix popover
+     portal) being a few px wider than the viewport — without this, that alone
+     lets the whole page rubber-band sideways on mobile.
+
+     NEVER put `overflow-x: hidden` on `body`: `hidden` forces the used
+     overflow-y to `auto`, which turns body into its own scroll container and
+     kills touch scrolling of the document in the Capacitor WKWebView (only
+     dialogs with their own scroll area stay scrollable). On `html` alone the
+     value is propagated to the viewport, so the document keeps scrolling. */
+  html {
     overflow-x: hidden;
+  }
+  @supports (overflow: clip) {
+    /* `clip` keeps overflow-y `visible`, so no scrollport is created at all —
+       preferred wherever it is supported (Safari 16+, Chrome 90+). */
+    html {
+      overflow-x: clip;
+    }
   }
 }
 
