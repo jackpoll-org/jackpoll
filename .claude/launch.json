@@ -12,6 +12,12 @@
       "runtimeExecutable": "apps/backend/mvnw",
       "runtimeArgs": ["-f", "apps/backend", "quarkus:dev"],
       "port": 8080
+    },
+    {
+      "name": "landing-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "../jackpoll-landing", "dev", "--port", "3001"],
+      "port": 3001
     }
   ]
 }
