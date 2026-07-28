@@ -113,7 +113,7 @@ public class KeycloakService {
         // The Location UUID equals the token 'sub', so the local user id stays
         // consistent with what login later derives. Unverified at creation.
         return ApiResponse.ok(new AuthDtos.UserResponse(
-            keycloakUserId, email, req.name().trim(), false, Instant.now().toString()));
+            keycloakUserId, email, req.name().trim(), false, Instant.now().toString(), null));
     }
 
     /** Flip a user's email to verified in Keycloak (admin API), so the next
@@ -308,7 +308,8 @@ public class KeycloakService {
             claims.getOrDefault("email", fallbackEmail),
             displayName,
             Boolean.parseBoolean(claims.getOrDefault("email_verified", "false")),
-            claims.getOrDefault("iat", Instant.now().toString())
+            claims.getOrDefault("iat", Instant.now().toString()),
+            null
         );
 
         return new AuthDtos.AuthResponseData(

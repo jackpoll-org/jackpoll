@@ -1,13 +1,11 @@
-# Store-publishing release builds (#51/#52): signed Play AAB (+ optional Play
-# Console upload) and iOS TestFlight. BUTTON-ONLY — these push to the actual
-# stores, so they never run automatically from a commit or tag push. The
-# unsigned F-Droid "base" APK auto-releases separately via
-# mobile-base-release.yml on every relevant commit.
+# Signed mobile release builds (#51/#52). Runs on a version tag or manually.
 # Each job no-ops (with a warning) until its signing secrets are configured, so
 # the workflow is safe to add before store accounts exist.
 name: Mobile release
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -18,8 +16,10 @@ defaults:
     working-directory: apps/frontend
 
 jobs:
-  # Play flavor: signed AAB (needs the keystore secrets) + optional automatic
-  # upload to the Play Console open testing track.
+  # Builds BOTH release artifacts on a version tag:
+  #   • fdroid → unsigned APK (F-Droid signs it) — always built.
+  #   • play   → signed AAB (needs the keystore secrets) + optional automatic
+  #              upload to the Play Console open testing track.
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -40,6 +40,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Sync web → native
         run: pnpm exec cap sync android
+
+      # ── F-Droid flavor (FLOSS, no Google; unsigned — F-Droid re-signs) ──
+      - name: Build F-Droid release APK
+        working-directory: apps/frontend/android
+        run: ./gradlew assembleFdroidRelease --no-daemon
+      - name: Upload F-Droid APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-fdroid-release
+          path: apps/frontend/android/app/build/outputs/apk/fdroid/release/*.apk
+          retention-days: 14
 
       # ── Play flavor (signed AAB) ──
       - name: Decode keystore

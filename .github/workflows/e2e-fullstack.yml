@@ -5,7 +5,7 @@ name: E2E (full stack)
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
     paths:
       - "apps/frontend/**"
       - "apps/backend/**"
@@ -30,8 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -1,5 +1,6 @@
 package org.acme.service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Consumer;
 
@@ -34,6 +35,10 @@ public class AuthService {
      */
     @ConfigProperty(name = "app.email-verification-required", defaultValue = "true")
     boolean emailVerificationRequired;
+
+    /** Minimum gap between display-name changes (issue #profile-abuse). */
+    @ConfigProperty(name = "survey.profile.name-change.min-interval-days", defaultValue = "7")
+    int nameChangeMinIntervalDays;
 
     public AuthService(UserRepository userRepository, KeycloakService keycloakService,
                        EmailCodeService emailCodeService, GdprService gdprService) {
@@ -164,10 +169,27 @@ public class AuthService {
         if (user == null) {
             return ApiResponse.error("User not found");
         }
-        keycloakService.updateProfile(userId, req.name());
-        user.name = req.name().trim();
-        user.updatedAt = java.time.Instant.now();
+        var newName = req.name().trim();
+        if (!newName.equals(user.name)) {
+            var nextAllowed = nextNameChangeAt(user);
+            if (nextAllowed != null && Instant.now().isBefore(nextAllowed)) {
+                return ApiResponse.error(
+                    "You can change your display name again on " + nextAllowed);
+            }
+            keycloakService.updateProfile(userId, newName);
+            user.name = newName;
+            user.nameChangedAt = Instant.now();
+        }
+        user.updatedAt = Instant.now();
         return ApiResponse.ok(toUserResponse(user));
+    }
+
+    /** Null once the once-a-week cooldown (from the last actual name change)
+     *  has elapsed, or if the name has never been changed. */
+    private Instant nextNameChangeAt(User user) {
+        if (user.nameChangedAt == null) return null;
+        var nextAllowed = user.nameChangedAt.plus(Duration.ofDays(nameChangeMinIntervalDays));
+        return nextAllowed.isAfter(Instant.now()) ? nextAllowed : null;
     }
 
     public ApiResponse<Void> changePassword(
@@ -295,12 +317,14 @@ public class AuthService {
     }
 
     private AuthDtos.UserResponse toUserResponse(User user) {
+        var nextAllowed = nextNameChangeAt(user);
         return new AuthDtos.UserResponse(
             user.id,
             user.email,
             user.name,
             user.emailVerified,
-            user.createdAt.toString()
+            user.createdAt.toString(),
+            nextAllowed == null ? null : nextAllowed.toString()
         );
     }
 }

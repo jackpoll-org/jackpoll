@@ -40,7 +40,7 @@ import { useTranslation } from "@/app/i18n/context";
 const PW_RULE = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).+$/;
 
 export function ProfileForm() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const { data: user, isLoading } = useCurrentUser();
   const updateProfile = useUpdateProfile();
@@ -58,6 +58,13 @@ export function ProfileForm() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (user?.name) setName(user.name);
   }, [user?.name]);
+
+  // The backend re-checks this on every save regardless — nextNameChangeAt is
+  // only here so the field can be locked and explained before a wasted round trip.
+  const nameChangeLockedUntil =
+    user?.nextNameChangeAt && new Date(user.nextNameChangeAt) > new Date()
+      ? new Date(user.nextNameChangeAt)
+      : null;
 
   if (isLoading) {
     return (
@@ -157,7 +164,15 @@ export function ProfileForm() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("profile.namePlaceholder")}
+                disabled={!!nameChangeLockedUntil}
               />
+              {nameChangeLockedUntil && (
+                <p className="text-xs text-muted-foreground">
+                  {t("profile.nameCooldown", {
+                    date: nameChangeLockedUntil.toLocaleDateString(locale),
+                  })}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="profile-email">{t("profile.emailLabel")}</Label>
@@ -179,7 +194,10 @@ export function ProfileForm() {
               </p>
             </div>
             <div>
-              <Button type="submit" disabled={updateProfile.isPending}>
+              <Button
+                type="submit"
+                disabled={updateProfile.isPending || !!nameChangeLockedUntil}
+              >
                 {updateProfile.isPending && <Spinner className="size-4" />}
                 {t("profile.saveChanges")}
               </Button>

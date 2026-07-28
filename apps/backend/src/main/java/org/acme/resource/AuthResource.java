@@ -50,6 +50,27 @@ public class AuthResource {
     @ConfigProperty(name = "survey.auth.rate-limit.window-seconds", defaultValue = "300")
     long authRateLimitWindowSeconds;
 
+    @ConfigProperty(name = "survey.profile.rate-limit.max", defaultValue = "5")
+    int profileRateLimitMax;
+
+    @ConfigProperty(name = "survey.profile.rate-limit.window-seconds", defaultValue = "300")
+    long profileRateLimitWindowSeconds;
+
+    /**
+     * Per-user budget for the authenticated profile-write endpoints. Unlike
+     * {@link #enforceAuthRateLimit}, the caller is already known (no IP/account
+     * split needed) — this just stops a compromised or scripted session from
+     * hammering Keycloak admin calls or walking current-password guesses.
+     */
+    private void enforceProfileRateLimit(String endpoint, String userId) {
+        if (!rateLimiter.allow(
+                "profile|" + endpoint + "|user|" + userId,
+                profileRateLimitMax, profileRateLimitWindowSeconds)) {
+            throw new RateLimitedException(
+                "Too many requests. Please wait a moment and try again.");
+        }
+    }
+
     /**
      * Brute-force guard (#56) for the public auth endpoints. Limits per client
      * IP and, when given, per account so neither a single source nor a single
@@ -271,7 +292,9 @@ public class AuthResource {
     @Authenticated
     @Consumes(MediaType.APPLICATION_JSON)
     public Response updateProfile(@Valid AuthDtos.UpdateProfileRequest req) {
-        var result = authService.updateProfile(identity.getPrincipal().getName(), req);
+        var userId = identity.getPrincipal().getName();
+        enforceProfileRateLimit("profile", userId);
+        var result = authService.updateProfile(userId, req);
         if (!result.success()) {
             return Response.status(Response.Status.BAD_REQUEST).entity(result).build();
         }
@@ -285,7 +308,9 @@ public class AuthResource {
     @Authenticated
     @Consumes(MediaType.APPLICATION_JSON)
     public Response changePassword(@Valid AuthDtos.ChangePasswordRequest req) {
-        var result = authService.changePassword(identity.getPrincipal().getName(), req);
+        var userId = identity.getPrincipal().getName();
+        enforceProfileRateLimit("change-password", userId);
+        var result = authService.changePassword(userId, req);
         if (!result.success()) {
             return Response.status(Response.Status.BAD_REQUEST).entity(result).build();
         }

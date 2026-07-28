@@ -4,7 +4,7 @@ name: Publish backend image
 # Only runs when the backend app (or this workflow) changes.
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
     tags: ["v*"]
     paths:
       - "apps/backend/**"

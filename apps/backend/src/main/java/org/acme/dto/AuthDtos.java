@@ -104,7 +104,11 @@ public final class AuthDtos {
         String email,
         String name,
         boolean emailVerified,
-        String createdAt
+        String createdAt,
+        // Null when the name has never been changed, or the cooldown has
+        // already elapsed — the frontend only needs this to disable the field
+        // and show a countdown, the backend re-checks on every save regardless.
+        @JsonInclude(JsonInclude.Include.NON_NULL) String nextNameChangeAt
     ) {}
 
     public record CurrentUserWrapper(

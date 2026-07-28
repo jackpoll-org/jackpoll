@@ -41,6 +41,12 @@ public class User extends PanacheEntityBase {
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;
 
+    /** Last time the display name actually changed (not every profile save —
+     *  only when {@code name} differs), gating the once-a-week limit. Null
+     *  until the first change. */
+    @Column(name = "name_changed_at")
+    public Instant nameChangedAt;
+
     @PrePersist
     void onCreate() {
         var now = Instant.now();

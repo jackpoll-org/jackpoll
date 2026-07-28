@@ -1,23 +1,10 @@
-# On every relevant commit, prove the F-Droid ("fdroid") flavor builds AND
-# contains no Google Play Services / FCM dependency — the FLOSS guarantee
-# F-Droid requires.
+# On every version tag, prove the F-Droid ("fdroid") flavor builds AND contains
+# no Google Play Services / FCM dependency — the FLOSS guarantee F-Droid requires.
 name: F-Droid build check
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "apps/frontend/android/**"
-      - "apps/frontend/capacitor.config.ts"
-      - "apps/frontend/package.json"
-      - ".github/workflows/fdroid-verify.yml"
   push:
-    branches: ["master"]
-    paths:
-      - "apps/frontend/android/**"
-      - "apps/frontend/capacitor.config.ts"
-      - "apps/frontend/package.json"
-      - ".github/workflows/fdroid-verify.yml"
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -34,8 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

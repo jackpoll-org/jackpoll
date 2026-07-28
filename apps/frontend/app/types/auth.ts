@@ -6,6 +6,9 @@ export interface User {
   name: string;
   emailVerified: boolean;
   createdAt: string;
+  /** ISO timestamp; set only while the once-a-week display-name cooldown is
+   *  still active. Absent once it has elapsed (or the name was never changed). */
+  nextNameChangeAt?: string;
 }
 
 export interface AuthTokens {
