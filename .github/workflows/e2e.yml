@@ -9,7 +9,7 @@ on:
       - "apps/frontend/**"
       - ".github/workflows/e2e.yml"
   push:
-    branches: ["main"]
+    branches: ["master"]
     paths:
       - "apps/frontend/**"
       - ".github/workflows/e2e.yml"

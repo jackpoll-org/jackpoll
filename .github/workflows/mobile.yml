@@ -15,7 +15,7 @@ on:
       - "apps/frontend/package.json"
       - ".github/workflows/mobile.yml"
   push:
-    branches: ["main"]
+    branches: ["master"]
     paths:
       - "apps/frontend/android/**"
       - "apps/frontend/ios/**"

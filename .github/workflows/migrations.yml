@@ -4,7 +4,7 @@ name: DB migrations
 # out-of-order migration is caught before it reaches a real database.
 on:
   push:
-    branches: ["main"]
+    branches: ["master"]
     paths:
       - "apps/backend/src/main/resources/db/migration/**"
       - ".github/workflows/migrations.yml"

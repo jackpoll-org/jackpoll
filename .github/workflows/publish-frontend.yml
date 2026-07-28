@@ -4,7 +4,7 @@ name: Publish frontend image
 # Only runs when the frontend app (or this workflow) changes.
 on:
   push:
-    branches: ["main"]
+    branches: ["master"]
     tags: ["v*"]
     paths:
       - "apps/frontend/**"
