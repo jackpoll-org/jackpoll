@@ -57,7 +57,9 @@ change touches. Fix anything CI flags before asking for review.
 
 Open a GitHub issue. Include repro steps for bugs (what you did, what you
 expected, what happened instead) and, for the mobile app, which build
-(Play/F-Droid/TestFlight) and OS version.
+(Play/F-Droid/TestFlight) and OS version. Add a screenshot or screen
+recording whenever possible — for UI bugs especially, it's often faster to
+diagnose than a text description alone.
 
 ## Security issues
 
