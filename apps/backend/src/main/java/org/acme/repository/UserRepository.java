@@ -45,7 +45,8 @@ public class UserRepository implements PanacheRepositoryBase<User, String> {
      * pair is atomic. There are no foreign keys into {@code users}, so evicting
      * the orphaned row is safe.
      */
-    public void upsert(String id, String email, String name, boolean emailVerified) {
+    public void upsert(String id, String email, String name, boolean emailVerified,
+                       String locale) {
         var em = getEntityManager();
         var now = Instant.now();
         // Case 2: drop a stale row that would otherwise collide on the email key.
@@ -58,12 +59,16 @@ public class UserRepository implements PanacheRepositoryBase<User, String> {
         // (user_id, event_type, channel) — a missing row defaults to enabled, so
         // there is nothing to seed here on insert.
         em.createNativeQuery("""
-                INSERT INTO users (id, email, name, email_verified, created_at, updated_at)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+                INSERT INTO users (id, email, name, email_verified, locale,
+                                   created_at, updated_at)
+                VALUES (?1, ?2, ?3, ?4, ?6, ?5, ?5)
                 ON CONFLICT (id) DO UPDATE SET
                     email = excluded.email,
                     name = excluded.name,
                     email_verified = excluded.email_verified,
+                    -- Keep the stored language when this sign-in carried none,
+                    -- so a client that sends no Accept-Language can't wipe it.
+                    locale = COALESCE(excluded.locale, users.locale),
                     updated_at = excluded.updated_at
                 """)
             .setParameter(1, id)
@@ -71,6 +76,7 @@ public class UserRepository implements PanacheRepositoryBase<User, String> {
             .setParameter(3, name)
             .setParameter(4, emailVerified)
             .setParameter(5, now)
+            .setParameter(6, locale)
             .executeUpdate();
     }
 }

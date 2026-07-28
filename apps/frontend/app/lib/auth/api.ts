@@ -3,6 +3,8 @@
  */
 
 import { API_BASE_URL, AUTH_ENDPOINTS } from "./constants";
+import { getCookie } from "@/app/lib/cookies";
+import { LOCALE_COOKIE } from "@/app/i18n/context";
 import { getStoredToken } from "./storage";
 import { refreshAccessToken } from "./refresh";
 import type {
@@ -36,6 +38,11 @@ async function request<T>(
       "Content-Type": "application/json",
       ...(options.headers as Record<string, string> | undefined),
     };
+    // The language chosen in the app decides which language the backend writes
+    // this account's emails in (verification codes, notifications). Sent on every
+    // auth call, so switching the app language switches the emails too.
+    const locale = getCookie(LOCALE_COOKIE);
+    if (locale) headers["Accept-Language"] = locale;
     const token = getStoredToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;

@@ -139,7 +139,10 @@ describe("forgotPasswordSchema", () => {
 // ── Reset Password Schema ─────────────────────────────────────────
 
 describe("resetPasswordSchema", () => {
+  // The reset flow is code-based: the emailed 6-digit code is part of the form,
+  // so a payload without it is (correctly) invalid.
   const validData = {
+    code: "123456",
     newPassword: "NewSecure1",
     confirmPassword: "NewSecure1",
   };

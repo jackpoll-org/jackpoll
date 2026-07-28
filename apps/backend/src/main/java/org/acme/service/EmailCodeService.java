@@ -63,6 +63,27 @@ public class EmailCodeService {
     @Transactional
     public String issue(String email, String purpose) {
         String normalized = normalize(email);
+        String code = mint(normalized, purpose);
+
+        switch (purpose) {
+            case EmailCode.PURPOSE_RESET -> emailService.sendPasswordResetCode(normalized, code, ttlMinutes);
+            case EmailCode.PURPOSE_DELETE_ACCOUNT -> emailService.sendDeleteAccountCode(normalized, code, ttlMinutes);
+            case EmailCode.PURPOSE_DELETE_DATA -> emailService.sendDeleteDataCode(normalized, code, ttlMinutes);
+            default -> emailService.sendVerificationCode(normalized, code, ttlMinutes);
+        }
+        return code;
+    }
+
+    /**
+     * Mint a code for {@code (email, purpose)} and store its hash, WITHOUT
+     * emailing it — for flows whose code travels in a mail this service doesn't
+     * own. The caller is responsible for delivering the returned plaintext (and
+     * for nothing else: expiry, attempt limits and single use are enforced by
+     * {@link #verify} either way).
+     */
+    @Transactional
+    public String mint(String email, String purpose) {
+        String normalized = normalize(email);
         codes.deleteByEmailAndPurpose(normalized, purpose);
 
         String code = generateCode();
@@ -76,14 +97,12 @@ public class EmailCodeService {
         row.consumed = false;
         row.createdAt = Instant.now();
         codes.persist(row);
-
-        switch (purpose) {
-            case EmailCode.PURPOSE_RESET -> emailService.sendPasswordResetCode(normalized, code, ttlMinutes);
-            case EmailCode.PURPOSE_DELETE_ACCOUNT -> emailService.sendDeleteAccountCode(normalized, code, ttlMinutes);
-            case EmailCode.PURPOSE_DELETE_DATA -> emailService.sendDeleteDataCode(normalized, code, ttlMinutes);
-            default -> emailService.sendVerificationCode(normalized, code, ttlMinutes);
-        }
         return code;
+    }
+
+    /** How long a freshly minted code stays valid, for the mail that carries it. */
+    public long ttlMinutes() {
+        return ttlMinutes;
     }
 
     /**

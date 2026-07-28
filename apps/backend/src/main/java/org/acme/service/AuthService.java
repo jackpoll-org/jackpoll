@@ -7,6 +7,7 @@ import org.acme.dto.ApiResponse;
 import org.acme.dto.AuthDtos;
 import org.acme.entity.EmailCode;
 import org.acme.entity.User;
+import org.acme.mail.MailCopy;
 import org.acme.repository.UserRepository;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -49,12 +50,13 @@ public class AuthService {
      * issued — the user must confirm the code, then sign in.
      */
     @Transactional
-    public ApiResponse<AuthDtos.RegisterResult> register(AuthDtos.RegisterRequest req) {
+    public ApiResponse<AuthDtos.RegisterResult> register(
+        AuthDtos.RegisterRequest req, String acceptLanguage) {
         var result = keycloakService.register(req);
         if (!result.success()) {
             return ApiResponse.error(result.error());
         }
-        syncLocalUser(result.data()); // emailVerified = false
+        syncLocalUser(result.data(), acceptLanguage); // emailVerified = false
         String email = result.data().email();
 
         // Verification disabled (self-host without a mail provider): activate the
@@ -75,10 +77,14 @@ public class AuthService {
     // ── Login ──────────────────────────────────────────────────────
 
     @Transactional
-    public ApiResponse<AuthDtos.AuthResponseData> login(AuthDtos.LoginRequest req, boolean offline) {
+    public ApiResponse<AuthDtos.AuthResponseData> login(
+        AuthDtos.LoginRequest req, boolean offline, String acceptLanguage) {
         var result = keycloakService.login(req, offline);
         if (result.success()) {
-            syncLocalUser(result.data().user());
+            // Refresh the mail language on every sign-in: a user who switches
+            // their browser (or moves country) should not keep getting mail in
+            // the language they happened to register in.
+            syncLocalUser(result.data().user(), acceptLanguage);
             return result;
         }
         // Valid credentials but unverified: send a fresh code so the user can
@@ -270,11 +276,22 @@ public class AuthService {
      * find-then-insert is unsafe with multiple backend replicas.
      */
     private void syncLocalUser(AuthDtos.UserResponse keycloakUser) {
+        syncLocalUser(keycloakUser, null);
+    }
+
+    /**
+     * @param acceptLanguage the browser's {@code Accept-Language}, from which the
+     *     user's mail language is derived. Null (or an unsupported language)
+     *     leaves the stored one untouched.
+     */
+    private void syncLocalUser(AuthDtos.UserResponse keycloakUser, String acceptLanguage) {
         userRepository.upsert(
             keycloakUser.id(),
             keycloakUser.email(),
             keycloakUser.name(),
-            keycloakUser.emailVerified());
+            keycloakUser.emailVerified(),
+            acceptLanguage == null || acceptLanguage.isBlank()
+                ? null : MailCopy.normalize(acceptLanguage));
     }
 
     private AuthDtos.UserResponse toUserResponse(User user) {

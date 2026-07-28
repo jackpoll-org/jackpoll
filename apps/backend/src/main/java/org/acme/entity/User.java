@@ -27,6 +27,14 @@ public class User extends PanacheEntityBase {
     @Column(name = "email_verified", nullable = false)
     public boolean emailVerified;
 
+    /**
+     * Language for the emails we send this user ("en"/"de"), captured from the
+     * browser's Accept-Language when the account is created and refreshed on
+     * sign-in. Null until then — mail falls back to English.
+     */
+    @Column(length = 8)
+    public String locale;
+
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
 

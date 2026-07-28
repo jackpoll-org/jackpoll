@@ -392,6 +392,8 @@ export interface SubmitResponseRequest {
   preview?: boolean;
   /** Respondent's name when the survey requires it (#). */
   respondentName?: string;
+  /** UI language the form was answered in, so the emailed receipt matches it. */
+  locale?: string;
 }
 
 // ── Save & Resume drafts (issue #26) ───────────────────────────────

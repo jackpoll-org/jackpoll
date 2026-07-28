@@ -32,7 +32,7 @@ class UserRepositoryUpsertTest {
         var email = email();
 
         QuarkusTransaction.requiringNew().run(() ->
-            users.upsert(id, email, "Ada", true));
+            users.upsert(id, email, "Ada", true, null));
 
         var row = QuarkusTransaction.requiringNew().call(() ->
             users.findByIdOptional(id).orElseThrow());
@@ -47,11 +47,11 @@ class UserRepositoryUpsertTest {
         var email = email();
 
         QuarkusTransaction.requiringNew().run(() ->
-            users.upsert(id, email, "Ada", false));
+            users.upsert(id, email, "Ada", false, null));
         // Re-sync with the SAME id (e.g. plain re-login) must not throw and must
         // refresh the mutable fields.
         QuarkusTransaction.requiringNew().run(() ->
-            users.upsert(id, email, "Ada Lovelace", true));
+            users.upsert(id, email, "Ada Lovelace", true, null));
 
         long count = QuarkusTransaction.requiringNew().call(() ->
             users.count("email", email));
@@ -72,9 +72,9 @@ class UserRepositoryUpsertTest {
         var newId = java.util.UUID.randomUUID().toString();
 
         QuarkusTransaction.requiringNew().run(() ->
-            users.upsert(oldId, email, "Ada", false));
+            users.upsert(oldId, email, "Ada", false, null));
         QuarkusTransaction.requiringNew().run(() ->
-            users.upsert(newId, email, "Ada", true));
+            users.upsert(newId, email, "Ada", true, null));
 
         long count = QuarkusTransaction.requiringNew().call(() ->
             users.count("email", email));

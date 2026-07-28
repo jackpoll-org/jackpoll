@@ -226,7 +226,7 @@ public class ResponseService {
         // Email notifications & receipts (issue #24) — best-effort, never blocks
         // or fails the submission. Owner email is resolved here (in-transaction)
         // and only the actual send runs off-thread.
-        dispatchEmails(survey, response, req.respondentEmail());
+        dispatchEmails(survey, response, req.respondentEmail(), req.locale());
 
         // Outbound webhooks (issue #36) — HMAC-signed, off-thread, best-effort.
         webhookService.dispatchResponse(surveyId, dto);
@@ -306,16 +306,18 @@ public class ResponseService {
     }
 
     /** Fire owner notification + respondent receipt without blocking submit. */
-    private void dispatchEmails(Survey survey, SurveyResponse response, String respondentEmail) {
+    private void dispatchEmails(Survey survey, SurveyResponse response,
+                                String respondentEmail, String respondentLocale) {
         if (survey.settings == null) return;
         var settings = survey.settings;
 
         // Owner email also requires the account-level "new response → email"
         // preference to be on (issue #89), on top of the per-survey cadence.
+        var owner = userRepository.findByIdOptional(survey.ownerId).orElse(null);
         String ownerEmail = "each".equals(settings.ownerNotify)
             && notificationPrefs.isEnabled(survey.ownerId,
                 NotificationEventType.NEW_RESPONSE.key(), NotificationChannel.EMAIL.key())
-            ? userRepository.findByIdOptional(survey.ownerId).map(u -> u.email).orElse(null)
+            ? (owner == null ? null : owner.email)
             : null;
         boolean wantReceipt = settings.respondentReceipts
             && respondentEmail != null && !respondentEmail.isBlank();
@@ -326,13 +328,20 @@ public class ResponseService {
         boolean isQuiz = settings.isQuiz;
         Integer score = response.score;
         Integer maxScore = response.maxScore;
+        // The respondent has no account, so their language comes from the form
+        // they just filled in; failing that, from the owner whose survey it is —
+        // a German survey's receipt should not arrive in English.
+        String receiptLocale = respondentLocale != null && !respondentLocale.isBlank()
+            ? respondentLocale
+            : (owner == null ? null : owner.locale);
 
         Runnable task = () -> {
             if (ownerEmail != null) {
                 emailService.sendOwnerNotification(ownerEmail, surveyId, title);
             }
             if (wantReceipt) {
-                emailService.sendReceipt(respondentEmail, title, isQuiz, score, maxScore);
+                emailService.sendReceipt(
+                    respondentEmail, title, isQuiz, score, maxScore, receiptLocale);
             }
         };
 

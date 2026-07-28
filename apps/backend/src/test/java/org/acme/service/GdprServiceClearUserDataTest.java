@@ -36,7 +36,7 @@ class GdprServiceClearUserDataTest {
     void clearUserDataKeepsTheAccountRow() {
         var id = UUID.randomUUID().toString();
         var email = email();
-        QuarkusTransaction.requiringNew().run(() -> users.upsert(id, email, "Ada", true));
+        QuarkusTransaction.requiringNew().run(() -> users.upsert(id, email, "Ada", true, null));
 
         QuarkusTransaction.requiringNew().run(() -> gdprService.clearUserData(id));
 

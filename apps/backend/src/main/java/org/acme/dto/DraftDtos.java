@@ -17,7 +17,7 @@ public final class DraftDtos {
      *  Bounds guard this anonymous, public write path (see SubmitResponseRequest). */
     public record SaveDraftRequest(
         @Size(max = 256) String token,
-        @Valid @Size(max = 1000) List<AnswerDto> answers,
+        @Size(max = 1000) List<@Valid AnswerDto> answers,
         Integer position
     ) {}
 

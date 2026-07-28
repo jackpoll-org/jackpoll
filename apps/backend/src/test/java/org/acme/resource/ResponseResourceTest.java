@@ -27,8 +27,9 @@ class ResponseResourceTest {
     @Test
     void submit_rejectsOversizedAnswerList_withoutTouchingTheDatabase() {
         // Bean Validation (@Size(max=1000) on answers) runs before the resource
-        // body, so an abusive anonymous payload is rejected with 400 up front —
-        // it never reaches the survey lookup (which would 404).
+        // body, so an abusive anonymous payload is rejected up front with the 422
+        // that ValidationExceptionMapper gives every constraint violation — it
+        // never reaches the survey lookup, which would have answered 404.
         StringBuilder answers = new StringBuilder("[");
         for (int i = 0; i < 1001; i++) {
             if (i > 0) answers.append(',');
@@ -40,7 +41,7 @@ class ResponseResourceTest {
             .contentType(ContentType.JSON)
             .body("{\"answers\":" + answers + "}")
             .when().post(BASE + "/does-not-exist/responses")
-            .then().statusCode(400);
+            .then().statusCode(422);
     }
 
     @Test

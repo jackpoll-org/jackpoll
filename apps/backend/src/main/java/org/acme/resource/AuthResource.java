@@ -109,10 +109,13 @@ public class AuthResource {
     public Response register(
         @Valid AuthDtos.RegisterRequest req,
         @HeaderParam("X-Forwarded-For") String forwardedFor,
+        // The browser's language decides which language this account's emails
+        // are written in — starting with the verification code below.
+        @HeaderParam("Accept-Language") String acceptLanguage,
         @Context io.vertx.core.http.HttpServerRequest http
     ) {
         enforceAuthRateLimit("register", forwardedFor, http, req.email());
-        var result = authService.register(req);
+        var result = authService.register(req, acceptLanguage);
         if (!result.success()) {
             return Response.status(Response.Status.CONFLICT).entity(result).build();
         }
@@ -129,13 +132,14 @@ public class AuthResource {
         @Valid AuthDtos.LoginRequest req,
         @HeaderParam("X-Forwarded-For") String forwardedFor,
         @HeaderParam("X-Auth-Offline") String offlineHeader,
+        @HeaderParam("Accept-Language") String acceptLanguage,
         @Context io.vertx.core.http.HttpServerRequest http
     ) {
         // Native clients send X-Auth-Offline: true to get a long-lived offline
         // refresh token (returned in the body) for biometric persistent login.
         boolean offline = "true".equalsIgnoreCase(offlineHeader);
         enforceAuthRateLimit("login", forwardedFor, http, req.email());
-        var result = authService.login(req, offline);
+        var result = authService.login(req, offline, acceptLanguage);
         if (!result.success()) {
             // Valid credentials but unverified email → 403 (a fresh code was sent),
             // so the client can route to the verification screen instead of showing

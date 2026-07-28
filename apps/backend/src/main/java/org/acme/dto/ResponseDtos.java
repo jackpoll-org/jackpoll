@@ -29,7 +29,7 @@ public final class ResponseDtos {
     // cap. A survey can't realistically have more than a few hundred questions.
     public record SubmitResponseRequest(
         Long durationMs,
-        @NotNull @Valid @Size(max = 1000) List<AnswerDto> answers,
+        @NotNull @Size(max = 1000) List<@Valid AnswerDto> answers,
         // Spam & bot protection (issue #31) — advisory client hints.
         /** Hidden honeypot field; must be empty for humans. */
         @Size(max = 1024) String honeypot,
@@ -44,7 +44,10 @@ public final class ResponseDtos {
         /** True for a builder preview/test submission — not counted in results. */
         Boolean preview,
         /** Respondent's name when the survey requires it (#). */
-        @Size(max = 255) String respondentName
+        @Size(max = 255) String respondentName,
+        /** Language the form was answered in, so the emailed receipt matches it.
+         *  Null falls back to the survey owner's language. */
+        @Size(max = 16) String locale
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

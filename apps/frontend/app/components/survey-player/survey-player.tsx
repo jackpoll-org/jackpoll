@@ -452,6 +452,9 @@ export function SurveyPlayer({
         offerReceipt && receiptEmail.trim() ? receiptEmail.trim() : undefined,
       preview: preview || undefined,
       respondentName: requireName ? respondentName.trim() : undefined,
+      // The receipt is written in the language the form was answered in — the
+      // respondent has no account we could look one up from.
+      locale,
     };
 
     const finishSubmitted = () => {
