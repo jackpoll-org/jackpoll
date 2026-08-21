@@ -21,8 +21,11 @@ export function StatTile({ label, value, icon, hint, valueTitle }: StatTileProps
       <CardContent className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-normal text-muted-foreground">{label}</p>
+          {/* Wraps rather than truncates: a relative date ("vor 4 Wochen") is
+              far longer than the plain number these tiles were built around,
+              and "vor 4 Woc…" tells the reader nothing. */}
           <p
-            className="mt-1 truncate text-2xl font-bold tabular-nums"
+            className="mt-1 text-2xl font-bold tabular-nums"
             title={valueTitle}
           >
             {value}
