@@ -47,6 +47,7 @@ vi.mock("@/app/lib/survey/api", () => ({ registerDeviceApi, getWebPushKeyApi: vi
 import {
   pushSupported,
   registerPush,
+  resumePushRegistration,
   getPushStatus,
   unregisterPush,
   listPushDistributors,
@@ -99,5 +100,27 @@ describe("push on iOS (APNs)", () => {
   it("unregisters through the APNs plugin", async () => {
     await unregisterPush();
     expect(push.unregister).toHaveBeenCalled();
+  });
+
+  // App start must never spend the one notification prompt iOS grants per
+  // install, and must not re-register a device the user never set up.
+  it("refreshes the token on start when notifications are already allowed", async () => {
+    push.checkPermissions.mockResolvedValueOnce({ receive: "granted" });
+    await resumePushRegistration();
+    expect(push.register).toHaveBeenCalled();
+    expect(push.requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it("does nothing on start when the permission was never granted", async () => {
+    push.checkPermissions.mockResolvedValueOnce({ receive: "prompt" });
+    await resumePushRegistration();
+    expect(push.register).not.toHaveBeenCalled();
+    expect(push.requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet on start when the user denied notifications", async () => {
+    push.checkPermissions.mockResolvedValueOnce({ receive: "denied" });
+    await resumePushRegistration();
+    expect(push.register).not.toHaveBeenCalled();
   });
 });

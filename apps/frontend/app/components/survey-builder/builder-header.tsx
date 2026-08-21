@@ -79,7 +79,10 @@ export function BuilderHeader({
             {t("builder.sharedEditing")}
           </span>
         )}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Six differently sized buttons wrapping freely left "Save" stranded on
+            a line of its own on a phone. Two even columns until sm, then the
+            normal inline row. */}
+        <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap">
           <PresenceAvatars />
           {dirty && (
             <span className="text-sm text-muted-foreground">

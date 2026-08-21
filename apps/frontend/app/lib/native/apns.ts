@@ -50,6 +50,10 @@ async function bindListeners(): Promise<void> {
 /**
  * Ask for the notification permission and register with APNs. Returns whether
  * the user granted permission — the token itself arrives via the listener.
+ *
+ * Only call this from an explicit "turn on notifications" action: iOS shows the
+ * system prompt exactly once per install, so spending it on app start would
+ * leave the user no way back except the Settings app.
  */
 export async function registerApns(): Promise<boolean> {
   if (!apnsSupported()) return false;
@@ -61,6 +65,18 @@ export async function registerApns(): Promise<boolean> {
   if (status.receive !== "granted") return false;
   await PushNotifications.register();
   return true;
+}
+
+/**
+ * Refresh the APNs token if the user already allowed notifications — APNs may
+ * hand out a new one at any time, and the backend needs the current one. Never
+ * prompts, so it is safe to run on every app start.
+ */
+export async function resumeApnsRegistration(): Promise<void> {
+  if (!apnsSupported()) return;
+  if (!(await apnsPermissionGranted())) return;
+  await bindListeners();
+  await PushNotifications.register();
 }
 
 /** Stop receiving pushes on this device. */

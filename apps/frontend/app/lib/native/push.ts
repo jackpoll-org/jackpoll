@@ -15,6 +15,7 @@ import { registerDeviceApi, getWebPushKeyApi } from "@/app/lib/survey/api";
 import {
   apnsSupported,
   registerApns,
+  resumeApnsRegistration,
   unregisterApns,
   apnsToken,
   apnsPermissionGranted,
@@ -125,6 +126,21 @@ export async function registerPush(): Promise<PushOutcome> {
   const vapid = await fetchVapidKey();
   const { outcome } = await UnifiedPush.register({ vapid });
   return outcome;
+}
+
+/**
+ * Re-register a device that is already set up, so a rotated token reaches the
+ * backend. Never asks for anything — that belongs to registerPush(), triggered
+ * by the user turning notifications on.
+ */
+export async function resumePushRegistration(): Promise<void> {
+  if (apnsSupported()) return resumeApnsRegistration();
+  if (!unifiedPushSupported()) return;
+  await bindEndpointListener();
+  const vapid = await fetchVapidKey();
+  // UnifiedPush only re-uses the distributor the user already picked; it does
+  // not open a picker on its own.
+  await UnifiedPush.register({ vapid });
 }
 
 export async function unregisterPush(): Promise<void> {

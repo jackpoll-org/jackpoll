@@ -214,7 +214,7 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
       >
         <div className="flex flex-wrap items-center gap-3 p-3">
           {dragHandle}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-40 flex-1">
             <CardTitle className="truncate text-base">{editLink}</CardTitle>
           </div>
           <span className="shrink-0 text-sm text-muted-foreground">
@@ -238,7 +238,9 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
     >
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
+          {/* min-w-40, not min-w-0: the title may shrink, but not below a
+              readable width — the row wraps the badge instead. */}
+          <div className="min-w-40 flex-1">
             {/* Stretched link: covers the whole card so clicking anywhere
                 opens the builder. Interactive controls below sit on a higher
                 stacking layer (relative z-10) so they aren't hijacked. */}

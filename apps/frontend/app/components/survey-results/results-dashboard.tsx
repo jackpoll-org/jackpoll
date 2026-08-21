@@ -217,7 +217,9 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
             {survey.data?.title ?? t("results.title")}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Buttons are `shrink-0` and `whitespace-nowrap`, so without wrapping
+            this row runs off the right edge of a phone screen. */}
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
             <Switch
               id="show-preview"

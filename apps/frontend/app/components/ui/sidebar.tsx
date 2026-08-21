@@ -243,10 +243,14 @@ function Sidebar({
         )}
         {...props}
       >
+        {/* The Capacitor shell draws under the status bar (viewport-fit=cover)
+            and this panel is `fixed inset-y-0`, so on an iPad the sidebar header
+            lands beneath the clock. env() is 0 on the web and on phones, where
+            the sidebar is a sheet that pads itself. */}
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm"
+          className="flex h-full w-full flex-col bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm"
         >
           {children}
         </div>
