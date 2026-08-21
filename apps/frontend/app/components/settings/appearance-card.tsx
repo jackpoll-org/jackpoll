@@ -66,7 +66,7 @@ export function AppearanceCard() {
                 setReducedMotion(v as "system" | "on" | "off")
               }
             >
-              <SelectTrigger className="w-40 max-w-full">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

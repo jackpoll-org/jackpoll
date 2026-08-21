@@ -39,7 +39,7 @@ export function SurveysCard() {
           title={t("settings.listDensity.label")}
           control={
             <Select value={density} onValueChange={(v) => setDensity(v as ListDensity)}>
-              <SelectTrigger className="w-40 max-w-full">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -53,7 +53,7 @@ export function SurveysCard() {
           title={t("settings.listSort.label")}
           control={
             <Select value={sort} onValueChange={(v) => setSort(v as ListSort)}>
-              <SelectTrigger className="w-40 max-w-full">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
