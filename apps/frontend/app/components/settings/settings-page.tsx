@@ -41,7 +41,7 @@ export function SettingsPage() {
         <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
         <AppearanceCard />
 
         <Card>

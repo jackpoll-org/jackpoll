@@ -35,7 +35,7 @@ export function AppearanceCard() {
         <CardDescription>{t("settings.appearance.description")}</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
-        <div className="grid gap-4">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
           <PresetSelector />
           <ColorModeSelector />
           <ThemeRadiusSelector />
@@ -66,7 +66,7 @@ export function AppearanceCard() {
                 setReducedMotion(v as "system" | "on" | "off")
               }
             >
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 max-w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

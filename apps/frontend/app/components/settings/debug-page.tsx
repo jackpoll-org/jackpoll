@@ -58,7 +58,7 @@ export function DebugPage() {
         <p className="text-sm text-muted-foreground">{t("debug.subtitle")}</p>
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
         {/* Push status + onboarding (native only; hidden on the web). */}
         <Card>
           <CardHeader>

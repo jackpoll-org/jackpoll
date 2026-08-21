@@ -141,14 +141,14 @@ export function NotificationSettingsPage() {
       </div>
 
       {prefs.isLoading ? (
-        <div className="grid gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
           <Skeleton className="h-40 w-full rounded-lg" />
           <Skeleton className="h-40 w-full rounded-lg" />
         </div>
       ) : prefs.isError || !prefs.data ? (
         <p className="text-sm text-destructive">{t("settings.notify.loadFailed")}</p>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
           {GROUPS.map((group) => (
             <EventGroup
               key={group.titleKey}
