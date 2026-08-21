@@ -1,8 +1,12 @@
-# iOS release lanes (#51). Auth via an App Store Connect API key (no 2FA);
-# code-signing via `match` (a shared signing repo). All inputs come from env so
-# nothing sensitive lives in the repo. Run from the `ios/` directory:
+# iOS release lanes (#51). Auth via an App Store Connect API key (no 2FA).
+# Code signing is cloud-managed (Xcode automatic signing + `-allowProvisioningUpdates`),
+# so no signing repo is needed; setting MATCH_GIT_URL switches to `match` instead.
+# All inputs come from env so nothing sensitive lives in the repo. Run from `ios/`:
 #   bundle exec fastlane beta
 default_platform(:ios)
+
+APP_IDENTIFIER = ENV["IOS_APP_IDENTIFIER"] || "de.quavon.jackpoll"
+TEAM_ID = ENV["IOS_TEAM_ID"] || "CFV35FGSHF"
 
 platform :ios do
   desc "Build and upload a TestFlight build"
@@ -15,12 +19,24 @@ platform :ios do
       in_house: false
     )
 
-    # Fetch the distribution cert + provisioning profile (read-only in CI).
-    if ENV["MATCH_GIT_URL"]
+    # Build numbers must strictly increase per marketing version, so derive the
+    # next one from what TestFlight already has (falls back to 1 for a new app).
+    build_number = ENV["IOS_BUILD_NUMBER"] || begin
+      latest = latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: APP_IDENTIFIER,
+        initial_build_number: 0
+      )
+      (latest + 1).to_s
+    end
+
+    # Optional: `match` (a shared signing repo) instead of cloud-managed signing.
+    use_match = !ENV["MATCH_GIT_URL"].to_s.empty?
+    if use_match
       match(
         type: "appstore",
         readonly: true,
-        app_identifier: ENV["IOS_APP_IDENTIFIER"] || "de.quavon.jackpoll",
+        app_identifier: APP_IDENTIFIER,
         git_url: ENV["MATCH_GIT_URL"],
         api_key: api_key
       )
@@ -29,13 +45,25 @@ platform :ios do
     build_app(
       project: "App/App.xcodeproj",
       scheme: "App",
+      configuration: "Release",
       export_method: "app-store",
       output_directory: "build",
-      clean: true
+      clean: true,
+      # Automatic signing needs the API key to create/refresh the distribution
+      # cert + App Store profile on the fly; `match` supplies them instead.
+      xcargs: [
+        "CURRENT_PROJECT_VERSION=#{build_number}",
+        use_match ? nil : "-allowProvisioningUpdates"
+      ].compact.join(" "),
+      export_options: {
+        signingStyle: use_match ? "manual" : "automatic",
+        teamID: TEAM_ID
+      }
     )
 
     upload_to_testflight(
       api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
       skip_waiting_for_build_processing: true
     )
   end

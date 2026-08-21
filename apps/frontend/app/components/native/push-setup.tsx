@@ -28,6 +28,7 @@ export function PushSetup() {
   const [distributors, setDistributors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [needsDistributor, setNeedsDistributor] = useState(false);
+  const [needsPermission, setNeedsPermission] = useState(false);
 
   const refresh = useCallback(async () => {
     setStatus(await getPushStatus());
@@ -48,9 +49,12 @@ export function PushSetup() {
   async function enable() {
     setBusy(true);
     setNeedsDistributor(false);
+    setNeedsPermission(false);
     try {
       const outcome = await registerPush();
       if (outcome === "NEEDS_DISTRIBUTOR") setNeedsDistributor(true);
+      // iOS: the system prompt was denied — only Settings can undo that.
+      if (outcome === "NEEDS_PERMISSION") setNeedsPermission(true);
       if (outcome === "NEEDS_PICKER") await refresh(); // show the picker below
       // endpoint arrives async via the listener → poll status shortly after.
       setTimeout(() => void refresh(), 1500);
@@ -110,6 +114,11 @@ export function PushSetup() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* iOS: notifications denied in the system settings. */}
+      {needsPermission && (
+        <p className="text-sm text-muted-foreground">{t("push.setup.needsPermission")}</p>
       )}
 
       {/* No distributor installed (common on F-Droid without Play Services). */}

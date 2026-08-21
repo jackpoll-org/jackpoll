@@ -68,14 +68,30 @@ npx capacitor-assets generate \   # regenerate native icon/splash sets
    - **fdroid**: **no Google** — relies on an external distributor. Self-host
      ships an **ntfy** server; users point the app's distributor there. (See the
      jackpoll-selfhost repo.)
-2. **iOS** (#51): in Xcode set the signing team and add the **Push
-   Notifications** capability (links `ios/App/App/App.entitlements`). For
-   automated TestFlight builds set up `fastlane match` (a private signing repo)
-   and add repo secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT`
-   (base64 of the App Store Connect API key `.p8`), `MATCH_GIT_URL`,
-   `MATCH_PASSWORD`. The `Mobile release` workflow then runs
-   `bundle exec fastlane beta` (build → TestFlight). Locally:
-   `cd ios && bundle install && bundle exec fastlane beta`.
+
+   **iOS uses APNs instead** (#51): a WKWebView has no Push API, so Web Push and
+   UnifiedPush are both out. The app registers an APNs device token
+   (`app/lib/native/apns.ts`) and the backend delivers it via `ApnsService`.
+   Configure `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the `.p8`
+   contents), `APNS_TOPIC` and `APNS_PRODUCTION` — create the key once under
+   developer portal → Keys → Apple Push Notifications service. TestFlight and
+   App Store builds need `APNS_PRODUCTION=true`; a locally built debug app needs
+   `false`, since its entitlement points at the APNs sandbox.
+2. **iOS**: signing is wired already — team `CFV35FGSHF` (Quavon UG), the
+   entitlements file is linked via `CODE_SIGN_ENTITLEMENTS`, and signing runs
+   through the Apple ID signed into Xcode (`-allowProvisioningUpdates`), so all
+   you need is an App Store Connect API key for the upload. Locally:
+   `cd ios && ASC_KEY_ID=… ASC_ISSUER_ID=… ./release-testflight.sh` (archive →
+   export → TestFlight, no fastlane). In CI add the repo secrets `ASC_KEY_ID`,
+   `ASC_ISSUER_ID`, `ASC_KEY_CONTENT` (base64 of the `.p8`); the `Mobile release`
+   workflow then runs `bundle exec fastlane beta` — but its iOS job is **manual
+   only**, because macOS runners cost 10× the Linux rate. `match` stays optional:
+   set `MATCH_GIT_URL` + `MATCH_PASSWORD` for a shared signing repo, or
+   `ASC_CLOUD_SIGNING=1` to sign with an **Admin**-role API key instead of the
+   local Xcode account.
+   For iOS push you also need an **APNs key** (see the push section above) and
+   the Push Notifications capability on the App ID.
+   Full store checklist: [docs/app-store-submission.md](./docs/app-store-submission.md).
 3. **Android** (#52): create a release keystore, then add repo secrets
    `ANDROID_KEYSTORE_BASE64` (base64 of the `.jks`),
    `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
@@ -89,6 +105,14 @@ npx capacitor-assets generate \   # regenerate native icon/splash sets
 ## CI
 
 `.github/workflows/mobile.yml` builds an unsigned **Android debug APK**
-(artifact) and compiles the **iOS** project for the simulator on every change to
-the native projects. Signed release builds are intentionally excluded until
-signing secrets are configured.
+(artifact) on every change to the native projects.
+
+The **iOS** jobs in both `mobile.yml` and `mobile-release.yml` are
+`workflow_dispatch` only: GitHub bills macOS runners at 10× the Linux rate, and
+there are no self-hosted macOS runners yet. Compile iOS locally instead:
+
+```bash
+cd ios/App && xcodebuild -scheme App \
+  -destination 'generic/platform=iOS Simulator' \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO build
+```

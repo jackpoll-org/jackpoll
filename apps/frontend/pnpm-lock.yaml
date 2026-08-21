@@ -46,6 +46,9 @@ importers:
       '@capacitor/preferences':
         specifier: ^8.0.1
         version: 8.0.1(@capacitor/core@8.4.0)
+      '@capacitor/push-notifications':
+        specifier: ^8.1.2
+        version: 8.1.2(@capacitor/core@8.4.0)
       '@capacitor/share':
         specifier: ^8.0.1
         version: 8.0.1(@capacitor/core@8.4.0)
@@ -385,6 +388,11 @@ packages:
 
   '@capacitor/preferences@8.0.1':
     resolution: {integrity: sha512-T6no3ebi79XJCk91U3Jp/liJUwgBdvHR+s6vhvPkPxSuch7z3zx5Rv1bdWM6sWruNx+pViuEGqZvbfCdyBvcHQ==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+
+  '@capacitor/push-notifications@8.1.2':
+    resolution: {integrity: sha512-TQl4XxqJfNF+KbSYBFMXYYT5WXUaleVKXlByhh/8+KySMVNjp+l5OqAUoGe/sY1IAnGXEuUeCjA/WLZEVvGwrA==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
@@ -3314,6 +3322,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -5833,6 +5842,10 @@ snapshots:
       '@capacitor/core': 8.4.0
 
   '@capacitor/preferences@8.0.1(@capacitor/core@8.4.0)':
+    dependencies:
+      '@capacitor/core': 8.4.0
+
+  '@capacitor/push-notifications@8.1.2(@capacitor/core@8.4.0)':
     dependencies:
       '@capacitor/core': 8.4.0
 

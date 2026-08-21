@@ -22,17 +22,25 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 /**
- * Push notifications to a user's registered devices via <b>Web Push</b>
- * (VAPID, RFC 8291/8292). This is the single delivery channel for both browsers
- * and the mobile app: on Android the app registers through <b>UnifiedPush</b>,
- * whose distributor hands the app a Web Push endpoint + keys — indistinguishable
- * from a browser subscription, so the same code delivers to both.
+ * Push notifications to a user's registered devices over two channels, chosen
+ * per device by {@code platform}:
  *
- * <p>Sending is env-gated by the VAPID key pair ({@code survey.push.vapid.*}):
- * without keys it is a no-op, so dev/test need no configuration. Registration
- * always works; delivery is best-effort and off the request thread. Endpoints
- * the push service reports as gone (404/410) — including legacy FCM tokens that
- * carry no encryption keys — are pruned.
+ * <ul>
+ *   <li><b>Web Push</b> (VAPID, RFC 8291/8292) for browsers and Android. The
+ *       Android app registers through <b>UnifiedPush</b>, whose distributor
+ *       hands it a Web Push endpoint + keys — indistinguishable from a browser
+ *       subscription, so the same code delivers to both.</li>
+ *   <li><b>APNs</b> ({@link ApnsService}) for {@code "ios"} devices: a
+ *       WKWebView has no Push API, so the iOS app registers an APNs device
+ *       token instead (#51).</li>
+ * </ul>
+ *
+ * <p>Each channel is env-gated by its own credentials ({@code survey.push.vapid.*}
+ * / {@code survey.push.apns.*}): without them it is a no-op, so dev/test need no
+ * configuration. Registration always works; delivery is best-effort and off the
+ * request thread. Tokens the push service reports as gone (404/410, or APNs
+ * {@code BadDeviceToken}) — including legacy FCM tokens that carry no encryption
+ * keys — are pruned.
  */
 @ApplicationScoped
 public class PushService {
@@ -57,6 +65,10 @@ public class PushService {
 
     @Inject
     NotificationPreferenceRepository preferences;
+
+    /** APNs delivery for iOS devices, which have no Web Push channel (#51). */
+    @Inject
+    ApnsService apns;
 
     private static final ExecutorService PUSH_EXECUTOR =
         Executors.newSingleThreadExecutor(r -> {
@@ -123,7 +135,9 @@ public class PushService {
     /** Immutable snapshot of a device, read inside the caller's transaction. */
     private record Target(String token, String platform, String p256dh, String auth) {
         boolean isWebChannel() { return "web".equals(platform); }
-        boolean deliverable() { return p256dh != null && auth != null; }
+        /** iOS registers an APNs device token — no Web Push endpoint (#51). */
+        boolean isApns() { return "ios".equals(platform); }
+        boolean deliverableWeb() { return p256dh != null && auth != null; }
     }
 
     /**
@@ -145,15 +159,17 @@ public class PushService {
         return deliver(userId, null, title, body);
     }
 
-    /** How many of the user's devices can actually receive Web Push. */
+    /** How many of the user's devices can actually receive a notification. */
     public long deliverableDeviceCount(String userId) {
         return devices.findByUser(userId).stream()
-            .filter(d -> d.p256dh != null && d.auth != null)
+            .filter(d -> "ios".equals(d.platform)
+                ? apns.isConfigured()
+                : d.p256dh != null && d.auth != null)
             .count();
     }
 
     private int deliver(String userId, NotificationEventType type, String title, String body) {
-        if (!webConfigured()) return 0;
+        if (!webConfigured() && !apns.isConfigured()) return 0;
         final boolean wantMobile = type == null
             || preferences.isEnabled(userId, type.key(), NotificationChannel.MOBILE_PUSH.key());
         final boolean wantWeb = type == null
@@ -164,10 +180,14 @@ public class PushService {
             .filter(t -> t.isWebChannel() ? wantWeb : wantMobile)
             .toList();
         if (targets.isEmpty()) return 0;
-        int deliverable = (int) targets.stream().filter(Target::deliverable).count();
+        int deliverable = (int) targets.stream()
+            .filter(t -> t.isApns() ? apns.isConfigured() : t.deliverableWeb())
+            .count();
         PUSH_EXECUTOR.execute(() -> {
             for (var target : targets) {
-                SendResult result = sendWebPush(target, title, body);
+                SendResult result = target.isApns()
+                    ? sendApns(target, title, body)
+                    : sendWebPush(target, title, body);
                 if (result == SendResult.INVALID_TOKEN) {
                     pruneToken(target.token());
                 }
@@ -224,7 +244,7 @@ public class PushService {
         if (client == null) return SendResult.ERROR;
         // A subscription without its encryption keys can never be delivered
         // (this is also how legacy FCM tokens get pruned after the update).
-        if (!target.deliverable()) return SendResult.INVALID_TOKEN;
+        if (!target.deliverableWeb()) return SendResult.INVALID_TOKEN;
         try {
             var subscription = new nl.martijndwars.webpush.Subscription(
                 target.token(),
@@ -248,6 +268,16 @@ public class PushService {
             LOG.debugf(e, "web push send failed for one device");
             return SendResult.ERROR;
         }
+    }
+
+    // ── APNs (iOS) ─────────────────────────────────────────────────
+
+    private SendResult sendApns(Target target, String title, String body) {
+        return switch (apns.send(target.token(), title, body)) {
+            case OK -> SendResult.OK;
+            case INVALID_TOKEN -> SendResult.INVALID_TOKEN;
+            case ERROR -> SendResult.ERROR;
+        };
     }
 
     /** Payload read by the service worker's / receiver's push handler. */

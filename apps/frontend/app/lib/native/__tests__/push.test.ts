@@ -13,7 +13,19 @@ vi.mock("@capacitor/core", () => ({
     addListener: vi.fn(),
   }),
 }));
-vi.mock("@/app/lib/survey/api", () => ({ registerDeviceApi: vi.fn() }));
+vi.mock("@capacitor/push-notifications", () => ({
+  PushNotifications: {
+    checkPermissions: vi.fn(),
+    requestPermissions: vi.fn(),
+    register: vi.fn(),
+    unregister: vi.fn(),
+    addListener: vi.fn(),
+  },
+}));
+vi.mock("@/app/lib/survey/api", () => ({
+  registerDeviceApi: vi.fn(),
+  getWebPushKeyApi: vi.fn(),
+}));
 
 import { pushSupported } from "../push";
 

@@ -5,6 +5,12 @@ App/App/public
 DerivedData
 xcuserdata
 
+# Release artifacts (xcarchive / ipa / dSYMs) from fastlane and release-testflight.sh
+build
+fastlane/report.xml
+*.ipa
+*.dSYM.zip
+
 # Cordova plugins for Capacitor
 capacitor-cordova-ios-plugins
 

@@ -30,8 +30,15 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
+	<!--
+	  Export compliance: the app only uses HTTPS/TLS and the platform's own
+	  crypto, which is exempt. Declaring it here skips the manual question on
+	  every App Store Connect upload.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

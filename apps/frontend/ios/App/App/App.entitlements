@@ -3,19 +3,22 @@
 <plist version="1.0">
 <dict>
 	<!--
-	  Push Notifications (#51). Add the "Push Notifications" capability in Xcode
-	  (Signing & Capabilities) so this file is linked via CODE_SIGN_ENTITLEMENTS;
-	  use "development" while testing.
+	  This file is linked through CODE_SIGN_ENTITLEMENTS in the target's build
+	  settings, so the capabilities below are part of every build.
+
+	  Push Notifications (#51): iOS registers with APNs (app/lib/native/apns.ts)
+	  because a WKWebView has no Push API. "production" is what TestFlight and
+	  App Store builds need; a locally built debug app talks to the APNs sandbox,
+	  which the backend selects with APNS_PRODUCTION=false. The App ID must have
+	  the Push Notifications capability enabled.
+
+	  Universal Links (#71): the host must serve
+	  /.well-known/apple-app-site-association — set APPLE_APP_ID on the frontend
+	  deployment to "CFV35FGSHF.de.quavon.jackpoll". Self-hosted instances on
+	  other hosts route links via the in-app appUrlOpen handler instead.
 	-->
 	<key>aps-environment</key>
 	<string>production</string>
-	<!--
-	  Universal Links (#71). Add the "Associated Domains" capability in Xcode so
-	  this stays linked, and ensure /.well-known/apple-app-site-association on the
-	  host returns the AASA (set APPLE_APP_ID on the frontend deployment). Self-
-	  hosted instances on other hosts route links via the in-app appUrlOpen
-	  handler instead.
-	-->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:app.jackpoll.org</string>

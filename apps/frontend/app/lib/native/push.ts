@@ -1,18 +1,32 @@
-// ── Native push notifications via UnifiedPush ──────────────────────
+// ── Native push notifications ──────────────────────────────────────
 //
-// Replaces the old FCM-only setup. On Android the native UnifiedPush bridge
-// (registerPlugin "UnifiedPush") resolves a distributor (external like ntfy /
-// NextPush, or — play flavor only — a bundled Embedded FCM fallback) and hands
-// us a Web Push endpoint + keys, which we register with the backend exactly
-// like a browser PushSubscription. No-op on the web (see web-push.ts there).
+// Two native backends behind one API, picked by platform:
+//   • Android → UnifiedPush (registerPlugin "UnifiedPush"): resolves a
+//     distributor (external like ntfy / NextPush, or — play flavor only — a
+//     bundled Embedded FCM fallback) and hands us a Web Push endpoint + keys,
+//     which we register with the backend exactly like a browser subscription.
+//   • iOS → APNs (apns.ts): a WKWebView has no Push API, so the app registers
+//     an APNs device token instead (#51). There is no distributor to pick, so
+//     the picker parts of PushStatus stay empty.
+// No-op on the web (see web-push.ts there).
 
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { registerDeviceApi, getWebPushKeyApi } from "@/app/lib/survey/api";
+import {
+  apnsSupported,
+  registerApns,
+  unregisterApns,
+  apnsToken,
+  apnsPermissionGranted,
+  onApnsRegistrationFailed,
+} from "@/app/lib/native/apns";
 
 export type PushOutcome =
   | "REGISTERING"
   | "NEEDS_PICKER"
   | "NEEDS_DISTRIBUTOR"
+  // iOS: the system notification permission was denied (or dismissed).
+  | "NEEDS_PERMISSION"
   | "UNSUPPORTED";
 
 export interface PushStatus {
@@ -45,14 +59,20 @@ interface UnifiedPushPlugin {
 
 const UnifiedPush = registerPlugin<UnifiedPushPlugin>("UnifiedPush");
 
-export function pushSupported(): boolean {
+/** UnifiedPush is Android-only; iOS is handled by apns.ts. */
+function unifiedPushSupported(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+}
+
+export function pushSupported(): boolean {
+  return unifiedPushSupported() || apnsSupported();
 }
 
 const errorListeners = new Set<(reason: string) => void>();
 
 /** Subscribe to native registration failures (e.g. FCM init errors). Returns an unsubscribe function. */
 export function onPushRegistrationFailed(cb: (reason: string) => void): () => void {
+  if (apnsSupported()) return onApnsRegistrationFailed(cb);
   errorListeners.add(cb);
   return () => errorListeners.delete(cb);
 }
@@ -95,7 +115,12 @@ async function fetchVapidKey(): Promise<string | undefined> {
 
 /** Start/refresh push registration. Returns the immediate outcome for the UI. */
 export async function registerPush(): Promise<PushOutcome> {
-  if (!pushSupported()) return "UNSUPPORTED";
+  if (apnsSupported()) {
+    // iOS has no distributor to choose; either the user grants the system
+    // permission and the token follows, or push stays off.
+    return (await registerApns()) ? "REGISTERING" : "NEEDS_PERMISSION";
+  }
+  if (!unifiedPushSupported()) return "UNSUPPORTED";
   await bindEndpointListener();
   const vapid = await fetchVapidKey();
   const { outcome } = await UnifiedPush.register({ vapid });
@@ -103,22 +128,37 @@ export async function registerPush(): Promise<PushOutcome> {
 }
 
 export async function unregisterPush(): Promise<void> {
-  if (pushSupported()) await UnifiedPush.unregister();
+  if (apnsSupported()) return unregisterApns();
+  if (unifiedPushSupported()) await UnifiedPush.unregister();
 }
 
 export async function getPushStatus(): Promise<PushStatus | null> {
-  if (!pushSupported()) return null;
+  if (apnsSupported()) {
+    const token = apnsToken();
+    return {
+      // Registered means: iOS allows notifications AND we hold a token.
+      registered: token !== null && (await apnsPermissionGranted()),
+      distributor: "APNs",
+      hasEmbeddedFallback: false,
+      installedDistributors: "",
+      endpoint: token,
+      pubKey: null,
+      auth: null,
+    };
+  }
+  if (!unifiedPushSupported()) return null;
   return UnifiedPush.getStatus();
 }
 
 export async function listPushDistributors(): Promise<string[]> {
-  if (!pushSupported()) return [];
+  // iOS: APNs is the only transport, so there is nothing to list.
+  if (!unifiedPushSupported()) return [];
   const { distributors } = await UnifiedPush.listDistributors();
   return distributors ? distributors.split(",").filter(Boolean) : [];
 }
 
 export async function pickPushDistributor(distributor: string): Promise<void> {
-  if (!pushSupported()) return;
+  if (!unifiedPushSupported()) return;
   const vapid = await fetchVapidKey();
   await UnifiedPush.pickDistributor({ distributor, vapid });
 }
