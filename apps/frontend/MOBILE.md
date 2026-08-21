@@ -107,6 +107,23 @@ npx capacitor-assets generate \   # regenerate native icon/splash sets
 `.github/workflows/mobile.yml` builds an unsigned **Android debug APK**
 (artifact) on every change to the native projects.
 
+**Store releases run in the public repo** (`jackpoll-org/jackpoll`), not here:
+its `Mobile release` workflow fires on every push touching the native shell and
+produces one release — TestFlight build, Play Console draft, unsigned F-Droid
+APK, and a GitHub Release holding all three, with a signed provenance
+attestation on the `.ipa`. That way the shipped binary is traceable to public
+source, and the macOS minutes are free (standard runners cost nothing in public
+repositories).
+
+**Build numbers** come from the stores, not from a counter:
+
+* iOS asks App Store Connect for the highest build in the current
+  `MARKETING_VERSION` train and adds one, so a fresh version starts at 1 and
+  local builds share the sequence with CI.
+* Android asks Play for the highest version code ever uploaded (drafts
+  included) and adds one. It cannot restart at 1 — Play requires codes to
+  increase across the whole package, regardless of version name.
+
 The **iOS** jobs in both `mobile.yml` and `mobile-release.yml` are
 `workflow_dispatch` only: GitHub bills macOS runners at 10× the Linux rate, and
 there are no self-hosted macOS runners yet. Compile iOS locally instead:

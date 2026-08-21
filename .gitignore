@@ -35,3 +35,4 @@ apps/frontend/ios/DerivedData/
 
 # OS / editor
 .DS_Store
+__pycache__/

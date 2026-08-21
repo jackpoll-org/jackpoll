@@ -27,8 +27,6 @@ FRONTEND_DIR="$(dirname "$SCRIPT_DIR")"
 
 APP_IDENTIFIER="${IOS_APP_IDENTIFIER:-de.quavon.jackpoll}"
 TEAM_ID="${IOS_TEAM_ID:-CFV35FGSHF}"
-# Build numbers only need to increase; a UTC timestamp always does.
-BUILD_NUMBER="${IOS_BUILD_NUMBER:-$(date -u +%Y%m%d%H%M)}"
 
 BUILD_DIR="$SCRIPT_DIR/build"
 ARCHIVE_PATH="$BUILD_DIR/App.xcarchive"
@@ -38,6 +36,39 @@ KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID:-missing}.p8"
 : "${ASC_KEY_ID:?set ASC_KEY_ID (App Store Connect API key id)}"
 : "${ASC_ISSUER_ID:?set ASC_ISSUER_ID (App Store Connect issuer id)}"
 [ -f "$KEY_PATH" ] || { echo "error: API key not found at $KEY_PATH" >&2; exit 1; }
+
+# The marketing version defines the "train"; build numbers must be unique and
+# strictly increasing within it, and may restart at 1 in a new train.
+MARKETING_VERSION="$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' \
+  "$SCRIPT_DIR/App/App.xcodeproj/project.pbxproj" | head -1)"
+
+# Next build number = highest one App Store Connect already has for this train,
+# plus one. Asking the store rather than counting CI runs keeps local and CI
+# builds on one sequence, and starts a fresh train at 1.
+next_build_number() {
+  local jwt app_id builds
+  jwt="$(xcrun altool --generate-jwt --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" \
+    --p8-file-path "$KEY_PATH" 2>&1 | grep -m1 -oE 'ey[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+')"
+  [ -n "$jwt" ] || { echo "error: could not mint an App Store Connect token" >&2; return 1; }
+
+  app_id="$(curl -fsS -H "Authorization: Bearer $jwt" \
+    "https://api.appstoreconnect.apple.com/v1/apps?filter%5BbundleId%5D=$APP_IDENTIFIER&limit=1" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; print(d[0]["id"] if d else "")')"
+  [ -n "$app_id" ] || { echo "error: no app record for $APP_IDENTIFIER" >&2; return 1; }
+
+  builds="$(curl -fsS -H "Authorization: Bearer $jwt" \
+    "https://api.appstoreconnect.apple.com/v1/builds?filter%5Bapp%5D=$app_id&filter%5BpreReleaseVersion.version%5D=$MARKETING_VERSION&limit=200")"
+  # Compare numerically: "10" must beat "9", which a string sort gets wrong.
+  python3 -c '
+import json, sys
+builds = json.load(sys.stdin).get("data", [])
+numbers = [int(b["attributes"]["version"]) for b in builds
+           if b["attributes"].get("version", "").isdigit()]
+print(max(numbers) + 1 if numbers else 1)' <<<"$builds"
+}
+
+BUILD_NUMBER="${IOS_BUILD_NUMBER:-$(next_build_number)}"
+[ -n "$BUILD_NUMBER" ] || { echo "error: could not determine the build number" >&2; exit 1; }
 
 echo "==> Syncing web assets into the native project"
 (cd "$FRONTEND_DIR" && pnpm exec cap sync ios)

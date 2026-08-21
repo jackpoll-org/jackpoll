@@ -1,28 +1,150 @@
-# Signed mobile release builds (#51/#52). Runs on a version tag or manually.
-# Each job no-ops (with a warning) until its signing secrets are configured, so
-# the workflow is safe to add before store accounts exist.
+# Ship the mobile apps from the open-source tree (#51/#52).
+#
+# The point is provenance: what lands on the App Store and in Play is built from
+# this public repository, from a commit anyone can inspect, and the iOS binary
+# carries a signed GitHub attestation. (Both apps are Capacitor shells — they
+# load whichever instance you point them at, so this guarantees the shell, not
+# what a given server serves.)
+#
+# Every push that touches the native shell produces one release: a TestFlight
+# build, a Play Console draft, an unsigned F-Droid APK, and a GitHub Release
+# holding all three artifacts. Web-only changes deliberately trigger nothing —
+# they reach users through the instance without a store round trip.
+#
+# macOS minutes are free here: GitHub bills standard runners at zero for public
+# repositories. In the private source repo the iOS jobs are manual for exactly
+# that reason.
+#
+# SETUP — repository secrets (Settings → Secrets and variables → Actions):
+#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_CONTENT
+#       App Store Connect API key, base64 for the .p8. Needs the **Admin** role:
+#       no Apple ID is signed into a runner, so signing happens through the key,
+#       and only Admin may create certificates and profiles.
+#   ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS /
+#   ANDROID_KEY_PASSWORD
+#       Release keystore for the Play build.
+#   PLAY_SERVICE_ACCOUNT_JSON
+#       Play service account with "Release apps to testing tracks". Also used to
+#       read the highest version code already uploaded.
+# Each job skips with a warning when its secrets are absent, so forks are fine.
 name: Mobile release
 
 on:
   push:
-    tags: ["v*"]
+    branches: ["master"]
+    paths:
+      - "apps/frontend/ios/**"
+      - "apps/frontend/android/**"
+      - "apps/frontend/mobile/**"
+      - "apps/frontend/capacitor.config.ts"
+      - "apps/frontend/package.json"
+      - ".github/workflows/mobile-release.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # create the GitHub Release
+  id-token: write # sign the build provenance attestation
+  attestations: write
 
-defaults:
-  run:
-    working-directory: apps/frontend
+concurrency:
+  # Never cancel mid-upload: a half-delivered build burns its number and
+  # confuses the stores.
+  group: mobile-release
+  cancel-in-progress: false
 
 jobs:
-  # Builds BOTH release artifacts on a version tag:
-  #   • fdroid → unsigned APK (F-Droid signs it) — always built.
-  #   • play   → signed AAB (needs the keystore secrets) + optional automatic
-  #              upload to the Play Console open testing track.
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    outputs:
+      build: ${{ steps.build.outputs.number }}
+      version: ${{ steps.build.outputs.version }}
+      skipped: ${{ steps.gate.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check signing secrets
+        id: gate
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          if [ -z "$ASC_KEY_CONTENT" ]; then
+            echo "::warning::ASC_KEY_CONTENT not set — skipping the TestFlight build."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.skip == 'false'
+        with:
+          version: 11.4.0
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip == 'false'
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        if: steps.gate.outputs.skip == 'false'
+        working-directory: apps/frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Place the App Store Connect API key
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          # Where both xcodebuild and altool look for it.
+          printf '%s' "$ASC_KEY_CONTENT" | base64 --decode \
+            > ~/.appstoreconnect/private_keys/"AuthKey_${ASC_KEY_ID}.p8"
+          chmod 600 ~/.appstoreconnect/private_keys/"AuthKey_${ASC_KEY_ID}.p8"
+
+      - name: Build and upload to TestFlight
+        id: build
+        if: steps.gate.outputs.skip == 'false'
+        working-directory: apps/frontend/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          # A runner has no Apple ID in Xcode, so sign through the API key.
+          ASC_CLOUD_SIGNING: '1'
+        run: |
+          # The script asks App Store Connect for the next number in this version
+          # train, so local and CI builds share one sequence starting at 1.
+          set -o pipefail
+          ./release-testflight.sh | tee build.log
+          version="$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' App/App.xcodeproj/project.pbxproj | head -1)"
+          number="$(sed -n 's/.*build \([0-9]*\), team.*/\1/p' build.log | head -1)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Attest build provenance
+        if: steps.gate.outputs.skip == 'false'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: apps/frontend/ios/build/export/App.ipa
+
+      - name: Name the .ipa after its build
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          mv apps/frontend/ios/build/export/App.ipa \
+             "apps/frontend/ios/build/export/jackpoll-${{ steps.build.outputs.version }}-b${{ steps.build.outputs.number }}.ipa"
+      - uses: actions/upload-artifact@v4
+        if: steps.gate.outputs.skip == 'false'
+        with:
+          name: ios-ipa
+          path: apps/frontend/ios/build/export/*.ipa
+          retention-days: 30
+
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    outputs:
+      versioncode: ${{ steps.versioncode.outputs.code }}
+      skipped: ${{ steps.keystore.outputs.skip }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -37,20 +159,17 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        working-directory: apps/frontend
+        run: pnpm install --frozen-lockfile
       - name: Sync web → native
+        working-directory: apps/frontend
         run: pnpm exec cap sync android
 
       # ── F-Droid flavor (FLOSS, no Google; unsigned — F-Droid re-signs) ──
       - name: Build F-Droid release APK
         working-directory: apps/frontend/android
         run: ./gradlew assembleFdroidRelease --no-daemon
-      - name: Upload F-Droid APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-fdroid-release
-          path: apps/frontend/android/app/build/outputs/apk/fdroid/release/*.apk
-          retention-days: 14
 
       # ── Play flavor (signed AAB) ──
       - name: Decode keystore
@@ -66,6 +185,26 @@ jobs:
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
+      - name: Next Play version code
+        id: versioncode
+        if: steps.keystore.outputs.skip == 'false'
+        env:
+          SA_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$SA_JSON" ]; then
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON not set — using the run number."
+            echo "code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pip install --quiet google-auth requests
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          # Play rejects any version code that is not strictly higher than every
+          # code ever uploaded, drafts included — so ask the store rather than
+          # counting CI runs. (This is why Android cannot restart at 1 the way a
+          # fresh iOS version train can.)
+          python3 "$GITHUB_WORKSPACE/.github/scripts/next-play-version-code.py" \
+            "$RUNNER_TEMP/sa.json" de.quavon.jackpoll >> "$GITHUB_OUTPUT"
+
       - name: Build signed Play AAB
         if: steps.keystore.outputs.skip == 'false'
         working-directory: apps/frontend/android
@@ -74,35 +213,12 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_CODE: ${{ steps.versioncode.outputs.code }}
         run: ./gradlew bundlePlayRelease --no-daemon
 
-      - name: Upload Play AAB
-        if: steps.keystore.outputs.skip == 'false'
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-play-release-aab
-          path: apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab
-          retention-days: 14
-
-      # ── Optional: publish to the Play Console (open testing track) ──
-      # Needs secrets.PLAY_SERVICE_ACCOUNT_JSON (a Google Play service-account
-      # JSON with "Release apps to testing tracks"). Uploads as a DRAFT so you
-      # promote/publish manually in the console.
-      - name: Gate Play upload
-        id: play
-        env:
-          SA_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          if [ -z "$SA_JSON" ]; then
-            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON not set — skipping Play Console upload."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
+      # Uploaded as a DRAFT: promote it in the console when you want it live.
       - name: Upload to Play Console (open testing, draft)
-        if: steps.keystore.outputs.skip == 'false' && steps.play.outputs.skip == 'false'
+        if: steps.keystore.outputs.skip == 'false'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -111,52 +227,60 @@ jobs:
           track: beta
           status: draft
 
-  ios:
-    runs-on: macos-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.4.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: apps/frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-
-      - name: Check signing secrets
-        id: gate
-        env:
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+      - name: Collect artifacts
         run: |
-          if [ -z "$ASC_KEY_CONTENT" ]; then
-            echo "::warning::ASC_KEY_CONTENT not set — skipping iOS TestFlight build."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: ruby/setup-ruby@v1
-        if: steps.gate.outputs.skip == 'false'
+          mkdir -p out
+          for apk in apps/frontend/android/app/build/outputs/apk/fdroid/release/*.apk; do
+            [ -e "$apk" ] && cp "$apk" "out/jackpoll-fdroid-vc${{ steps.versioncode.outputs.code }}.apk"
+          done
+          for aab in apps/frontend/android/app/build/outputs/bundle/playRelease/*.aab; do
+            [ -e "$aab" ] && cp "$aab" "out/jackpoll-play-vc${{ steps.versioncode.outputs.code }}.aab"
+          done
+          ls -l out
+      - uses: actions/upload-artifact@v4
         with:
-          ruby-version: "3.3"
-          bundler-cache: true
-          working-directory: apps/frontend/ios
+          name: android-artifacts
+          path: out/*
+          retention-days: 30
 
-      - name: Sync web → native
-        if: steps.gate.outputs.skip == 'false'
-        run: pnpm exec cap sync ios
-
-      - name: Build + upload to TestFlight
-        if: steps.gate.outputs.skip == 'false'
-        working-directory: apps/frontend/ios
+  # One release per push, holding every store artifact of that build. A failed
+  # Play upload must not swallow a successful iOS build, so this runs on the iOS
+  # result and attaches whatever artifacts exist.
+  release:
+    needs: [ios, android]
+    if: always() && needs.ios.result == 'success' && needs.ios.outputs.skipped == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish the GitHub Release
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          IOS_APP_IDENTIFIER: de.quavon.jackpoll
-        run: bundle exec fastlane beta
+          GH_TOKEN: ${{ github.token }}
+          TAG: mobile-b${{ needs.ios.outputs.build }}
+          VERSION: ${{ needs.ios.outputs.version }}
+          BUILD: ${{ needs.ios.outputs.build }}
+          VC: ${{ needs.android.outputs.versioncode }}
+        run: |
+          find artifacts -type f | sort
+          cat > notes.md <<EOF
+          Built from \`$GITHUB_SHA\` by the \`Mobile release\` workflow.
+
+          | Artifact | Where it went |
+          |---|---|
+          | \`.ipa\` | TestFlight — iOS $VERSION, build $BUILD |
+          | \`.aab\` | Play Console beta track, draft — versionCode $VC |
+          | \`.apk\` | F-Droid flavor, unsigned (F-Droid signs it) |
+
+          Verify the iOS binary was built from this repository:
+
+          \`\`\`
+          gh attestation verify <file>.ipa --repo $GITHUB_REPOSITORY
+          \`\`\`
+          EOF
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Mobile $VERSION (build $BUILD)" \
+            --notes-file notes.md \
+            $(find artifacts -type f)
