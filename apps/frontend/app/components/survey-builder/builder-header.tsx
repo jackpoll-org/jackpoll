@@ -69,7 +69,9 @@ export function BuilderHeader({
         {ownerActions ? (
           <Link
             href="/surveys"
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            /* shrink-0: the action buttons next to it would otherwise squeeze
+               "Zurück zu den Umfragen" into three stacked words. */
+            className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="size-4" />
             {t("builder.back")}
