@@ -15,9 +15,17 @@
 	<array/>
 
 	<!--
-	  Collected data. The app itself is a client for a Jackpoll server; everything
-	  below is entered by the user and sent to the instance they connect to, is
-	  tied to their account, and is never used for tracking or advertising.
+	  Collected data. The app is a client for a Jackpoll server; everything below
+	  is sent to the instance the user connects to, is tied to their account, and
+	  is never used for tracking or advertising.
+
+	  Keep this in step with the App Privacy answers in App Store Connect — those
+	  are typed in by hand and nothing cross-checks the two.
+
+	  Only the values Apple enumerates are accepted, and the names are not the
+	  category names: there is no bare "…UserContent", the User Content category
+	  is split into EmailsOrTextMessages / PhotosorVideos / AudioData /
+	  GameplayContent / CustomerSupport / OtherUserContent.
 	-->
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
@@ -45,9 +53,10 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
+		<!-- Surveys, questions, answers, folders. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
-			<string>NSPrivacyCollectedDataTypeUserContent</string>
+			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
@@ -57,9 +66,41 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
+		<!-- Images attached to, or photographed for, a file-upload question. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- The account id (User.id, the Keycloak "sub"), which every row hangs off. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!--
+		  The APNs device token (DeviceToken.token), stored per device so the
+		  backend can deliver notifications. Device-level and kept for as long as
+		  notifications stay on, so the "optional disclosure" carve-out — rare,
+		  incidental, re-confirmed by the user each time — does not apply.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>

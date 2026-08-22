@@ -7,9 +7,14 @@
 # what a given server serves.)
 #
 # Every push that touches the native shell produces one release: a TestFlight
-# build, a Play Console draft, an unsigned F-Droid APK, and a GitHub Release
-# holding all three artifacts. Web-only changes deliberately trigger nothing —
-# they reach users through the instance without a store round trip.
+# build handed straight to the public beta group, a Play Console draft, an
+# unsigned F-Droid APK, and a GitHub Release holding all three artifacts.
+# Web-only changes deliberately trigger nothing — they reach users through the
+# instance without a store round trip.
+#
+# This workflow never submits to the App Store. Only one version can be in
+# review at a time and each submission needs release notes someone has read, so
+# that step hangs off an `ios-v*` tag in ios-promote.yml instead.
 #
 # macOS minutes are free here: GitHub bills standard runners at zero for public
 # repositories. In the private source repo the iOS jobs are manual for exactly
@@ -26,6 +31,13 @@
 #   PLAY_SERVICE_ACCOUNT_JSON
 #       Play service account with "Release apps to testing tracks". Also used to
 #       read the highest version code already uploaded.
+#
+# SETUP — ASC_APP_ID, the numeric App Store Connect app id. Read from either
+#       Variables or Secrets, whichever holds it. A *variable* is the better
+#       home — the id is in every TestFlight URL anyway, and as a secret it gets
+#       masked to *** in logs and step summaries. Unset means iOS builds stay
+#       internal-only.
+#
 # Each job skips with a warning when its secrets are absent, so forks are fine.
 name: Mobile release
 
@@ -120,6 +132,29 @@ jobs:
           number="$(sed -n 's/.*build \([0-9]*\), team.*/\1/p' build.log | head -1)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      # External testers, no manual click. The first build of a version train is
+      # looked at by a human in Beta App Review; the ones after it are normally
+      # waved through, so a push reaches testers within the hour.
+      - name: Hand the build to the public beta
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          # Either place works; a variable keeps it out of the log mask, which
+          # makes failures easier to read.
+          ASC_APP_ID: ${{ vars.ASC_APP_ID || secrets.ASC_APP_ID }}
+        run: |
+          if [ -z "$ASC_APP_ID" ]; then
+            echo "::warning::ASC_APP_ID not set — the build stays internal-only."
+            exit 0
+          fi
+          pip install --quiet cryptography
+          python3 .github/scripts/asc.py beta-add \
+            --train "${{ steps.build.outputs.version }}" \
+            --build "${{ steps.build.outputs.number }}" \
+            --group "Public Beta"
 
       - name: Attest build provenance
         if: steps.gate.outputs.skip == 'false'

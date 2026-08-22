@@ -1,0 +1,106 @@
+# Put a TestFlight build in front of App Review.
+#
+# Deliberately separate from `Mobile release`, which runs on every push. Pushing
+# is cheap and reversible; a review submission is neither. Only one version can
+# be in review at a time, Apple takes a day or two per round, and a rejection
+# sticks to the account — so this needs an explicit gesture:
+#
+#   git tag ios-v1.0 && git push origin ios-v1.0
+#
+# The tag names the version train. The newest VALID build in that train is
+# attached, release notes are read from the repo, and the version goes to
+# review. Release to users stays on "after approval", set on the version record
+# in App Store Connect.
+#
+# Everything else about the listing — description, keywords, screenshots — lives
+# in App Store Connect. It changes on its own schedule and a workflow that
+# rewrote it on every tag would be a footgun.
+#
+# Release notes: apps/frontend/fastlane/metadata/ios/<locale>.txt, one file per
+# App Store locale (en-US.txt, de-DE.txt). Skipped for a first release — Apple
+# rejects "What's New" when there is nothing to be new against.
+#
+# SETUP: the same ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_CONTENT secrets and
+# ASC_APP_ID variable as mobile-release.yml. The key needs App Manager or above.
+name: iOS promote to App Review
+
+on:
+  push:
+    tags: ["ios-v*"]
+  workflow_dispatch:
+    inputs:
+      train:
+        description: "Marketing version, e.g. 1.0"
+        required: true
+      dry_run:
+        description: "Attach the build and set notes, but do not submit"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  # One submission at a time, and never cancel one halfway.
+  group: ios-promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Work out the version train
+        id: train
+        run: |
+          if [ -n "${{ inputs.train }}" ]; then
+            train="${{ inputs.train }}"
+          else
+            # refs/tags/ios-v1.0 → 1.0
+            train="${GITHUB_REF_NAME#ios-v}"
+          fi
+          case "$train" in
+            [0-9]*) ;;
+            *) echo "::error::'$train' does not look like a version"; exit 1 ;;
+          esac
+          echo "train=$train" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Submit for review
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_APP_ID: ${{ vars.ASC_APP_ID || secrets.ASC_APP_ID }}
+        run: |
+          if [ -z "$ASC_KEY_CONTENT" ] || [ -z "$ASC_APP_ID" ]; then
+            echo "::warning::App Store Connect credentials missing — nothing submitted."
+            exit 0
+          fi
+          pip install --quiet cryptography
+          python3 .github/scripts/asc.py promote \
+            --train "${{ steps.train.outputs.train }}" \
+            --notes apps/frontend/fastlane/metadata/ios \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Summary
+        if: always()
+        env:
+          # Only the variable, never the secret: a masked id would render the
+          # link as .../apps/***/... and break it.
+          APP_ID: ${{ vars.ASC_APP_ID }}
+        run: |
+          {
+            echo "### iOS ${{ steps.train.outputs.train }}"
+            echo
+            if [ -n "$APP_ID" ]; then
+              echo "Follow the review at <https://appstoreconnect.apple.com/apps/$APP_ID/distribution/ios/version/inflight>."
+            else
+              echo "Follow the review in [App Store Connect](https://appstoreconnect.apple.com/apps)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
