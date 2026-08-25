@@ -62,7 +62,7 @@ services:
 
   # Keycloak for user management & authentication
   keycloak:
-    image: quay.io/keycloak/keycloak:26.2
+    image: quay.io/keycloak/keycloak:26.7.2
     container_name: survey-keycloak
     command: start-dev --import-realm
     environment:
@@ -91,7 +91,16 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/9000 || exit 1"]
+      # Since 26.6 Keycloak opens its HTTP and management ports while startup
+      # is still in progress, so a bare TCP probe reports healthy too early.
+      # Probe /health/ready instead; the image ships no curl/wget, so the
+      # request goes over bash's /dev/tcp.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/localhost/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"status": *"UP"' <&3
       interval: 5s
       retries: 15
       start_period: 15s
