@@ -51,8 +51,10 @@ test.describe("full-stack smoke", () => {
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Login" }).click();
 
-    // Signed in → the dashboard.
-    await expect(page.getByRole("button", { name: "New survey" })).toBeVisible({
+    // Signed in → the dashboard. An empty account shows the button twice
+    // (header + empty state); either one opens the same dialog.
+    const newSurvey = page.getByRole("button", { name: "New survey" }).first();
+    await expect(newSurvey).toBeVisible({
       timeout: 30_000,
     });
 
@@ -66,7 +68,7 @@ test.describe("full-stack smoke", () => {
     expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
 
     // Create a blank survey → the builder opens.
-    await page.getByRole("button", { name: "New survey" }).click();
+    await newSurvey.click();
     await page.getByText("Blank survey").click();
     await expect(page).toHaveURL(/\/surveys\/.+\/edit/, { timeout: 30_000 });
   });
