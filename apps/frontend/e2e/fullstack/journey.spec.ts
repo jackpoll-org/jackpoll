@@ -44,7 +44,14 @@ test.describe("full-stack smoke", () => {
     await page.getByLabel("Confirm Password").fill(password);
     await page.getByRole("button", { name: "Create account" }).click();
 
-    // Registration logs in and lands on the dashboard.
+    // Without email verification (the e2e stack mocks mail), registration sends
+    // the new user to the login page rather than signing them in.
+    await expect(page).toHaveURL(/\/login\?registered=1/, { timeout: 30_000 });
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Login" }).click();
+
+    // Signed in → the dashboard.
     await expect(page.getByRole("button", { name: "New survey" })).toBeVisible({
       timeout: 30_000,
     });
