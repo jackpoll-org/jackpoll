@@ -203,7 +203,9 @@ export function SurveyDashboard() {
         </div>
 
         <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-36" aria-label={t("dashboard.status.label")}>
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("dashboard.status.all")}</SelectItem>
             <SelectItem value="draft">{t("dashboard.status.draft")}</SelectItem>
@@ -213,7 +215,9 @@ export function SurveyDashboard() {
         </Select>
 
         <Select value={sort} onValueChange={(v) => setSort(v as SortBy)}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-40" aria-label={t("dashboard.sort.label")}>
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="manual">{t("dashboard.sort.manual")}</SelectItem>
             <SelectItem value="updated">{t("dashboard.sort.updated")}</SelectItem>
