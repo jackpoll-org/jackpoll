@@ -69,7 +69,7 @@ test.describe("full-stack smoke", () => {
 
     // Create a blank survey → the builder opens.
     await newSurvey.click();
-    await page.getByText("Blank survey").click();
+    await page.getByText("Blank survey", { exact: true }).click();
     await expect(page).toHaveURL(/\/surveys\/.+\/edit/, { timeout: 30_000 });
   });
 });
