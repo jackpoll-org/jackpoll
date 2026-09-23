@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { jwtExpiryMs } from "@/app/lib/auth/storage";
 
 /** Paths that do NOT require authentication. */
 const PUBLIC_PATHS = [
@@ -23,6 +24,13 @@ const PUBLIC_PATHS = [
   "/privacy",
   "/impressum",
 ];
+
+/** Whether a JWT's `exp` has passed. Unreadable tokens count as not expired
+ *  (the backend is the authority; this only steers redirects). */
+function isExpired(token: string): boolean {
+  const expiry = jwtExpiryMs(token);
+  return expiry != null && expiry <= Date.now();
+}
 
 /** Paths that should redirect to `/` if already authenticated. */
 const GUEST_ONLY_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
@@ -60,8 +68,12 @@ export function proxy(request: NextRequest) {
     request.cookies.get("survey-auth-token")?.value ??
     request.headers.get("Authorization")?.replace("Bearer ", "");
 
-  // If user is authenticated and tries to access a guest-only path, redirect home
-  if (token && isGuestOnly) {
+  // If user is authenticated and tries to access a guest-only path, redirect home.
+  // Only for a token that is still valid: an expired one left in the cookie
+  // would bounce /login back to "/", which can't restore the session and sends
+  // the user to /login again — an endless spinner. App pages below still accept
+  // an expired token, since the client renews it with the refresh cookie.
+  if (token && isGuestOnly && !isExpired(token)) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

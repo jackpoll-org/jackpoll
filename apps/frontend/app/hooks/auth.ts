@@ -142,9 +142,17 @@ export function useDeleteAccount() {
 
 // ── useAuthState ──────────────────────────────────────────────────
 
+// False only while hydrating (the server snapshot), true from then on.
+const subscribeNever = () => () => {};
+
 export function useAuthState(): AuthState {
   const { data: user, isLoading, isError } = useCurrentUser();
   const hasToken = useHasToken();
+  // The first hydration render reads the server's "no token" snapshot, so the
+  // /me query looks disabled and the user signed out. Reporting that as settled
+  // made RequireAuth redirect every deep link on a full page load to /login
+  // (then on to /surveys) before the stored session was even read.
+  const hydrated = useSyncExternalStore(subscribeNever, () => true, () => false);
 
   // Proactively refresh the access token before it expires (issue #35).
   useTokenRefresh(hasToken);
@@ -171,9 +179,9 @@ export function useAuthState(): AuthState {
       user: effectiveUser,
       tokens: hasToken ? { accessToken: getStoredToken()!, expiresIn: 3600 } : null,
       isAuthenticated: !!effectiveUser,
-      isLoading,
+      isLoading: isLoading || !hydrated,
     }),
-    [effectiveUser, hasToken, isLoading],
+    [effectiveUser, hasToken, isLoading, hydrated],
   );
 }
 
