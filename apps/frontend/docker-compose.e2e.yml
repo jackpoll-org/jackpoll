@@ -14,7 +14,7 @@ services:
       retries: 20
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest # Docker Hub's minio/minio no longer pulls
     command: server /data
     environment:
       MINIO_ROOT_USER: minioadmin

@@ -17,7 +17,7 @@ services:
       start_period: 3s
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest # Docker Hub's minio/minio no longer pulls
     container_name: survey-minio
     command: server /data --console-address ":9001"
     environment:
