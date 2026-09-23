@@ -76,3 +76,26 @@ describe("useLivePresence", () => {
     expect(getLiveStateApi).not.toHaveBeenCalled();
   });
 });
+
+describe("useCountdown", () => {
+  // Between questions the ticking stops, so the first render of a new
+  // question used an old "now": the timer briefly showed more time than the
+  // question allows (23 for a 20 s question), then jumped back.
+  it("never shows more than the question's seconds when a new timer starts", async () => {
+    const { useCountdown } = await import("../live");
+    const rendered: (number | null)[] = [];
+    const { rerender } = renderHook(
+      ({ startedAt }) => {
+        const remaining = useCountdown(startedAt, 20);
+        rendered.push(remaining);
+        return remaining;
+      },
+      { initialProps: { startedAt: Date.now() as number | null } },
+    );
+    rerender({ startedAt: null });
+    await vi.advanceTimersByTimeAsync(3_000);
+    rendered.length = 0;
+    rerender({ startedAt: Date.now() });
+    expect(Math.max(...rendered.filter((r): r is number => r != null))).toBe(20);
+  });
+});

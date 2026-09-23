@@ -83,7 +83,10 @@ export function useCountdown(startedAt: number | null, seconds: number): number 
     return () => clearInterval(id);
   }, [startedAt, seconds]);
   if (!startedAt || seconds <= 0) return null;
-  return Math.max(0, Math.ceil((startedAt + seconds * 1000 - now) / 1000));
+  // `now` stops ticking between questions, so the first render of a new timer
+  // can see a stale value; never count from before the question started.
+  const current = Math.max(now, startedAt);
+  return Math.max(0, Math.ceil((startedAt + seconds * 1000 - current) / 1000));
 }
 
 /**
@@ -101,7 +104,8 @@ export function useCountdownFraction(startedAt: number | null, seconds: number):
     return () => clearInterval(id);
   }, [startedAt, seconds]);
   if (!startedAt || seconds <= 0) return null;
-  return Math.max(0, Math.min(1, (startedAt + seconds * 1000 - now) / (seconds * 1000)));
+  const current = Math.max(now, startedAt); // see useCountdown
+  return Math.max(0, Math.min(1, (startedAt + seconds * 1000 - current) / (seconds * 1000)));
 }
 
 /** Presenter action: broadcast the current question index to participants. */
