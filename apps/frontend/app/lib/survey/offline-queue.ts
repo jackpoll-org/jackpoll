@@ -52,6 +52,18 @@ function tx<T>(
   );
 }
 
+// Last `createdAt` handed out. `listQueued` orders by `createdAt`, and ties
+// fall back to IndexedDB key order — i.e. the random UUID — so two
+// submissions within the same millisecond could flush out of order. Bumping
+// past the previous value keeps the stamp strictly increasing (also if the
+// wall clock steps backwards) without changing the stored shape.
+let lastCreatedAt = 0;
+
+function nextCreatedAt(): number {
+  lastCreatedAt = Math.max(Date.now(), lastCreatedAt + 1);
+  return lastCreatedAt;
+}
+
 /** Add a completed submission to the outbox. No-op (resolves) without IDB. */
 export async function enqueueSubmission(
   surveyId: string,
@@ -65,7 +77,7 @@ export async function enqueueSubmission(
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     surveyId,
     payload,
-    createdAt: Date.now(),
+    createdAt: nextCreatedAt(),
   };
   await tx("readwrite", (s) => s.add(entry));
   return entry;

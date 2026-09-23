@@ -39,6 +39,9 @@ import org.acme.repository.SurveyRepository;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 import jakarta.transaction.Transactional;
 
 /** Persists survey responses and aggregates them into dashboard results. */
@@ -74,6 +77,9 @@ public class ResponseService {
 
     @Inject
     org.acme.resource.ResultsRelay resultsRelay;
+
+    @Inject
+    TransactionSynchronizationRegistry txRegistry;
 
     @Inject
     ProfanityFilter profanityFilter;
@@ -231,16 +237,21 @@ public class ResponseService {
         // Outbound webhooks (issue #36) — HMAC-signed, off-thread, best-effort.
         webhookService.dispatchResponse(surveyId, dto);
 
-        // Native push to the owner's devices (mobile app) — opt-in, best-effort.
-        pushService.notifyUser(
-            survey.ownerId, NotificationEventType.NEW_RESPONSE,
-            survey.title, "You received a new response.");
+        // Per-response owner notifications. Skipped in live mode, where every
+        // player answer is its own response (200 players x 10 questions would be
+        // 2000 notifications per game) and the owner is watching live anyway.
+        if (survey.settings == null || !survey.settings.liveMode) {
+            // Native push to the owner's devices (mobile app) — opt-in, best-effort.
+            pushService.notifyUser(
+                survey.ownerId, NotificationEventType.NEW_RESPONSE,
+                survey.title, "You received a new response.");
 
-        // In-app notification (#89) — opt-in, best-effort.
-        notificationRecordService.record(
-            survey.ownerId, NotificationEventType.NEW_RESPONSE,
-            survey.title, "You received a new response.",
-            "/surveys/" + survey.id + "/results");
+            // In-app notification (#89) — opt-in, best-effort.
+            notificationRecordService.record(
+                survey.ownerId, NotificationEventType.NEW_RESPONSE,
+                survey.title, "You received a new response.",
+                "/surveys/" + survey.id + "/results");
+        }
 
         // Response-milestone notification (#89) — fires once per threshold crossing.
         maybeNotifyMilestone(survey, countBeforeSubmit + 1);
@@ -249,10 +260,31 @@ public class ResponseService {
         // blocks or fails the submission. When live results are enabled we push
         // the just-submitted words as a delta so viewers update their cloud
         // without a refetch; otherwise a bare "updated" ping triggers an
-        // (authenticated) refetch so nothing leaks on the open socket.
-        resultsRelay.broadcast(surveyId, buildResultsBroadcast(survey, req));
+        // (authenticated) refetch so nothing leaks on the open socket. Sent only
+        // once committed: a viewer refetching on the ping must see this response.
+        var resultsMessage = buildResultsBroadcast(survey, req);
+        afterCommit(() -> resultsRelay.broadcast(surveyId, resultsMessage));
 
         return dto;
+    }
+
+    /** Run {@code action} once the current transaction commits (now if there is none). */
+    private void afterCommit(Runnable action) {
+        if (txRegistry.getTransactionStatus() != Status.STATUS_ACTIVE) {
+            action.run();
+            return;
+        }
+        txRegistry.registerInterposedSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {
+                // Nothing to do before the commit.
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status == Status.STATUS_COMMITTED) action.run();
+            }
+        });
     }
 
     /** Normalize a wordcloud word so deltas key the same as aggregation. */

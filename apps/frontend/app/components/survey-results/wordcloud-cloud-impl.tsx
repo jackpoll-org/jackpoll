@@ -1,6 +1,7 @@
 "use client";
 
 import { Wordcloud } from "@visx/wordcloud";
+import { cloudFontSize, type CloudScale, type CloudWord } from "@/app/lib/results/wordcloud";
 
 const CLOUD_COLORS = [
   "var(--chart-1)",
@@ -22,15 +23,7 @@ const CLOUD_COLORS = [
 // measured size matches what's drawn.
 const CLOUD_FONT = "Impact, 'Arial Narrow', sans-serif";
 
-// Roughly how many votes a word needs to reach the maximum font size. A small
-// number would make a 2nd vote look enormous next to a 1-vote word; a larger
-// one keeps the size gap gentle for the small counts typical of a live poll.
-const VOTES_TO_MAX = 10;
-
-export interface CloudWord {
-  text: string;
-  value: number;
-}
+export type { CloudWord };
 
 interface WordcloudCloudProps {
   words: CloudWord[];
@@ -43,12 +36,15 @@ interface WordcloudCloudProps {
   /** Owner-configured palette override (survey settings); falls back to the
    *  theme's chart colors when unset or empty. */
   colors?: string[] | null;
+  /** How votes map to size — see {@link CloudScale}. Defaults to "absolute". */
+  scale?: CloudScale;
 }
 
 /**
- * The actual @visx/wordcloud render. Word size grows with frequency on a gentle
- * absolute scale (not normalized to the current min/max, which would blow up a
- * 2-vote word), and each word pops in when it first appears or its count rises.
+ * The actual @visx/wordcloud render. Word size grows with frequency — on a
+ * gentle absolute scale for free-text words (normalizing would blow up a 2-vote
+ * word), or relative to the top word for choice options — and each word pops in
+ * when it first appears or its count rises.
  * Loaded lazily (client-only) via ../survey-results/wordcloud-result.
  */
 export function WordcloudCloud({
@@ -58,15 +54,12 @@ export function WordcloudCloud({
   maxFontSize = 80,
   minFontSize = 22,
   colors,
+  scale = "absolute",
 }: WordcloudCloudProps) {
   const palette = colors && colors.length > 0 ? colors : CLOUD_COLORS;
-  // Absolute scale: a single vote starts a bit above the floor, each extra vote
-  // adds a fixed step, capped at maxFontSize. So popularity reads clearly while
-  // a 2× word stays only modestly larger than a 1× word.
-  const base = Math.max(minFontSize, Math.round(maxFontSize * 0.3));
-  const step = (maxFontSize - base) / VOTES_TO_MAX;
+  const maxValue = Math.max(0, ...words.map((w) => w.value));
   const fontSize = (w: CloudWord) =>
-    Math.min(maxFontSize, base + Math.max(0, w.value - 1) * step);
+    cloudFontSize(w.value, maxValue, { minFontSize, maxFontSize, scale });
 
   if (words.length === 0 || width === 0) return null;
 

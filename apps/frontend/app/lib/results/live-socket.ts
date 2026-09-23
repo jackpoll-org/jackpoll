@@ -26,12 +26,21 @@ export function liveResultsEnabled(): boolean {
   return process.env.NEXT_PUBLIC_LIVE_RESULTS_ENABLED !== "false";
 }
 
-function resultsUrl(surveyId: string): string {
+export interface ResultsLiveSocketOptions {
+  /**
+   * "host" = the live presenter. Host sockets also receive host-only messages
+   * (lobby check-ins), which the backend keeps off every player's phone.
+   */
+  role?: "host";
+}
+
+function resultsUrl(surveyId: string, role?: "host"): string {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   // `/results-ws` (not `/results`) so the WebSocket prefix doesn't shadow any
   // frontend route — Traefik routes `/results-ws` to the backend, like
   // `/collab-ws`.
-  return `${proto}://${window.location.host}/results-ws/${surveyId}`;
+  const query = role ? `?role=${role}` : "";
+  return `${proto}://${window.location.host}/results-ws/${surveyId}${query}`;
 }
 
 export class ResultsLiveSocket {
@@ -42,6 +51,7 @@ export class ResultsLiveSocket {
   constructor(
     private readonly surveyId: string,
     private readonly onMessage: (data: string) => void,
+    private readonly options: ResultsLiveSocketOptions = {},
   ) {
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", this.onVisible);
@@ -81,7 +91,7 @@ export class ResultsLiveSocket {
     if (this.closed) return;
     let ws: WebSocket;
     try {
-      ws = new WebSocket(resultsUrl(this.surveyId));
+      ws = new WebSocket(resultsUrl(this.surveyId, this.options.role));
     } catch {
       this.reconnectTimer = setTimeout(this.connect, RECONNECT_DELAY_MS);
       return;

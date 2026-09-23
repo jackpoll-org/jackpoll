@@ -3,7 +3,10 @@ package org.acme.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +58,16 @@ class LivePresentServiceTest {
         assertEquals(2, state.index());
         assertEquals("reveal", state.phase());
         verify(relay).broadcast(anyString(), anyString());
+    }
+
+    @Test
+    void announceJoinReachesOnlyTheHosts() {
+        // Players re-announce every few seconds; fanning that out to every phone
+        // costs players x players frames, and only the presenter's lobby reads it.
+        service.announceJoin("survey-1", "Ada");
+
+        verify(relay).broadcastToHosts(eq("survey-1"), contains("Ada"));
+        verify(relay, never()).broadcast(anyString(), anyString());
     }
 
     @Test

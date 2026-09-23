@@ -6,8 +6,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { useTranslation } from "@/app/i18n/context";
 import { liveResultsEnabled } from "@/app/lib/results/live-socket";
-import type { QuestionResult } from "@/app/types/survey";
-import type { CloudWord } from "./wordcloud-cloud-impl";
+import type { CloudScale, CloudWord } from "@/app/lib/results/wordcloud";
 
 // @visx/wordcloud + d3-cloud only run in the browser and add weight — load on
 // demand (client-only), matching the recharts lazy pattern in result-charts.tsx.
@@ -32,24 +31,24 @@ function useElementWidth() {
   return { ref, width };
 }
 
-function toWords(optionCounts: Record<string, number> | null | undefined): CloudWord[] {
-  return Object.entries(optionCounts ?? {})
-    .map(([text, value]) => ({ text, value }))
-    .toSorted((a, b) => b.value - a.value);
-}
-
 interface WordcloudResultProps {
-  result: QuestionResult;
+  /** Words sized by value — see lib/results/wordcloud for building them. */
+  words: CloudWord[];
+  /** Header text, e.g. "12 unique words" or "4 options". */
+  countLabel: string;
   /** Owner-configured palette override (survey settings). */
   colors?: string[] | null;
+  /** "absolute" for free-text words, "relative" for choice options. */
+  scale?: CloudScale;
 }
 
 /**
- * Owner-facing wordcloud result: renders submitted words sized by frequency,
- * with a fullscreen "present" mode for live audiences. The data refreshes live
- * via the results WebSocket (see hooks/results-live.ts) or polling fallback.
+ * Owner-facing word cloud: renders words sized by frequency, with a fullscreen
+ * "present" mode for live audiences. Used for the wordcloud question type and
+ * as a chart option for choice questions. The data refreshes live via the
+ * results WebSocket (see hooks/results-live.ts) or polling fallback.
  */
-export function WordcloudResult({ result, colors }: WordcloudResultProps) {
+export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudResultProps) {
   const { t } = useTranslation();
   const { ref, width } = useElementWidth();
   const [presenting, setPresenting] = useState(false);
@@ -60,7 +59,6 @@ export function WordcloudResult({ result, colors }: WordcloudResultProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLive(liveResultsEnabled());
   }, []);
-  const words = toWords(result.optionCounts);
 
   const enter = useCallback(() => {
     setPresenting(true);
@@ -114,7 +112,7 @@ export function WordcloudResult({ result, colors }: WordcloudResultProps) {
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-sm text-muted-foreground tabular-nums">
-          {t("wordcloud.wordCount", { count: String(words.length) })}
+          {countLabel}
           {live && (
             <span className="flex items-center gap-1 text-xs font-medium text-green-600">
               <span className="relative flex size-2">
@@ -155,6 +153,7 @@ export function WordcloudResult({ result, colors }: WordcloudResultProps) {
             height={presenting ? Math.max(height, 360) : height}
             maxFontSize={presenting ? 160 : 80}
             colors={colors}
+            scale={scale}
           />
         )}
       </div>

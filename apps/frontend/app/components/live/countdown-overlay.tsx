@@ -33,11 +33,8 @@ export function CountdownOverlay({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStep(0);
 
-    if (prefersReducedMotion()) {
-      onComplete?.();
-      return;
-    }
-
+    // No reduced-motion early return: the numerals are the synced game beat,
+    // not decoration. Reduced motion only drops the pop animation (globals.css).
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (let i = 1; i <= LAST_STEP; i++) {
       timers.push(
@@ -65,7 +62,10 @@ export function CountdownOverlay({
       {!isGo && (
         <p className="text-lg font-medium text-muted-foreground">{t("live.getReady")}</p>
       )}
-      <p key={step} className="countdown-pop text-7xl font-black tracking-widest">
+      <p
+        key={step}
+        className={`${prefersReducedMotion() ? "" : "countdown-pop "}text-7xl font-black tracking-widest`}
+      >
         {label}
       </p>
     </div>

@@ -335,7 +335,14 @@ function PresenterInner({ survey }: { survey: Survey }) {
                   {t("live.resultsHiddenUntilReveal")}
                 </div>
               ) : result && result.answered > 0 ? (
-                <QuestionResultCard result={result} question={question} />
+                <QuestionResultCard
+                  // Fresh card per question: its chart starts at that question's
+                  // default instead of keeping the last one's (public #1).
+                  key={question.id}
+                  result={result}
+                  question={question}
+                  colors={survey.settings.colorPalette}
+                />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   {t("live.awaitingAnswers")}

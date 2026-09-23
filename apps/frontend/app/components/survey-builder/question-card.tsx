@@ -31,6 +31,7 @@ import { CollabTextInput } from "./collab-text-input";
 import { QuestionValidationEditor } from "./question-validation-editor";
 import { QuestionLogicEditor } from "./question-logic-editor";
 import { QuestionQuizEditor } from "./question-quiz-editor";
+import { ResultChartSelect } from "./result-chart-select";
 
 interface QuestionCardProps {
   question: Question;
@@ -270,6 +271,11 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
               </Select>
             </div>
           )}
+
+          <ResultChartSelect
+            question={question}
+            onChange={(patch) => updateQuestion(question.id, patch)}
+          />
 
           {survey.settings.showLiveResults && liveResultsApplicable(question.type) && (
             <div className="flex items-center gap-2">

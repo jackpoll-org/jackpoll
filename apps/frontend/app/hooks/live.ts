@@ -134,13 +134,18 @@ export function useLiveRoster(
   useEffect(() => {
     if (!surveyId || !enabled || !liveResultsEnabled()) return;
     const seen = new Set<string>();
-    const socket = new ResultsLiveSocket(surveyId, (data) => {
-      const name = parseJoinMessage(data);
-      if (name && !seen.has(name)) {
-        seen.add(name);
-        setNames((prev) => [...prev, name]);
-      }
-    });
+    // Host role: the backend sends lobby check-ins to the presenter only.
+    const socket = new ResultsLiveSocket(
+      surveyId,
+      (data) => {
+        const name = parseJoinMessage(data);
+        if (name && !seen.has(name)) {
+          seen.add(name);
+          setNames((prev) => [...prev, name]);
+        }
+      },
+      { role: "host" },
+    );
     return () => socket.destroy();
   }, [surveyId, enabled]);
   return names;

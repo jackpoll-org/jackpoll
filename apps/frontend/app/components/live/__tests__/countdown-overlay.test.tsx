@@ -58,11 +58,28 @@ describe("CountdownOverlay", () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it("skips straight to Go! and completes immediately under reduced motion", () => {
+  // Reduced motion only drops the pop animation (CSS); the numerals are the
+  // synced game beat, so they must still count down — on a participant's phone
+  // (no onComplete) an early return used to freeze the overlay on "3".
+  it("still counts 3 -> 2 -> 1 -> Go! under reduced motion", () => {
+    reducedMotion = true;
+    render(<CountdownOverlay active questionKey={0} />);
+
+    expect(screen.getByText("3")).toBeTruthy();
+    act(() => vi.advanceTimersByTime(700));
+    expect(screen.getByText("2")).toBeTruthy();
+    act(() => vi.advanceTimersByTime(700));
+    expect(screen.getByText("1")).toBeTruthy();
+    act(() => vi.advanceTimersByTime(700));
+    expect(screen.getByText("live.go")).toBeTruthy();
+  });
+
+  it("calls onComplete after the full sequence under reduced motion", () => {
     reducedMotion = true;
     const onComplete = vi.fn();
     render(<CountdownOverlay active questionKey={0} onComplete={onComplete} />);
+    expect(onComplete).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(2600));
     expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(playTick).not.toHaveBeenCalled();
   });
 });

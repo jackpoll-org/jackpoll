@@ -25,7 +25,6 @@ import { remainingFor } from "@/app/lib/survey/quota";
 import { dateConfig } from "@/app/components/question-types/editors/date-editor";
 import type { Question, QuestionResult } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
-import type { TranslationKey } from "@/app/i18n/translations";
 import {
   ResultBarChart,
   ResultLineChart,
@@ -34,17 +33,20 @@ import {
   type BarDatum,
 } from "./result-charts";
 import { WordcloudResult } from "./wordcloud-result";
+import {
+  allowedChartTypes,
+  CHART_LABEL_KEY,
+  resolveResultChart,
+  type ChartType,
+} from "@/app/lib/survey/result-chart";
+import { choiceCountsToWords, countsToWords } from "@/app/lib/results/wordcloud";
 
-export type ChartType = "bar" | "pie" | "donut" | "line";
-const CHART_LABEL_KEY: Record<ChartType, TranslationKey> = {
-  bar: "results.chart.bar",
-  pie: "results.chart.pie",
-  donut: "results.chart.donut",
-  line: "results.chart.line",
-};
+export type { ChartType };
 
-/** A chart with a per-question type picker (issue #87). Reports the selected
- *  type upward (via `onTypeChange`) so the PDF export can match it (#). */
+/** A chart with a per-question type picker (issue #87). Opens with the
+ *  question's configured default (public #1); switching here is a temporary
+ *  view override. Reports the selected type upward (via `onTypeChange`) so the
+ *  PDF export can match it (#). */
 function SelectableChart({
   data,
   allowed,
@@ -70,7 +72,7 @@ function SelectableChart({
     <div className="grid gap-2">
       <div className="flex justify-end">
         <Select value={type} onValueChange={(v) => setType(v as ChartType)}>
-          <SelectTrigger className="h-7 w-24 text-xs" aria-label={t("results.chartType")}>
+          <SelectTrigger className="h-7 w-28 text-xs" aria-label={t("results.chartType")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -86,7 +88,23 @@ function SelectableChart({
       {type === "pie" && <ResultPieChart data={data} colors={colors} />}
       {type === "donut" && <ResultPieChart data={data} donut colors={colors} />}
       {type === "line" && <ResultLineChart data={data} />}
+      {type === "wordcloud" && <ChoiceWordcloud data={data} colors={colors} />}
     </div>
+  );
+}
+
+/** Choice results as a word cloud (public #2): option labels sized by votes,
+ *  relative to the most-picked option so large audiences still read well. */
+function ChoiceWordcloud({ data, colors }: { data: BarDatum[]; colors?: string[] | null }) {
+  const { t } = useTranslation();
+  const words = choiceCountsToWords(data);
+  return (
+    <WordcloudResult
+      words={words}
+      countLabel={t("wordcloud.optionCount", { count: String(words.length) })}
+      colors={colors}
+      scale="relative"
+    />
   );
 }
 
@@ -157,14 +175,16 @@ export function QuestionResultCard({
         const data: BarDatum[] = Object.entries(result.optionCounts ?? {}).map(
           ([id, count]) => ({ label: label(id), count }),
         );
-        // Single-select reads well as a pie; multi-select/ranking as bars.
-        const single = result.type === "multiple-choice" || result.type === "dropdown";
+        const defaultType = resolveResultChart(question, result.type);
         return (
           <div className="grid gap-3">
             <SelectableChart
+              // Remount when the question or its default changes, so a view
+              // override never leaks onto the next question (presenter view).
+              key={`${result.questionId}:${defaultType}`}
               data={data}
-              allowed={["bar", "pie", "donut"]}
-              defaultType={single ? "pie" : "bar"}
+              allowed={allowedChartTypes(result.type)}
+              defaultType={defaultType}
               colors={colors}
               onTypeChange={(t) => onChartTypeChange?.(result.questionId, t)}
             />
@@ -180,12 +200,14 @@ export function QuestionResultCard({
           ([value, count]) => ({ label: value, count }),
         );
         const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+        const defaultType = resolveResultChart(question, result.type);
         return (
           <div className="grid gap-3">
             <SelectableChart
+              key={`${result.questionId}:${defaultType}`}
               data={data}
-              allowed={["bar", "line"]}
-              defaultType="bar"
+              allowed={allowedChartTypes(result.type)}
+              defaultType={defaultType}
               colors={colors}
               onTypeChange={(t) => onChartTypeChange?.(result.questionId, t)}
             />
@@ -229,10 +251,18 @@ export function QuestionResultCard({
         return <ResultStackedBarChart data={data} series={series} colors={colors} />;
       }
 
-      case "wordcloud":
+      case "wordcloud": {
         // optionCounts is a word → frequency map; render it as a live cloud
         // with a fullscreen presentation mode.
-        return <WordcloudResult result={result} colors={colors} />;
+        const words = countsToWords(result.optionCounts);
+        return (
+          <WordcloudResult
+            words={words}
+            countLabel={t("wordcloud.wordCount", { count: String(words.length) })}
+            colors={colors}
+          />
+        );
+      }
 
       case "short-answer": {
         // Group identical answers, treating case/whitespace as the same (#).

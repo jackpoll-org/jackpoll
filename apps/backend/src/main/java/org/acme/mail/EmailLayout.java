@@ -58,6 +58,7 @@ public final class EmailLayout {
         private String preheader = "";
         private String appUrl = "";
         private String footerNote = "";
+        private String legalFooter = "";
         private final List<Link> footerLinks = new ArrayList<>();
 
         /** The short summary line clients show next to the subject in the inbox.
@@ -181,6 +182,32 @@ public final class EmailLayout {
             return this;
         }
 
+        /**
+         * The sender's Pflichtangaben, printed in the footer of every mail.
+         *
+         * <p>§ 35a GmbHG — which reaches a UG through § 5a Abs. 1 GmbHG —
+         * requires every Geschäftsbrief, email included, to state the company's
+         * legal name and seat, the register court, the register number and all
+         * managing directors. A link to an imprint is not enough: the section
+         * asks for the particulars <em>on</em> the letter, not one click away.
+         *
+         * <p>Lines are escaped and joined, so this takes plain text and never
+         * markup — the block is assembled by us, but keeping it text means a
+         * later change of source cannot turn it into an injection point.
+         */
+        public Builder legalFooter(String... lines) {
+            if (lines == null) {
+                this.legalFooter = "";
+                return this;
+            }
+            var kept = new ArrayList<String>();
+            for (String line : lines) {
+                if (line != null && !line.isBlank()) kept.add(line.strip());
+            }
+            this.legalFooter = String.join("\n", kept);
+            return this;
+        }
+
         /** An extra link in the footer (unsubscribe, imprint, privacy). */
         public Builder footerLink(String label, String url) {
             if (label != null && url != null && !url.isBlank()) {
@@ -252,6 +279,11 @@ public final class EmailLayout {
             if (!appUrl.isBlank()) links.add(linkHtml(new Link("Jackpoll", appUrl)));
             for (Link l : footerLinks) links.add(linkHtml(l));
             if (!links.isEmpty()) out.append(String.join("&nbsp;·&nbsp;", links));
+            if (!legalFooter.isBlank()) {
+                out.append("<div style=\"margin:10px 0 0;\">")
+                    .append(esc(legalFooter).replace("\n", "<br>"))
+                    .append("</div>");
+            }
             return out.toString();
         }
 
@@ -275,6 +307,7 @@ public final class EmailLayout {
             for (Link l : footerLinks) {
                 out.append(l.label()).append(": ").append(l.url()).append('\n');
             }
+            if (!legalFooter.isBlank()) out.append('\n').append(legalFooter).append('\n');
             return out.toString();
         }
     }

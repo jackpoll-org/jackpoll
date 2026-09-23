@@ -7,6 +7,14 @@
 
 import { labelMap } from "./export";
 import { groupTextAnswers } from "./results";
+import { allowedChartTypes, resolveResultChart, type ChartType } from "./result-chart";
+import {
+  choiceCountsToWords,
+  countsToWords,
+  type CloudScale,
+  type CloudWord,
+} from "@/app/lib/results/wordcloud";
+import type { PlacedWord } from "@/app/lib/results/wordcloud-layout";
 import type {
   QuestionResult,
   Survey,
@@ -91,12 +99,16 @@ function splitTextRuns(text: string): { text: string; emoji: boolean }[] {
 
 /** Total rendered width of mixed runs, using each run's actual font so
  *  center-alignment lines up correctly even when an emoji run is present. */
-function mixedTextWidth(ctx: Ctx, runs: { text: string; emoji: boolean }[]): number {
+function mixedTextWidth(
+  ctx: Ctx,
+  runs: { text: string; emoji: boolean }[],
+  style: "normal" | "bold" = "normal",
+): number {
   const { doc } = ctx;
   let width = 0;
   for (const run of runs) {
     if (run.emoji && !ctx.emojiFontReady) continue;
-    doc.setFont(run.emoji ? EMOJI_FONT_NAME : "helvetica", "normal");
+    doc.setFont(run.emoji ? EMOJI_FONT_NAME : "helvetica", run.emoji ? "normal" : style);
     width += doc.getTextWidth(run.text);
   }
   doc.setFont("helvetica", "normal");
@@ -116,7 +128,7 @@ function drawMixedText(
 ): void {
   const { doc } = ctx;
   const runs = splitTextRuns(text);
-  let cursorX = align === "center" ? x - mixedTextWidth(ctx, runs) / 2 : x;
+  let cursorX = align === "center" ? x - mixedTextWidth(ctx, runs, style) / 2 : x;
   for (const run of runs) {
     if (run.emoji) {
       if (!ctx.emojiFontReady) continue; // drop rather than render mojibake
@@ -136,7 +148,14 @@ const PAGE_H = 842;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
 /** Matches the chart type picker on the on-screen results card (issue #87). */
-export type PdfChartType = "bar" | "pie" | "donut" | "line";
+export type PdfChartType = ChartType;
+
+/** Height of a word cloud in the PDF, and its font range (pt). */
+const CLOUD_H = 220;
+const CLOUD_MIN_FONT = 9;
+const CLOUD_MAX_FONT = 48;
+/** Section heading + "n answered" line drawn above a question's chart. */
+const CLOUD_HEADING_H = 50;
 
 export interface PdfExportData {
   survey: Survey;
@@ -145,8 +164,51 @@ export interface PdfExportData {
   avgDurationMs: number | null;
   /** The chart type currently selected on-screen for each question (by id),
    *  so the export matches what the owner is looking at instead of always
-   *  drawing bars. Missing entries fall back to "bar". */
+   *  drawing bars. Missing entries fall back to the question's configured
+   *  default chart. */
   chartTypes?: Record<string, PdfChartType>;
+}
+
+/** The chart to draw a question as: the on-screen pick, else its default. */
+export function pdfChartFor(
+  survey: Survey,
+  q: QuestionResult,
+  chartTypes: Record<string, PdfChartType> | undefined,
+): PdfChartType {
+  const picked = chartTypes?.[q.questionId];
+  if (picked) return picked;
+  const question = survey.questions.find((s) => s.id === q.questionId);
+  return resolveResultChart(question, q.type);
+}
+
+/**
+ * The words to draw as a cloud for a question, or null to draw it as usual:
+ * a wordcloud question always (it's a cloud on screen too, absolute sizing),
+ * and a choice question whose chart is the word cloud (public #2, sized
+ * relative to the most-picked option). Null when there's nothing to draw.
+ */
+export function wordcloudFor(
+  survey: Survey,
+  q: QuestionResult,
+  chartType: PdfChartType,
+): { words: CloudWord[]; scale: CloudScale } | null {
+  let cloud: { words: CloudWord[]; scale: CloudScale } | null = null;
+  if (q.type === "wordcloud") {
+    cloud = { words: countsToWords(q.optionCounts), scale: "absolute" };
+  } else if (chartType === "wordcloud" && allowedChartTypes(q.type).includes("wordcloud")) {
+    const labels = labelMap(survey.questions.find((s) => s.id === q.questionId));
+    const data = Object.entries(q.optionCounts ?? {}).map(([id, count]) => ({
+      label: labels[id] ?? id,
+      count,
+    }));
+    cloud = { words: choiceCountsToWords(data), scale: "relative" };
+  }
+  return cloud && cloud.words.length > 0 ? cloud : null;
+}
+
+interface CloudLayout {
+  placed: PlacedWord[];
+  dropped: CloudWord[];
 }
 
 /** Generate and download a results PDF. */
@@ -161,7 +223,21 @@ export async function exportResultsPdf(data: PdfExportData): Promise<void> {
   drawKpis(ctx, data);
   if (data.results.quiz) drawQuiz(ctx, data.results.quiz);
   for (const q of data.results.questions) {
-    drawQuestion(ctx, data.survey, q, data.chartTypes?.[q.questionId] ?? "bar");
+    const chartType = pdfChartFor(data.survey, q, data.chartTypes);
+    const cloud = wordcloudFor(data.survey, q, chartType);
+    let layout: CloudLayout | undefined;
+    if (cloud) {
+      // d3-cloud is only loaded when the PDF actually contains a cloud.
+      const { layoutCloud } = await import("@/app/lib/results/wordcloud-layout");
+      layout = await layoutCloud(cloud.words, {
+        width: CONTENT_W,
+        height: CLOUD_H,
+        minFontSize: CLOUD_MIN_FONT,
+        maxFontSize: CLOUD_MAX_FONT,
+        scale: cloud.scale,
+      });
+    }
+    drawQuestion(ctx, data.survey, q, chartType, layout);
   }
 
   doc.save(buildFilename(data.survey.title));
@@ -264,7 +340,11 @@ function drawQuestion(
   survey: Survey,
   q: QuestionResult,
   chartType: PdfChartType,
+  cloud?: CloudLayout,
 ): void {
+  // A cloud is one tall block: start a new page for heading + cloud together
+  // rather than leave the heading alone at the bottom of the previous one.
+  if (cloud) ensureSpace(ctx, CLOUD_HEADING_H + CLOUD_H + 12);
   drawSectionHeading(ctx, q.title || "Untitled question");
 
   const { doc } = ctx;
@@ -275,6 +355,11 @@ function drawQuestion(
 
   const question = survey.questions.find((s) => s.id === q.questionId);
   const labels = labelMap(question);
+
+  if (cloud) {
+    drawWordcloud(ctx, cloud);
+    return;
+  }
 
   if (q.optionCounts && Object.keys(q.optionCounts).length > 0) {
     const bars = Object.entries(q.optionCounts).map(([id, count]) => ({
@@ -434,6 +519,32 @@ function drawPieChart(
   }
 
   ctx.y += neededHeight + 12;
+}
+
+/** Draw a laid-out word cloud, then list any words that didn't fit. */
+function drawWordcloud(ctx: Ctx, cloud: CloudLayout): void {
+  const { doc } = ctx;
+  ensureSpace(ctx, CLOUD_H + 12);
+  const cx = MARGIN + CONTENT_W / 2;
+  const cy = ctx.y + CLOUD_H / 2;
+  cloud.placed.forEach((w, i) => {
+    doc.setFontSize(w.size);
+    doc.setTextColor(...SLICE_COLORS[i % SLICE_COLORS.length]);
+    // Layout positions are word centres; the PDF draws from the baseline.
+    drawMixedText(ctx, w.text, cx + w.x, cy + w.y + w.size * 0.35, "bold", "center");
+  });
+  ctx.y += CLOUD_H + 12;
+
+  if (cloud.dropped.length === 0) return;
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED_COLOR);
+  const list = cloud.dropped.map((w) => `${w.text} (${w.value})`).join(", ");
+  for (const line of doc.splitTextToSize(`Not shown in the cloud: ${list}`, CONTENT_W)) {
+    ensureSpace(ctx, 12);
+    drawMixedText(ctx, line, MARGIN, ctx.y);
+    ctx.y += 12;
+  }
+  ctx.y += 6;
 }
 
 function drawLineChart(ctx: Ctx, bars: { label: string; count: number }[]): void {

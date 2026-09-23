@@ -24,7 +24,7 @@ public class ResultsSocket {
 
     @OnOpen
     public void onOpen(WebSocketConnection connection) {
-        relay.register(room(connection), connection);
+        relay.register(room(connection), connection, isHost(connection));
     }
 
     @OnClose
@@ -34,5 +34,20 @@ public class ResultsSocket {
 
     private static String room(WebSocketConnection connection) {
         return connection.pathParam("surveyId");
+    }
+
+    /**
+     * The presenter connects with {@code ?role=host} to also receive host-only
+     * messages (lobby check-ins). Unauthenticated on purpose: check-ins are
+     * nicknames players chose to show on the big screen, so claiming the role
+     * reveals nothing private.
+     */
+    private static boolean isHost(WebSocketConnection connection) {
+        var query = connection.handshakeRequest().query();
+        if (query == null) return false;
+        for (var param : query.split("&")) {
+            if ("role=host".equals(param)) return true;
+        }
+        return false;
     }
 }

@@ -119,7 +119,9 @@ public class LivePresentService {
 
     /**
      * Broadcast a participant's lobby check-in as {@code {"join":{"name":...}}}
-     * so the presenter can list who has joined. Anonymous + best-effort.
+     * so the presenter can list who has joined. Anonymous + best-effort. Sent
+     * to the presenter's sockets only: players re-announce every few seconds,
+     * and fanning that out to every phone costs players x players frames.
      */
     public void announceJoin(String surveyId, String name) {
         if (name == null || name.isBlank()) return;
@@ -127,7 +129,7 @@ public class LivePresentService {
         if (clean.length() > 60) clean = clean.substring(0, 60);
         try {
             var msg = objectMapper.writeValueAsString(Map.of("join", Map.of("name", clean)));
-            relay.broadcast(surveyId, msg);
+            relay.broadcastToHosts(surveyId, msg);
         } catch (Exception e) {
             // Best-effort: a broadcast failure must not fail the participant's join.
         }

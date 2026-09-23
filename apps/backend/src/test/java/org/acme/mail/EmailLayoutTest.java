@@ -60,6 +60,44 @@ class EmailLayoutTest {
         assertTrue(mail.text().startsWith("Title"));
     }
 
+    /**
+     * § 35a GmbHG wants the particulars on the letter itself. A link to an
+     * imprint is what this footer had, and a link is one click away rather
+     * than on the letter.
+     */
+    @Test
+    @DisplayName("the Pflichtangaben are printed in both parts, not only linked")
+    void carriesTheLegalFooterInBothParts() {
+        var mail = layout()
+            .footerLink("Impressum", "https://example.com/impressum")
+            .legalFooter(
+                "Beispiel UG (haftungsbeschränkt)",
+                "Sitz: Musterstadt",
+                "Registergericht: Amtsgericht Musterstadt · HRB 12345",
+                "Geschäftsführer: Erika Mustermann")
+            .heading("Hello")
+            .build();
+
+        for (String part : List.of(mail.html(), mail.text())) {
+            assertTrue(part.contains("Beispiel UG (haftungsbeschränkt)"), part);
+            assertTrue(part.contains("Sitz: Musterstadt"), part);
+            assertTrue(part.contains("HRB 12345"), part);
+            assertTrue(part.contains("Erika Mustermann"), part);
+        }
+        assertTrue(mail.html().contains("<br>"), "lines break in the HTML part");
+    }
+
+    /** A self-hosted install is somebody else's company; printing ours would be
+     *  worse than printing none. */
+    @Test
+    @DisplayName("an install with no particulars configured prints none")
+    void withoutParticularsPrintsNothing() {
+        var mail = layout().legalFooter("", "  ", null).heading("Hello").build();
+
+        assertFalse(mail.html().contains("HRB"), "nothing invented");
+        assertTrue(mail.text().startsWith("Hello"));
+    }
+
     @Test
     @DisplayName("the preheader is present but visually hidden")
     void rendersHiddenPreheader() {
