@@ -72,6 +72,10 @@ services:
       KEYCLOAK_ADMIN_USERNAME: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       MAIL_MOCK: "true"
+      # Mail is mocked, so a verification code could never be read; the smoke
+      # journey registers and expects the dashboard. The verification flow
+      # itself is covered by the backend tests.
+      EMAIL_VERIFICATION_REQUIRED: "false"
       APP_BASE_URL: http://localhost:3000
       CORS_ORIGINS: http://localhost:3000
       SURVEY_SPAM_SECRET: e2e-spam-secret
