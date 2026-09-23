@@ -26,6 +26,8 @@ import type {
   Survey,
   SurveyAnalytics,
   SurveyResponseDto,
+  LiveSession,
+  LeaderboardEntry,
   SurveyResults,
   UpdateShareLinkRequest,
   UpdateSurveyRequest,
@@ -502,12 +504,44 @@ export async function getInstanceConfigApi(): Promise<
   );
 }
 
+/** Query string for the optional preview/session filters shared by results and responses. */
+function resultFilters(filters: { preview?: boolean; session?: string | null }): string {
+  const params = new URLSearchParams();
+  if (filters.preview) params.set("preview", "true");
+  if (filters.session) params.set("session", filters.session);
+  const q = params.toString();
+  return q ? `?${q}` : "";
+}
+
 export async function getResultsApi(
   surveyId: string,
   includePreview = false,
+  sessionId?: string | null,
 ): Promise<ApiResponse<SurveyResults>> {
-  const q = includePreview ? "?preview=true" : "";
-  return request<SurveyResults>(`${SURVEY_ENDPOINTS.results(surveyId)}${q}`);
+  return request<SurveyResults>(
+    `${SURVEY_ENDPOINTS.results(surveyId)}${resultFilters({ preview: includePreview, session: sessionId })}`,
+  );
+}
+
+/** Presenter: open a new live quiz session (the game was started). Answers from
+ *  now on belong to it, so a restarted quiz keeps its players and scores apart. */
+export async function startLiveSessionApi(surveyId: string): Promise<ApiResponse<LiveSession>> {
+  return request<LiveSession>(SURVEY_ENDPOINTS.liveSessions(surveyId), { method: "POST" });
+}
+
+/** The running game's leaderboard (public — players see it on their phones). */
+export async function getLiveLeaderboardApi(
+  surveyId: string,
+  limit = 10,
+): Promise<ApiResponse<LeaderboardEntry[]>> {
+  return request<LeaderboardEntry[]>(
+    `${SURVEY_ENDPOINTS.liveLeaderboard(surveyId)}?limit=${limit}`,
+  );
+}
+
+/** A live quiz's past sessions, newest first — for the results page's picker. */
+export async function listLiveSessionsApi(surveyId: string): Promise<ApiResponse<LiveSession[]>> {
+  return request<LiveSession[]>(SURVEY_ENDPOINTS.liveSessions(surveyId));
 }
 
 /** Presenter live mode: broadcast the current question index to participants (#). */
@@ -629,8 +663,11 @@ export async function getAnalyticsApi(
 
 export async function listResponsesApi(
   surveyId: string,
+  sessionId?: string | null,
 ): Promise<ApiResponse<SurveyResponseDto[]>> {
-  return request<SurveyResponseDto[]>(SURVEY_ENDPOINTS.responses(surveyId));
+  return request<SurveyResponseDto[]>(
+    `${SURVEY_ENDPOINTS.responses(surveyId)}${resultFilters({ session: sessionId })}`,
+  );
 }
 
 export async function deleteResponseApi(
@@ -654,11 +691,12 @@ export async function clearResponsesApi(
  */
 export async function downloadXlsxApi(
   surveyId: string,
-  filters?: { from?: string; to?: string },
+  filters?: { from?: string; to?: string; session?: string | null },
 ): Promise<Blob> {
   const params = new URLSearchParams();
   if (filters?.from) params.set("from", filters.from);
   if (filters?.to) params.set("to", filters.to);
+  if (filters?.session) params.set("session", filters.session);
   const query = params.toString() ? `?${params.toString()}` : "";
 
   const token =

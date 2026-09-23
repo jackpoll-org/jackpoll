@@ -16,10 +16,13 @@ export function LobbyView({
   surveyId,
   players,
   onStart,
+  starting = false,
 }: {
   surveyId: string;
   players: string[];
   onStart: () => void;
+  /** True while the game is being started (the session is being opened). */
+  starting?: boolean;
 }) {
   const { t } = useTranslation();
   const accessCode = useAccessCode(surveyId);
@@ -67,7 +70,7 @@ export function LobbyView({
             ))
           )}
         </div>
-        <Button size="lg" disabled={players.length === 0} onClick={onStart}>
+        <Button size="lg" disabled={players.length === 0 || starting} onClick={onStart}>
           {t("live.lobby.start")}
         </Button>
       </div>

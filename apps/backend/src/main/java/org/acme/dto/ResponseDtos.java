@@ -63,7 +63,9 @@ public final class ResponseDtos {
         String editToken,
         String editedAt,
         // Respondent's name when the survey required it (#); null otherwise.
-        String respondentName
+        String respondentName,
+        // Live quiz session the answer was given in; null outside live mode.
+        String sessionId
     ) {}
 
     /** The data needed to re-open a response for editing (issue #40). */
@@ -125,4 +127,10 @@ public final class ResponseDtos {
      *  display URL from it via the upload proxy (the {@code url} field is kept
      *  for backward compatibility). */
     public record FileRefDto(String key, String url, String filename) {}
+
+    /** One player's running total on the live quiz leaderboard. */
+    public record LeaderboardEntryDto(String name, long score) {}
+
+    /** One run of a live quiz, for the results page's session picker. */
+    public record LiveSessionDto(String id, String startedAt, long responses, long players) {}
 }

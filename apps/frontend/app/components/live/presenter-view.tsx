@@ -16,7 +16,14 @@ import { QUIZ_GAME_DEFAULT_SECONDS, isQuizGame } from "@/app/lib/live/quiz-game"
 import { playReveal, playTick } from "@/app/lib/live/sound";
 import { useSurvey, useSurveyResults } from "@/app/hooks/survey";
 import { useLiveResultsSocket } from "@/app/hooks/results-live";
-import { useCountdown, useCountdownFraction, useLiveRoster, useSetLiveState } from "@/app/hooks/live";
+import {
+  useCountdown,
+  useCountdownFraction,
+  useLiveRoster,
+  useSetLiveState,
+  useStartLiveSession,
+} from "@/app/hooks/live";
+import { toast } from "sonner";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
 
@@ -107,7 +114,11 @@ function PresenterInner({ survey }: { survey: Survey }) {
   // Synced 3-2-1-Go shown (on host + every phone) before a question opens; the
   // real per-question timer only starts once this finishes (see handleCountdownComplete).
   const [countdownActive, setCountdownActive] = useState(false);
-  const results = useSurveyResults(survey.id);
+  // The live session this game runs in (opened on "start game"): answered
+  // counts, standings and the podium only count answers from this game.
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const startSession = useStartLiveSession(survey.id);
+  const results = useSurveyResults(survey.id, false, sessionId);
   const roster = useLiveRoster(survey.id, game);
   useLiveResultsSocket(survey.id); // keep the shown result fresh in real time
   const live = useSetLiveState(survey.id);
@@ -212,7 +223,15 @@ function PresenterInner({ survey }: { survey: Survey }) {
         <LobbyView
           surveyId={survey.id}
           players={roster}
-          onStart={() => {
+          starting={startSession.isPending}
+          onStart={async () => {
+            try {
+              const session = await startSession.mutateAsync();
+              setSessionId(session.id);
+            } catch {
+              // Still play: the answers then land in the previous session.
+              toast.error(t("live.sessionStartFailed"));
+            }
             setStarted(true);
             go(0);
           }}

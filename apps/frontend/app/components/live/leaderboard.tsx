@@ -1,18 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
-import { useResponses } from "@/app/hooks/survey";
+import { useLiveLeaderboard } from "@/app/hooks/live";
 import { prefersReducedMotion } from "@/app/lib/survey/a11y";
 import { useTranslation } from "@/app/i18n/context";
 
 /**
- * Live quiz leaderboard (#97). Sums each named participant's quiz score across
- * the answers they've submitted so far. Updates live via the results socket
- * (the presenter already keeps responses fresh).
+ * Live quiz leaderboard (#97): each named player's total score in the running
+ * game, from the server's per-session leaderboard. Shown to the presenter and
+ * to players on their phones.
  */
 export function Leaderboard({
   surveyId,
@@ -23,21 +22,8 @@ export function Leaderboard({
   limit?: number;
 }) {
   const { t } = useTranslation();
-  const responses = useResponses(surveyId);
+  const board = useLiveLeaderboard(surveyId, limit).data ?? [];
   const reduced = prefersReducedMotion();
-
-  const board = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const r of responses.data ?? []) {
-      const name = r.respondentName?.trim();
-      if (!name) continue;
-      totals.set(name, (totals.get(name) ?? 0) + (r.score ?? 0));
-    }
-    return [...totals.entries()]
-      .map(([name, score]) => ({ name, score }))
-      .toSorted((a, b) => b.score - a.score)
-      .slice(0, limit);
-  }, [responses.data, limit]);
 
   return (
     <Card>

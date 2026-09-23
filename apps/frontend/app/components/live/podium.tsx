@@ -1,28 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useResponses } from "@/app/hooks/survey";
+import { useLiveLeaderboard } from "@/app/hooks/live";
 import { prefersReducedMotion } from "@/app/lib/survey/a11y";
 import { useTranslation } from "@/app/i18n/context";
 
-/** Aggregated top players for the final podium. */
-function useScoreboard(surveyId: string) {
-  const responses = useResponses(surveyId);
-  return useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const r of responses.data ?? []) {
-      const name = r.respondentName?.trim();
-      if (!name) continue;
-      totals.set(name, (totals.get(name) ?? 0) + (r.score ?? 0));
-    }
-    return [...totals.entries()]
-      .map(([name, score]) => ({ name, score }))
-      .toSorted((a, b) => b.score - a.score);
-  }, [responses.data]);
-}
+/** Players shown on the final screen: the podium plus a list of the rest. */
+const PODIUM_BOARD_SIZE = 50;
 
 // Podium column order (2nd, 1st, 3rd) with per-place styling.
 const PLACES = [
@@ -33,7 +19,7 @@ const PLACES = [
 
 export function Podium({ surveyId }: { surveyId: string }) {
   const { t } = useTranslation();
-  const board = useScoreboard(surveyId);
+  const board = useLiveLeaderboard(surveyId, PODIUM_BOARD_SIZE).data ?? [];
   const rest = board.slice(3);
   const reduced = prefersReducedMotion();
   // Reveal in dramatic order: 3rd, then 2nd, then 1st.

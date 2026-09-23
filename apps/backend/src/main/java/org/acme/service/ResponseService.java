@@ -82,6 +82,9 @@ public class ResponseService {
     TransactionSynchronizationRegistry txRegistry;
 
     @Inject
+    org.acme.repository.LiveSessionRepository liveSessionRepository;
+
+    @Inject
     ProfanityFilter profanityFilter;
 
     @Inject
@@ -143,7 +146,7 @@ public class ResponseService {
         if (honeypotTripped) {
             return new ResponseDto(
                 UUID.randomUUID().toString(), Instant.now().toString(),
-                req.durationMs(), null, null, null, java.util.List.of(), null, null, null);
+                req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null);
         }
 
         // One-response-per-browser guard (issue #31).
@@ -169,6 +172,13 @@ public class ResponseService {
         // A builder preview/test submission: stored but excluded from results,
         // consumes no quota and triggers no notifications (#).
         response.preview = Boolean.TRUE.equals(req.preview());
+        // Live quiz: tag the answer with the game running now, so a restarted
+        // quiz keeps its players and scores apart. Assigned here, not sent by
+        // the client, so a participant can't file answers under another game.
+        if (!response.preview && survey.settings != null && survey.settings.liveMode) {
+            response.sessionId = liveSessionRepository.findCurrent(surveyId)
+                .map(session -> session.id).orElse(null);
+        }
 
         // Respondent name (#): required when the survey enables it (real
         // submissions only — a preview test needn't fill it).
@@ -499,10 +509,17 @@ public class ResponseService {
 
     public List<ResponseDto> list(
         String ownerId, String surveyId, String from, String to, boolean includePreview) {
+        return list(ownerId, surveyId, from, to, includePreview, null);
+    }
+
+    /** Owner's response list, optionally narrowed to one live quiz session. */
+    public List<ResponseDto> list(
+        String ownerId, String surveyId, String from, String to, boolean includePreview,
+        String sessionId) {
         requireOwnedSurvey(ownerId, surveyId);
         var fromInstant = parseInstant(from);
         var toInstant = parseInstant(to);
-        return responseRepository.findBySurvey(surveyId, includePreview).stream()
+        return responseRepository.findBySurvey(surveyId, includePreview, sessionId).stream()
             .filter(r -> fromInstant == null || !r.submittedAt.isBefore(fromInstant))
             .filter(r -> toInstant == null || !r.submittedAt.isAfter(toInstant))
             .map(this::toDto)
@@ -543,8 +560,10 @@ public class ResponseService {
         // Clear everything, including any preview/test rows.
         var responses = responseRepository.findBySurvey(surveyId, true);
         responses.forEach(responseRepository::delete);
-        // All responses gone → reset every option counter for the survey (#38).
+        // All responses gone → reset every option counter for the survey (#38),
+        // and drop the now-empty live quiz sessions.
         optionRepository.resetUsedForSurvey(surveyId);
+        liveSessionRepository.deleteBySurvey(surveyId);
         return responses.size();
     }
 
@@ -599,8 +618,14 @@ public class ResponseService {
     }
 
     public SurveyResultsDto results(String ownerId, String surveyId, boolean includePreview) {
+        return results(ownerId, surveyId, includePreview, null);
+    }
+
+    /** Dashboard results, optionally narrowed to one live quiz session. */
+    public SurveyResultsDto results(
+        String ownerId, String surveyId, boolean includePreview, String sessionId) {
         var survey = requireOwnedSurvey(ownerId, surveyId);
-        var responses = responseRepository.findBySurvey(surveyId, includePreview);
+        var responses = responseRepository.findBySurvey(surveyId, includePreview, sessionId);
 
         var lastResponseAt = responses.stream()
             .map(r -> r.submittedAt)
@@ -896,7 +921,8 @@ public class ResponseService {
             answers,
             r.editToken,
             r.editedAt != null ? r.editedAt.toString() : null,
-            r.respondentName);
+            r.respondentName,
+            r.sessionId);
     }
 
     // ── Server-side answer validation (issue #55) ─────────────────

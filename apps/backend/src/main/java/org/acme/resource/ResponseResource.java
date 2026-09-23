@@ -92,9 +92,10 @@ public class ResponseResource {
         @PathParam("id") String id,
         @QueryParam("from") String from,
         @QueryParam("to") String to,
-        @QueryParam("preview") @jakarta.ws.rs.DefaultValue("false") boolean preview
+        @QueryParam("preview") @jakarta.ws.rs.DefaultValue("false") boolean preview,
+        @QueryParam("session") String session
     ) {
-        List<ResponseDto> data = responseService.list(ownerId(), id, from, to, preview);
+        List<ResponseDto> data = responseService.list(ownerId(), id, from, to, preview, session);
         var meta = new ApiResponse.Meta(data.size(), 0, data.size());
         return Response.ok(ApiResponse.ok(data, meta)).build();
     }
@@ -130,15 +131,17 @@ public class ResponseResource {
     }
 
     /** Aggregated dashboard results — owner only. {@code preview=true} includes
-     *  the builder's test submissions. */
+     *  the builder's test submissions; {@code session} narrows to one live quiz run. */
     @GET
     @Path("/{id}/results")
     @Authenticated
     public Response results(
         @PathParam("id") String id,
-        @QueryParam("preview") @jakarta.ws.rs.DefaultValue("false") boolean preview
+        @QueryParam("preview") @jakarta.ws.rs.DefaultValue("false") boolean preview,
+        @QueryParam("session") String session
     ) {
-        return Response.ok(ApiResponse.ok(responseService.results(ownerId(), id, preview))).build();
+        return Response.ok(ApiResponse.ok(
+            responseService.results(ownerId(), id, preview, session))).build();
     }
 
     /** Formatted Excel (.xlsx) export of responses — owner only (issue #32). */
@@ -149,9 +152,10 @@ public class ResponseResource {
     public Response exportXlsx(
         @PathParam("id") String id,
         @QueryParam("from") String from,
-        @QueryParam("to") String to
+        @QueryParam("to") String to,
+        @QueryParam("session") String session
     ) {
-        byte[] bytes = exportService.toXlsx(ownerId(), id, from, to);
+        byte[] bytes = exportService.toXlsx(ownerId(), id, from, to, session);
         String title = surveyService.get(ownerId(), id).title();
         String filename = exportFilename(title);
         return Response.ok(bytes)

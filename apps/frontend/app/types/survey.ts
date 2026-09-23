@@ -428,6 +428,24 @@ export interface SurveyResponseDto {
   editedAt?: string | null;
   /** Respondent's name when the survey required it (#); null otherwise. */
   respondentName?: string | null;
+  /** Live quiz session the answer was given in; null outside live mode. */
+  sessionId?: string | null;
+}
+
+/** One player's running total on the live quiz leaderboard. */
+export interface LeaderboardEntry {
+  name: string;
+  score: number;
+}
+
+/** One run of a live quiz (opened when the presenter starts the game). */
+export interface LiveSession {
+  id: string;
+  startedAt: string;
+  /** Answers given in this session. */
+  responses: number;
+  /** Distinct player names in this session. */
+  players: number;
 }
 
 /** Data to re-open a response for editing (issue #40). */

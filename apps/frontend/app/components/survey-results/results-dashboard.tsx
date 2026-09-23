@@ -47,6 +47,8 @@ import { QuestionResultCard, type ChartType } from "./question-result-card";
 import { ChartColorsDialog } from "./chart-colors-dialog";
 import { ResultBarChart } from "./result-charts";
 import { ResponsesPanel } from "./responses-panel";
+import { SessionPicker } from "./session-picker";
+import { useLiveSessions } from "@/app/hooks/live";
 import { AnalyticsPanel } from "./analytics-panel";
 import { StatTile } from "./stat-tile";
 import {
@@ -109,8 +111,15 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
   const { t, locale } = useTranslation();
   const survey = useSurvey(surveyId);
   const [showPreview, setShowPreview] = useState(false);
-  const results = useSurveyResults(surveyId, showPreview);
-  const responses = useResponses(surveyId);
+  // Live quizzes: narrow everything on this page to one round (one "start
+  // game"), or show all rounds (null). A round that no longer exists (e.g.
+  // after deleting all responses) falls back to all rounds.
+  const sessions = useLiveSessions(surveyId, !!survey.data?.settings.liveMode);
+  const [pickedSession, setPickedSession] = useState<string | null>(null);
+  const sessionId =
+    pickedSession && sessions.data?.some((s) => s.id === pickedSession) ? pickedSession : null;
+  const results = useSurveyResults(surveyId, showPreview, sessionId);
+  const responses = useResponses(surveyId, sessionId);
   const deletePreview = useDeletePreviewResponses(surveyId);
   const [exporting, setExporting] = useState(false);
   // Mirrors each question's on-screen chart-type selection so the PDF export
@@ -163,7 +172,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
     setExporting(true);
     const toastId = toast.loading(t("results.export.excelGenerating"));
     try {
-      const blob = await downloadXlsxApi(surveyId);
+      const blob = await downloadXlsxApi(surveyId, { session: sessionId });
       downloadBlob(`${title}-responses-${today}.xlsx`, blob);
       toast.success(t("results.export.excelReady"), { id: toastId });
     } catch (err) {
@@ -220,6 +229,11 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
         {/* Buttons are `shrink-0` and `whitespace-nowrap`, so without wrapping
             this row runs off the right edge of a phone screen. */}
         <div className="flex flex-wrap items-center gap-2">
+          <SessionPicker
+            sessions={sessions.data ?? []}
+            value={sessionId}
+            onChange={setPickedSession}
+          />
           <div className="flex items-center gap-2">
             <Switch
               id="show-preview"
@@ -360,7 +374,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
 
           <TabsContent value="responses">
             {survey.data ? (
-              <ResponsesPanel survey={survey.data} />
+              <ResponsesPanel survey={survey.data} sessionId={sessionId} />
             ) : (
               <Skeleton className="h-64 rounded-xl" />
             )}

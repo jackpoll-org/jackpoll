@@ -799,11 +799,16 @@ export function useBeginToken(surveyId: string | undefined, enabled: boolean) {
 export function useSurveyResults(
   surveyId: string | undefined,
   includePreview = false,
+  /** Narrow to one live quiz session; null/undefined = all sessions. */
+  sessionId?: string | null,
 ) {
   return useQuery({
-    queryKey: [...surveyKeys.results(surveyId ?? "unknown"), { includePreview }],
+    queryKey: [
+      ...surveyKeys.results(surveyId ?? "unknown"),
+      { includePreview, sessionId: sessionId ?? null },
+    ],
     queryFn: async () => {
-      const res = await getResultsApi(surveyId!, includePreview);
+      const res = await getResultsApi(surveyId!, includePreview, sessionId);
       if (!res.success || !res.data) {
         throw new Error(res.error ?? "Failed to load results");
       }
@@ -849,6 +854,8 @@ export function invalidateResponseData(
   queryClient.invalidateQueries({ queryKey: surveyKeys.responses(surveyId) });
   queryClient.invalidateQueries({ queryKey: surveyKeys.results(surveyId) });
   queryClient.invalidateQueries({ queryKey: surveyKeys.liveResults(surveyId) });
+  queryClient.invalidateQueries({ queryKey: surveyKeys.liveLeaderboard(surveyId) });
+  queryClient.invalidateQueries({ queryKey: surveyKeys.liveSessions(surveyId) });
 }
 
 export function useDeleteResponse(surveyId: string) {
@@ -887,11 +894,15 @@ export function useSurveyAnalytics(surveyId: string | undefined) {
   });
 }
 
-export function useResponses(surveyId: string | undefined) {
+export function useResponses(
+  surveyId: string | undefined,
+  /** Narrow to one live quiz session; null/undefined = all sessions. */
+  sessionId?: string | null,
+) {
   return useQuery({
-    queryKey: surveyKeys.responses(surveyId ?? "unknown"),
+    queryKey: [...surveyKeys.responses(surveyId ?? "unknown"), { sessionId: sessionId ?? null }],
     queryFn: async () => {
-      const res = await listResponsesApi(surveyId!);
+      const res = await listResponsesApi(surveyId!, sessionId);
       if (!res.success || !res.data) {
         throw new Error(res.error ?? "Failed to load responses");
       }

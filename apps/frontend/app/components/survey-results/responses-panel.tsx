@@ -48,9 +48,16 @@ import type { Survey, SurveyResponseDto } from "@/app/types/survey";
 
 type PassFilter = "all" | "passed" | "failed";
 
-export function ResponsesPanel({ survey }: { survey: Survey }) {
+export function ResponsesPanel({
+  survey,
+  sessionId = null,
+}: {
+  survey: Survey;
+  /** Live quizzes: only this round's responses (null = all rounds). */
+  sessionId?: string | null;
+}) {
   const { t } = useTranslation();
-  const responses = useResponses(survey.id);
+  const responses = useResponses(survey.id, sessionId);
   const deleteResponse = useDeleteResponse(survey.id);
   const clearResponses = useClearResponses(survey.id);
 

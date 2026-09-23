@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { getLiveStateApi, liveJoinApi, setLiveStateApi } from "@/app/lib/survey/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getLiveLeaderboardApi,
+  getLiveStateApi,
+  listLiveSessionsApi,
+  liveJoinApi,
+  setLiveStateApi,
+  startLiveSessionApi,
+} from "@/app/lib/survey/api";
+import { surveyKeys } from "@/app/lib/survey/constants";
 import { ResultsLiveSocket, liveResultsEnabled } from "@/app/lib/results/live-socket";
 import {
   normalizeLivePhase,
@@ -153,4 +161,58 @@ export function useLiveRoster(
     return () => socket.destroy();
   }, [surveyId, enabled]);
   return names;
+}
+
+/** How often players' phones refresh the leaderboard (they get no results pings). */
+const LEADERBOARD_POLL_MS = 5_000;
+
+/**
+ * The running game's leaderboard, best first — computed by the server for the
+ * current live session only, and public so players see it on their phones.
+ */
+export function useLiveLeaderboard(surveyId: string, limit: number) {
+  return useQuery({
+    queryKey: [...surveyKeys.liveLeaderboard(surveyId), limit],
+    queryFn: async () => {
+      const res = await getLiveLeaderboardApi(surveyId, limit);
+      if (!res.success || !res.data) {
+        throw new Error(res.error ?? "Failed to load leaderboard");
+      }
+      return res.data;
+    },
+    refetchInterval: LEADERBOARD_POLL_MS,
+  });
+}
+
+/** Presenter: open a new live session when the game starts (returns its id). */
+export function useStartLiveSession(surveyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await startLiveSessionApi(surveyId);
+      if (!res.success || !res.data) {
+        throw new Error(res.error ?? "Failed to start the session");
+      }
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: surveyKeys.liveSessions(surveyId) });
+      queryClient.invalidateQueries({ queryKey: surveyKeys.liveLeaderboard(surveyId) });
+    },
+  });
+}
+
+/** A live quiz's past sessions, newest first (owner only). */
+export function useLiveSessions(surveyId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: surveyKeys.liveSessions(surveyId ?? "unknown"),
+    queryFn: async () => {
+      const res = await listLiveSessionsApi(surveyId!);
+      if (!res.success || !res.data) {
+        throw new Error(res.error ?? "Failed to load sessions");
+      }
+      return res.data;
+    },
+    enabled: !!surveyId && enabled,
+  });
 }

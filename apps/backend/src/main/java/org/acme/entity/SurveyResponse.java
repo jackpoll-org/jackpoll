@@ -63,6 +63,11 @@ public class SurveyResponse extends PanacheEntityBase {
     @Column(name = "respondent_name", length = 200)
     public String respondentName;
 
+    /** The live quiz session ({@link LiveSession}) this answer was given in;
+     *  null outside live mode and for answers from before sessions existed. */
+    @Column(name = "session_id", length = 36)
+    public String sessionId;
+
     @OneToMany(mappedBy = "response", cascade = CascadeType.ALL, orphanRemoval = true)
     public List<ResponseAnswer> answers = new ArrayList<>();
 

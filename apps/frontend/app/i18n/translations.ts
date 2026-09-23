@@ -860,6 +860,10 @@ export const en = {
   "live.enterName": "Join the quiz",
   "live.join": "Join",
   "live.leaderboard": "Leaderboard",
+  "live.sessionStartFailed": "Couldn't start a new round — this game's answers may mix with the previous one.",
+  "results.session.label": "Quiz round",
+  "results.session.all": "All rounds",
+  "results.session.option": "{date} · {players} players",
   "live.noScores": "No scores yet.",
   "builder.settings.liveMode": "Live mode (host-paced)",
   "builder.settings.liveModeHelp":
@@ -1966,6 +1970,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "live.enterName": "Am Quiz teilnehmen",
   "live.join": "Beitreten",
   "live.leaderboard": "Bestenliste",
+  "live.sessionStartFailed": "Neue Runde konnte nicht gestartet werden – die Antworten dieses Spiels mischen sich evtl. mit der vorherigen.",
+  "results.session.label": "Quiz-Runde",
+  "results.session.all": "Alle Runden",
+  "results.session.option": "{date} · {players} Spieler",
   "live.noScores": "Noch keine Punkte.",
   "builder.settings.liveMode": "Live-Modus (vom Host gesteuert)",
   "builder.settings.liveModeHelp":
