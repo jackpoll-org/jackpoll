@@ -6,10 +6,13 @@ It builds the `fdroid` flavor from the public repo at a `v<versionName>` tag.
 ## Verified locally (2026-09-24)
 
 - `fdroid lint`: clean.
-- `fdroid scanner` on the source tree after the recipe's install steps (Debian
-  container, pinned Node 22.23.3): 0 problems with the listed `scandelete` paths.
-  Everything it deletes lives in `node_modules` and is build tooling that never
-  reaches the APK.
+- `fdroid scanner` on the source tree after the recipe's install steps: 0
+  problems. `scandelete: apps/frontend/node_modules/` only removes the files the
+  scanner flags there (build tooling that never reaches the APK).
+- Node.js comes from Debian forky, pnpm from npm (pinned to `packageManager`),
+  as requested in the F-Droid review.
+- R8 is enabled for release builds; checked on an emulator that all Capacitor
+  plugins (incl. UnifiedPush, biometrics, camera) register and work.
 - `gradlew assembleFdroidRelease` from that cleaned tree: builds.
 - `fdroid scanner` on the APK: no non-free classes, no extra signing blocks.
 - `fdroidReleaseRuntimeClasspath`: no Google Play Services / Firebase.

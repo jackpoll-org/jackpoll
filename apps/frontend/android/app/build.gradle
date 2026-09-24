@@ -12,8 +12,8 @@ android {
         // this file at each `v<versionName>` tag to detect and build updates.
         // To ship an F-Droid update, raise both (the public repo gets the tag
         // automatically on the next sync).
-        versionCode 3
-        versionName "1.0.2"
+        versionCode 4
+        versionName "1.0.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -42,8 +42,12 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 code shrinking (requested in the F-Droid review). Capacitor's
+            // consumer rules keep every Plugin subclass and @PluginMethod;
+            // manifest components (UnifiedPush receiver) are kept by R8.
+            // Resources are not shrunk: plugins look some up by name.
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             if (System.getenv("ANDROID_KEYSTORE_PATH")) {
                 signingConfig signingConfigs.release
             }
