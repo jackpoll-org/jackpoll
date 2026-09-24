@@ -10,8 +10,7 @@
 #
 # Reproducible build: fdroid-verify.yml builds each v* tag with F-Droid's own
 # image, signs it with our key and attaches it to the GitHub Release; F-Droid
-# checks its build against that APK (Binaries). AllowedAPKSigningKeys is added
-# in fdroiddata from that workflow's summary.
+# checks its build against that APK (Binaries) signed with the key below.
 
 Categories:
   - Internet
@@ -56,6 +55,8 @@ Builds:
       - apps/frontend/node_modules/.pnpm/next@*/node_modules/next/dist/compiled
       - apps/frontend/node_modules/.pnpm/@trapezedev+gradle-parse@*
       - apps/frontend/node_modules/.pnpm/@img+sharp-libvips-*
+
+AllowedAPKSigningKeys: 879d9185bb491834aea31c81c7f29308c317ea255920bb778947378c33974998
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
