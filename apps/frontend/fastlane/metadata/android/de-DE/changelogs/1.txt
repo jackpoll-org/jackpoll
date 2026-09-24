@@ -1,0 +1,6 @@
+Erste Version auf F-Droid.
+
+• Umfragen und Quizze mit vielen Fragetypen, auch Langantworten
+• Text- und Bildblöcke zwischen Fragen
+• Quiz-Abgaben einzeln bewerten
+• Push-Benachrichtigungen über UnifiedPush (z. B. ntfy)

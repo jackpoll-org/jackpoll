@@ -1,20 +1,23 @@
-Jackpoll is an open-source tool to build, share and analyze surveys and quizzes — a privacy-friendly, self-hostable alternative to closed survey platforms.
+Jackpoll is an open-source tool to build, share and analyze surveys and quizzes: a privacy-friendly, self-hostable alternative to closed survey platforms.
 
-Create surveys with a drag-and-drop builder, run scored quizzes, collect responses and view results with live charts. Everything is open source, and you can run your own instance.
+Create surveys with a drag-and-drop builder, run scored quizzes (also live, with a leaderboard), collect responses and see results update in real time. Everything is open source, and you can run your own instance.
 
 Features:
-• Drag-and-drop survey builder with pages and question logic
-• Multiple question types: short answer, multiple choice, checkboxes, dropdown, rating grid, ranking
-• Quiz mode with correct answers, scoring and automatic grading
-• Real-time results with charts, plus CSV export
-• Collaboration: invite editors, role-based permissions
-• Public share links and embeddable surveys
-• Push notifications via UnifiedPush — no Google dependency in the F-Droid build
+• Drag-and-drop builder with pages and conditional logic
+• Many question types: short and long answers, multiple choice, checkboxes, dropdown, grids, rating, slider, ranking, date, file upload, signature and word cloud
+• Text and image blocks between questions for source texts and instructions
+• Quiz mode with automatic scoring, plus grading of open answers student by student
+• Live quizzes and word clouds with a presentation mode
+• Real-time results with charts, PDF and Excel export
+• Collaboration with role-based permissions
+• Share links and embeddable surveys
 
-Privacy & openness:
-• 100% open source (MIT)
+Privacy and openness:
+• 100% open source (MIT), no ads, no tracking
 • Self-hostable: connect the app to your own Jackpoll instance
-• The F-Droid build contains no Google Play Services and no proprietary tracking; push works through any UnifiedPush distributor (e.g. ntfy, NextPush)
-• No ads
+• No Google Play Services in this build
 
-The app is a client for a Jackpoll server. Use the official instance or point it at your own self-hosted deployment.
+Notifications:
+Push notifications use UnifiedPush. Install a distributor such as ntfy (available on F-Droid) and Jackpoll delivers notifications through it, via ntfy.sh or your own ntfy server.
+
+The app is a client for a Jackpoll server. Use the official instance or point it at your own deployment.

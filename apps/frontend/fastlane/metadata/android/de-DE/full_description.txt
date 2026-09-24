@@ -1,0 +1,23 @@
+Jackpoll ist ein Open-Source-Werkzeug, um Umfragen und Quizze zu erstellen, zu teilen und auszuwerten: eine datenschutzfreundliche, selbst hostbare Alternative zu geschlossenen Umfrageplattformen.
+
+Erstelle Umfragen per Drag-and-drop, führe bewertete Quizze durch (auch live mit Bestenliste), sammle Antworten und sieh die Ergebnisse in Echtzeit. Alles ist Open Source, und du kannst deine eigene Instanz betreiben.
+
+Funktionen:
+• Drag-and-drop-Editor mit Seiten und bedingter Logik
+• Viele Fragetypen: Kurz- und Langantwort, Multiple Choice, Kontrollkästchen, Dropdown, Raster, Bewertung, Schieberegler, Rangfolge, Datum, Datei-Upload, Unterschrift und Wortwolke
+• Text- und Bildblöcke zwischen Fragen für Quelltexte und Hinweise
+• Quizmodus mit automatischer Bewertung sowie Bewertung offener Antworten pro Person
+• Live-Quizze und Wortwolken mit Präsentationsmodus
+• Ergebnisse in Echtzeit mit Diagrammen, Export als PDF und Excel
+• Zusammenarbeit mit Rollen und Berechtigungen
+• Teilen-Links und einbettbare Umfragen
+
+Datenschutz und Offenheit:
+• 100 % Open Source (MIT), keine Werbung, kein Tracking
+• Selbst hostbar: verbinde die App mit deiner eigenen Jackpoll-Instanz
+• Diese Version enthält keine Google Play-Dienste
+
+Benachrichtigungen:
+Push-Benachrichtigungen laufen über UnifiedPush. Installiere einen Distributor wie ntfy (auf F-Droid verfügbar), und Jackpoll stellt Benachrichtigungen darüber zu, über ntfy.sh oder deinen eigenen ntfy-Server.
+
+Die App ist ein Client für einen Jackpoll-Server. Nutze die offizielle Instanz oder verbinde sie mit deiner eigenen Installation.

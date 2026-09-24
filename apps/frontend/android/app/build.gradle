@@ -1,11 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
-// Play requires a strictly increasing versionCode per upload; CI sets
-// ANDROID_VERSION_CODE for the Play build only (F-Droid builds from source
-// directly and keeps using the fallback below).
-def resolvedVersionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
-
 android {
     namespace = "de.quavon.jackpoll"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -13,7 +8,11 @@ android {
         applicationId "de.quavon.jackpoll"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode resolvedVersionCode
+        // Literal on purpose: F-Droid reads versionCode/versionName straight from
+        // this file at each `v<versionName>` tag to detect and build updates.
+        // To ship an F-Droid update, raise both (the public repo gets the tag
+        // automatically on the next sync).
+        versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -21,6 +20,12 @@ android {
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
+    }
+    // Play requires a strictly increasing versionCode per upload; CI passes it
+    // in for the Play build only. F-Droid keeps the literal above.
+    def playVersionCode = System.getenv("ANDROID_VERSION_CODE")
+    if (playVersionCode) {
+        defaultConfig.versionCode = playVersionCode.toInteger()
     }
     // Release signing (#52). Driven by env so the keystore never lives in the
     // repo; when unset (dev / unsigned CI builds) the release stays unsigned.

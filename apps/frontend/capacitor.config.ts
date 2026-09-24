@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { CapacitorConfig } from "@capacitor/cli";
 
 /**
@@ -12,6 +14,25 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * e.g. CAP_SERVER_URL=http://192.168.1.20:3000.
  */
 const DEV_SERVER_URL = process.env.CAP_SERVER_URL;
+
+/**
+ * Plugins that must never reach the Android build. @capacitor/push-notifications
+ * is Firebase Cloud Messaging on Android (it pulls firebase-messaging and Google
+ * Play Services into EVERY flavor, which F-Droid rejects). Android push goes
+ * through UnifiedPush instead; the plugin is only used for APNs on iOS.
+ */
+const ANDROID_EXCLUDED_PLUGINS = new Set(["@capacitor/push-notifications"]);
+
+/** Every installed Capacitor plugin (a dependency whose package.json declares
+ *  `capacitor`) minus the excluded ones — so new plugins need no list update. */
+function androidPlugins(): string[] {
+  const pkg = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf8"));
+  return Object.keys(pkg.dependencies ?? {}).filter((name) => {
+    if (ANDROID_EXCLUDED_PLUGINS.has(name)) return false;
+    const manifest = join(__dirname, "node_modules", name, "package.json");
+    return existsSync(manifest) && "capacitor" in JSON.parse(readFileSync(manifest, "utf8"));
+  });
+}
 
 const config: CapacitorConfig = {
   appId: "de.quavon.jackpoll",
@@ -28,6 +49,9 @@ const config: CapacitorConfig = {
     iosScheme: "capacitor",
     // Allow the bridge to stay active on whatever instance the user connects to.
     allowNavigation: ["*"],
+  },
+  android: {
+    includePlugins: androidPlugins(),
   },
   ios: {
     // CSS safe-area-inset padding handles the notch/home-indicator, so the

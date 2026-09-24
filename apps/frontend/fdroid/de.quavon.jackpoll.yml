@@ -1,42 +1,56 @@
-# F-Droid build metadata TEMPLATE for submission to the fdroiddata repo
-# (https://gitlab.com/fdroid/fdroiddata). Copy to metadata/de.quavon.jackpoll.yml
-# there, adjust the version/commit, and open a merge request.
+# F-Droid build metadata for https://gitlab.com/fdroid/fdroiddata
+# Submit by copying this file to metadata/de.quavon.jackpoll.yml there and
+# opening a merge request (see README.md next to this file).
 #
-# Jackpoll's mobile app is a Capacitor wrapper, so the build needs Node + pnpm to
-# `cap sync` before Gradle. Only the "fdroid" flavor is built — it contains NO
-# Google Play Services / Embedded FCM distributor (that lives in the "play"
-# flavor only), so the app qualifies as FLOSS.
+# Jackpoll's mobile app is a Capacitor shell: Node + pnpm run `cap sync` before
+# Gradle. Only the "fdroid" flavor is built. It contains no Google Play Services
+# or Firebase: Android push goes through UnifiedPush (e.g. ntfy), and the
+# FCM-based @capacitor/push-notifications plugin is excluded from Android in
+# capacitor.config.ts. Verified with `fdroid scanner` on source and APK.
 
 Categories:
   - Internet
+  - Science & Education
 License: MIT
-AuthorName: Jackpoll
+AuthorName: Quavon Development
 WebSite: https://jackpoll.org
 SourceCode: https://github.com/jackpoll-org/jackpoll
 IssueTracker: https://github.com/jackpoll-org/jackpoll/issues
+
+AutoName: Jackpoll
+
 RepoType: git
 Repo: https://github.com/jackpoll-org/jackpoll.git
 
 Builds:
-  - versionName: "1.0"
+  - versionName: '1.0'
     versionCode: 1
     commit: v1.0
     subdir: apps/frontend/android/app
     sudo:
       - apt-get update
-      - apt-get install -y nodejs npm
-      - npm install -g pnpm@9
-    init:
-      - pushd ../..                       # -> apps/frontend
-      - pnpm install --frozen-lockfile
-      - pnpm exec cap sync android
-      - popd
+      - apt-get install -y curl xz-utils
+      - curl -fsSLO https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz
+      - echo "df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de  node-v22.23.3-linux-x64.tar.xz"
+        | sha256sum -c -
+      - tar -xJf node-v22.23.3-linux-x64.tar.xz -C /opt
+      - ln -s /opt/node-v22.23.3-linux-x64/bin/* /usr/local/bin/
+      - corepack enable --install-directory /usr/local/bin
     gradle:
       - fdroid
-    # The unsigned F-Droid release APK (F-Droid signs it with its own key).
-    output: build/outputs/apk/fdroid/release/app-fdroid-release-unsigned.apk
+    prebuild:
+      - cd ../..
+      - export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+      - pnpm install --frozen-lockfile --ignore-scripts --store-dir /tmp/pnpm-store
+      - pnpm exec cap sync android
+    scandelete:
+      - apps/frontend/node_modules/.pnpm/@capacitor+push-notifications@*
+      - apps/frontend/node_modules/.pnpm/@capacitor+cli@*/node_modules/@capacitor/cli/assets
+      - apps/frontend/node_modules/.pnpm/next@*/node_modules/next/dist/compiled
+      - apps/frontend/node_modules/.pnpm/@trapezedev+gradle-parse@*
+      - apps/frontend/node_modules/.pnpm/@img+sharp-libvips-*
 
 AutoUpdateMode: Version
-UpdateCheckMode: Tags
-CurrentVersion: "1.0"
+UpdateCheckMode: Tags ^v[0-9.]+$
+CurrentVersion: '1.0'
 CurrentVersionCode: 1
