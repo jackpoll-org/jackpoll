@@ -1,9 +1,8 @@
-# Put a TestFlight build in front of App Review.
+# Put a TestFlight build in front of App Review, by hand.
 #
-# Deliberately separate from `Mobile release`, which runs on every push. Pushing
-# is cheap and reversible; a review submission is neither. Only one version can
-# be in review at a time, Apple takes a day or two per round, and a rejection
-# sticks to the account — so this needs an explicit gesture:
+# Normally not needed: the `app-store` job in mobile-release.yml submits every
+# new version on its own. This is the manual route, e.g. to resubmit after a
+# rejection or to submit a specific train:
 #
 #   git tag ios-v1.0 && git push origin ios-v1.0
 #
@@ -16,9 +15,9 @@
 # in App Store Connect. It changes on its own schedule and a workflow that
 # rewrote it on every tag would be a footgun.
 #
-# Release notes: apps/frontend/fastlane/metadata/ios/<locale>.txt, one file per
-# App Store locale (en-US.txt, de-DE.txt). Skipped for a first release — Apple
-# rejects "What's New" when there is nothing to be new against.
+# Release notes: apps/frontend/fastlane/metadata/ios/<version>/<locale>.txt
+# (generic text if missing). Skipped for a first release: Apple rejects
+# "What's New" when there is nothing to be new against.
 #
 # SETUP: the same ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_CONTENT secrets and
 # ASC_APP_ID variable as mobile-release.yml. The key needs App Manager or above.

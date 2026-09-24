@@ -1,0 +1,5 @@
+Neu in dieser Version:
+• Langantwort-Fragen für Erklärungen und Aufsätze, in Quizzen manuell bewertbar
+• Text- und Bildblöcke zwischen Fragen, für Quelltexte und Hinweise
+• Quiz-Abgaben einzeln bewerten und hochgeladene Dateien herunterladen
+• Wortwolken zeigen jetzt auch auf dem Handy und im Präsentationsmodus alle Antworten

@@ -1,0 +1,5 @@
+New in this version:
+• Long answer questions for explanations and essays, with manual grading in quizzes
+• Text and image blocks between questions, for source texts and instructions
+• Grade quiz submissions student by student and download uploaded files
+• Word clouds now show every answer on phones and in presentation mode

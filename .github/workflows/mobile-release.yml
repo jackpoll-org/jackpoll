@@ -12,9 +12,10 @@
 # Web-only changes deliberately trigger nothing — they reach users through the
 # instance without a store round trip.
 #
-# This workflow never submits to the App Store. Only one version can be in
-# review at a time and each submission needs release notes someone has read, so
-# that step hangs off an `ios-v*` tag in ios-promote.yml instead.
+# It also submits each new version to App Review and releases it once approved
+# (job `app-store`). Only one version can be with Apple at a time, so while one
+# is in review later pushes only reach TestFlight. Manual submissions still work
+# through an `ios-v*` tag (ios-promote.yml).
 #
 # macOS minutes are free here: GitHub bills standard runners at zero for public
 # repositories. In the private source repo the iOS jobs are manual for exactly
@@ -133,29 +134,6 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "number=$number" >> "$GITHUB_OUTPUT"
 
-      # External testers, no manual click. The first build of a version train is
-      # looked at by a human in Beta App Review; the ones after it are normally
-      # waved through, so a push reaches testers within the hour.
-      - name: Hand the build to the public beta
-        if: steps.gate.outputs.skip == 'false'
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          # Either place works; a variable keeps it out of the log mask, which
-          # makes failures easier to read.
-          ASC_APP_ID: ${{ vars.ASC_APP_ID || secrets.ASC_APP_ID }}
-        run: |
-          if [ -z "$ASC_APP_ID" ]; then
-            echo "::warning::ASC_APP_ID not set — the build stays internal-only."
-            exit 0
-          fi
-          pip install --quiet cryptography
-          python3 .github/scripts/asc.py beta-add \
-            --train "${{ steps.build.outputs.version }}" \
-            --build "${{ steps.build.outputs.number }}" \
-            --group "Public Beta"
-
       - name: Attest build provenance
         if: steps.gate.outputs.skip == 'false'
         uses: actions/attest-build-provenance@v2
@@ -173,6 +151,82 @@ jobs:
           name: ios-ipa
           path: apps/frontend/ios/build/export/*.ipa
           retention-days: 30
+
+  # External testers, no manual click. Its own job on Linux, not a step on the
+  # macOS runner: `altool` returns the moment the bytes land, but the build does
+  # not exist for the API until Apple has ingested it — minutes later — so this
+  # has to sit and poll. Waiting here frees the paid runner, and a hiccup with
+  # the beta cannot take the GitHub Release down with it.
+  #
+  # The first build of a version train is looked at by a human in Beta App
+  # Review; the ones after it are normally waved through.
+  beta:
+    needs: ios
+    if: needs.ios.result == 'success' && needs.ios.outputs.skipped == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Hand the build to the public beta
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          # Either place works; a variable keeps it out of the log mask, which
+          # makes failures easier to read.
+          ASC_APP_ID: ${{ vars.ASC_APP_ID || secrets.ASC_APP_ID }}
+        run: |
+          if [ -z "$ASC_APP_ID" ]; then
+            echo "::warning::ASC_APP_ID not set — the build stays internal-only."
+            exit 0
+          fi
+          pip install --quiet cryptography
+          python3 .github/scripts/asc.py beta-add \
+            --train "${{ needs.ios.outputs.version }}" \
+            --build "${{ needs.ios.outputs.build }}" \
+            --group "Public Beta"
+
+  # Then straight on to the App Store: attach the build to the version, write
+  # "What's New" (apps/frontend/fastlane/metadata/ios/<locale>.txt, generic text
+  # if missing), submit for review and release automatically once approved.
+  # Only one version can be with Apple at a time: while one is in review this
+  # skips, and the next push after approval goes out as the next version
+  # (release-testflight.sh moves past approved versions on its own).
+  # ios-promote.yml stays for manual submissions from an `ios-v*` tag.
+  app-store:
+    needs: ios
+    if: needs.ios.result == 'success' && needs.ios.outputs.skipped == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: ios-promote
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Submit to App Review
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_APP_ID: ${{ vars.ASC_APP_ID || secrets.ASC_APP_ID }}
+        run: |
+          if [ -z "$ASC_APP_ID" ]; then
+            echo "::warning::ASC_APP_ID not set — nothing submitted."
+            exit 0
+          fi
+          pip install --quiet cryptography
+          python3 .github/scripts/asc.py promote \
+            --train "${{ needs.ios.outputs.version }}" \
+            --build "${{ needs.ios.outputs.build }}" \
+            --notes apps/frontend/fastlane/metadata/ios \
+            --skip-if-busy \
+            --release-after-approval
 
   android:
     runs-on: ubuntu-latest

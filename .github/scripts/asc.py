@@ -35,6 +35,9 @@ import urllib.request
 
 BASE = "https://api.appstoreconnect.apple.com"
 
+# How long to sleep between polls while a freshly uploaded build is ingested.
+POLL_SECONDS = 30
+
 # States in which a version record still accepts edits. Anything else means the
 # version is with Apple or already sold, and a new one has to be created.
 EDITABLE = {
@@ -43,6 +46,26 @@ EDITABLE = {
     "REJECTED",
     "METADATA_REJECTED",
     "INVALID_BINARY",
+}
+
+
+# States in which a version is with Apple: submitted, in review, or approved but
+# not yet live. Only one version may be in flight, so an automatic submission
+# waits for the next run instead of fighting it.
+IN_FLIGHT = {
+    "WAITING_FOR_REVIEW",
+    "IN_REVIEW",
+    "PENDING_APPLE_RELEASE",
+    "PENDING_DEVELOPER_RELEASE",
+    "PROCESSING_FOR_APP_STORE",
+    "WAITING_FOR_EXPORT_COMPLIANCE",
+}
+
+# "What's New" when the repo has no notes file for a locale. Apple requires the
+# field on every update, so a missing file must never block a release.
+DEFAULT_NOTES = {
+    "de": "Verbesserungen und Fehlerbehebungen.",
+    "en": "Improvements and bug fixes.",
 }
 
 
@@ -120,8 +143,15 @@ class Asc:
         return self.call("GET", f"{path}?{query}" if query else path).get("data", [])
 
     # ── builds ────────────────────────────────────────────────────────────
-    def build(self, train: str, number: str | None) -> dict:
-        """The build numbered `number` in version train `train`, or the newest."""
+    def build(self, train: str, number: str | None, wait: int = 0) -> dict:
+        """The build numbered `number` in version train `train`, or the newest.
+
+        `altool` returns as soon as the bytes are delivered, but the build does
+        not exist for the API until Apple has ingested it — minutes later — and
+        is PROCESSING for a while after that. So this polls rather than asking
+        once. Without the wait, a job that uploads and then hands the build to a
+        beta group fails on its own upload every time.
+        """
         params = {
             "filter[app]": self.app_id,
             "filter[preReleaseVersion.version]": train,
@@ -129,18 +159,33 @@ class Asc:
         }
         if number:
             params["filter[version]"] = number
-        builds = self.get("/v1/builds", **params)
-        if not builds:
-            raise AscError(f"no build {number or '(any)'} in train {train}")
-        # "10" beats "9": compare numerically where we can, fall back to upload date.
-        def key(b: dict):
-            v = b["attributes"].get("version", "")
-            return (int(v) if v.isdigit() else -1, b["attributes"].get("uploadedDate", ""))
-        newest = max(builds, key=key)
-        state = newest["attributes"]["processingState"]
-        if state != "VALID":
-            raise AscError(f"build {newest['attributes']['version']} is {state}, not VALID")
-        return newest
+
+        deadline = time.time() + wait
+        last = ""
+        while True:
+            builds = self.get("/v1/builds", **params)
+            if builds:
+                # "10" beats "9": numeric where we can, upload date otherwise.
+                def key(b: dict):
+                    v = b["attributes"].get("version", "")
+                    return (int(v) if v.isdigit() else -1,
+                            b["attributes"].get("uploadedDate", ""))
+
+                newest = max(builds, key=key)
+                state = newest["attributes"]["processingState"]
+                if state == "VALID":
+                    return newest
+                if state in {"FAILED", "INVALID"}:
+                    raise AscError(f"build {newest['attributes']['version']} is {state}")
+                last = f"build {newest['attributes']['version']} is {state}"
+            else:
+                last = f"build {number or '(any)'} in train {train} has not appeared yet"
+
+            if time.time() >= deadline:
+                raise AscError(f"{last} after waiting {wait}s")
+            print(f"… {last}, retrying")
+            time.sleep(POLL_SECONDS)
+            self.token = _token()  # the token expires long before a slow ingest does
 
     # ── TestFlight ────────────────────────────────────────────────────────
     def beta_group(self, name: str) -> dict:
@@ -174,6 +219,14 @@ class Asc:
                      "attributes": {"platform": "IOS", "versionString": train},
                      "relationships": {"app": {"data": {"type": "apps", "id": self.app_id}}}}})["data"]
 
+    def in_flight_version(self) -> dict | None:
+        """The version currently with Apple (in review, approved, releasing), if any."""
+        for v in self.get(f"/v1/apps/{self.app_id}/appStoreVersions",
+                          **{"filter[platform]": "IOS", "limit": 50}):
+            if v["attributes"]["appStoreState"] in IN_FLIGHT:
+                return v
+        return None
+
     def has_released_version(self) -> bool:
         return any(
             v["attributes"]["appStoreState"] == "READY_FOR_SALE"
@@ -184,7 +237,7 @@ class Asc:
 
 def cmd_beta_add(args: argparse.Namespace) -> None:
     asc = Asc(args.app)
-    build = asc.build(args.train, args.build)
+    build = asc.build(args.train, args.build, wait=args.wait)
     number = build["attributes"]["version"]
     group = asc.beta_group(args.group)
     asc.call("POST", f"/v1/betaGroups/{group['id']}/relationships/builds",
@@ -208,9 +261,29 @@ def cmd_beta_add(args: argparse.Namespace) -> None:
     print("external state:", state)
 
 
+def release_notes(notes_dir: pathlib.Path | None, train: str, locale: str) -> str:
+    """Notes from <notes_dir>/<train>/<locale>.txt, else a generic line.
+
+    Per version on purpose: a single file per locale would quietly ship last
+    release's "What's New" with the next one.
+    """
+    if notes_dir:
+        path = notes_dir / train / f"{locale}.txt"
+        if path.exists() and path.read_text().strip():
+            return path.read_text().strip()
+    print(f"::notice::no release notes for {train} {locale}, using the generic text")
+    return DEFAULT_NOTES.get(locale.split("-")[0], DEFAULT_NOTES["en"])
+
+
 def cmd_promote(args: argparse.Namespace) -> None:
     asc = Asc(args.app)
-    build = asc.build(args.train, args.build)
+    if args.skip_if_busy:
+        busy = asc.in_flight_version()
+        if busy:
+            print(f"::notice::{busy['attributes']['versionString']} is "
+                  f"{busy['attributes']['appStoreState']}; submitting {args.train} after that one")
+            return
+    build = asc.build(args.train, args.build, wait=args.wait)
     number = build["attributes"]["version"]
     version = asc.editable_version(args.train)
     print(f"version {args.train} ({version['attributes']['appStoreState']}), build {number}")
@@ -218,18 +291,22 @@ def cmd_promote(args: argparse.Namespace) -> None:
     asc.call("PATCH", f"/v1/appStoreVersions/{version['id']}/relationships/build",
              {"data": {"type": "builds", "id": build["id"]}})
 
-    # "What's New" is rejected on a first release — there is nothing new yet.
+    if args.release_after_approval:
+        # Go live as soon as Apple approves, no manual "Release" click.
+        asc.call("PATCH", f"/v1/appStoreVersions/{version['id']}", {
+            "data": {"type": "appStoreVersions", "id": version["id"],
+                     "attributes": {"releaseType": "AFTER_APPROVAL"}}})
+
+    # "What's New" is rejected on a first release — there is nothing new yet —
+    # and required on every one after it.
     notes_dir = pathlib.Path(args.notes) if args.notes else None
-    if notes_dir and asc.has_released_version():
+    if asc.has_released_version():
         for loc in asc.get(f"/v1/appStoreVersions/{version['id']}/appStoreVersionLocalizations"):
-            path = notes_dir / f"{loc['attributes']['locale']}.txt"
-            if not path.exists():
-                print(f"::warning::no release notes for {loc['attributes']['locale']} at {path}")
-                continue
+            locale = loc["attributes"]["locale"]
             asc.call("PATCH", f"/v1/appStoreVersionLocalizations/{loc['id']}", {
                 "data": {"type": "appStoreVersionLocalizations", "id": loc["id"],
-                         "attributes": {"whatsNew": path.read_text().strip()}}})
-            print(f"release notes: {loc['attributes']['locale']}")
+                         "attributes": {"whatsNew": release_notes(notes_dir, args.train, locale)}}})
+            print(f"release notes: {locale}")
 
     if args.dry_run:
         print("dry run — not submitting")
@@ -267,13 +344,21 @@ def main() -> int:
     beta.add_argument("--train", required=True, help="marketing version, e.g. 0.2")
     beta.add_argument("--build", help="build number; default is the newest in the train")
     beta.add_argument("--group", default="Public Beta")
+    beta.add_argument("--wait", type=int, default=1800,
+                      help="seconds to wait for the build to finish processing")
     beta.set_defaults(func=cmd_beta_add)
 
     promote = sub.add_parser("promote", help="submit a build to App Review")
     promote.add_argument("--train", required=True)
     promote.add_argument("--build")
-    promote.add_argument("--notes", help="directory of <locale>.txt release notes")
+    promote.add_argument("--notes", help="directory of <version>/<locale>.txt release notes")
+    promote.add_argument("--wait", type=int, default=1800,
+                         help="seconds to wait for the build to finish processing")
     promote.add_argument("--dry-run", action="store_true")
+    promote.add_argument("--skip-if-busy", action="store_true",
+                         help="do nothing while another version is with Apple")
+    promote.add_argument("--release-after-approval", action="store_true",
+                         help="release to the App Store automatically once approved")
     promote.set_defaults(func=cmd_promote)
 
     args = parser.parse_args()
