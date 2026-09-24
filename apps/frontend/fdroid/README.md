@@ -14,6 +14,19 @@ It builds the `fdroid` flavor from the public repo at a `v<versionName>` tag.
 - `fdroid scanner` on the APK: no non-free classes, no extra signing blocks.
 - `fdroidReleaseRuntimeClasspath`: no Google Play Services / Firebase.
 
+## Reproducible build
+
+`.github/workflows/fdroid-verify.yml` (public repo) runs on every `v*` tag:
+it builds with `fdroid build` inside F-Droid's own image
+(`fdroidserver:buildserver-trixie`), signs the APK with the release key
+(`--alignment-preserved`, v2+v3) and attaches `jackpoll-<version>.apk` to the
+GitHub Release. The recipe's `Binaries:` points there, so F-Droid ships our
+signed APK when its own build matches.
+
+Verified locally: two independent builds in fresh containers were
+byte-identical, and fdroidserver's `verify_apks` accepted the signed build
+against the other one.
+
 ## Why the build is Google-free
 
 - Android push is UnifiedPush (users pick a distributor such as ntfy).
@@ -24,6 +37,7 @@ It builds the `fdroid` flavor from the public repo at a `v<versionName>` tag.
 ## Releasing an update
 
 1. Raise `versionCode` and `versionName` in `android/app/build.gradle`.
+   The tag triggers the signed F-Droid build on the public repo.
 2. Add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`.
 3. Push. The OSS sync tags the public repo with `v<versionName>`, and F-Droid's
    update checker (`UpdateCheckMode: Tags ^v[0-9.]+$`) builds it automatically.

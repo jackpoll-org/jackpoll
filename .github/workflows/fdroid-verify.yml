@@ -1,6 +1,20 @@
-# On every version tag, prove the F-Droid ("fdroid") flavor builds AND contains
-# no Google Play Services / FCM dependency — the FLOSS guarantee F-Droid requires.
-name: F-Droid build check
+# F-Droid: build the app exactly the way F-Droid does, sign it with our key and
+# attach it to the GitHub Release for the tag.
+#
+# F-Droid builds every release from source. With `Binaries:` in the fdroiddata
+# recipe it then compares its build with the APK published here; if they are
+# identical it ships OUR signed APK (reproducible build). So this job builds
+# inside F-Droid's own build-server image with their `fdroid build` command:
+# same toolchain, same paths, same result. The fdroid scanner runs as part of
+# that build, so a Google/non-free dependency fails here first.
+#
+# Runs on every `v*` tag. sync-oss creates the tag when versionName in
+# apps/frontend/android/app/build.gradle changes.
+#
+# SETUP: the same ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD /
+# ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD secrets as mobile-release.yml.
+# Without them the unsigned build is still uploaded as a workflow artifact.
+name: F-Droid build & signed release
 
 on:
   push:
@@ -8,53 +22,112 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # attach the APK to the release
 
-defaults:
-  run:
-    working-directory: apps/frontend
+concurrency:
+  group: fdroid-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APPID: de.quavon.jackpoll
+  FDROID_IMAGE: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
 
 jobs:
   fdroid:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          # packageManager lives in apps/frontend/package.json, not the root.
-          version: 11.4.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: apps/frontend/pnpm-lock.yaml
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec cap sync android
-
-      - name: Assert the fdroid flavor has NO Google Play Services / FCM
-        working-directory: apps/frontend/android
+      - name: Recipe for this commit
+        id: meta
         run: |
-          ./gradlew :app:dependencies \
-            --configuration fdroidReleaseRuntimeClasspath > deps.txt
-          if grep -Eiq 'com\.google\.android\.gms|play-services|firebase|embedded_fcm|google-services' deps.txt; then
-            echo "::error::A Google Play Services / FCM dependency leaked into the fdroid flavor:"
-            grep -Ei 'com\.google\.android\.gms|play-services|firebase|embedded_fcm|google-services' deps.txt
-            exit 1
-          fi
-          echo "✓ fdroid flavor is free of Google Play Services / FCM"
+          gradle=apps/frontend/android/app/build.gradle
+          name="$(sed -n 's/^ *versionName "\(.*\)"$/\1/p' "$gradle" | head -1)"
+          code="$(sed -n 's/^ *versionCode \([0-9]*\)$/\1/p' "$gradle" | head -1)"
+          [ -n "$name" ] && [ -n "$code" ] || { echo "::error::versionName/versionCode not found"; exit 1; }
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          mkdir -p fdroiddata/metadata
+          # The published recipe with this commit's version, and without the
+          # Binaries check (that is what this job produces).
+          python3 - "$name" "$code" "$GITHUB_SHA" <<'PY'
+          import re, sys
+          name, code, sha = sys.argv[1:]
+          src = open("apps/frontend/fdroid/de.quavon.jackpoll.yml").read()
+          src = re.sub(r"^#.*\n", "", src, flags=re.M)
+          src = re.sub(r"^(Binaries|AllowedAPKSigningKeys):.*\n", "", src, flags=re.M)
+          src = re.sub(r"versionName: .*", f"versionName: '{name}'", src)
+          src = re.sub(r"versionCode: \d+", f"versionCode: {code}", src)
+          src = re.sub(r"commit: \S+", f"commit: {sha}", src)
+          src = re.sub(r"^CurrentVersion: .*$", f"CurrentVersion: '{name}'", src, flags=re.M)
+          src = re.sub(r"^CurrentVersionCode: .*$", f"CurrentVersionCode: {code}", src, flags=re.M)
+          open("fdroiddata/metadata/de.quavon.jackpoll.yml", "w").write(src.lstrip())
+          PY
+          cat fdroiddata/metadata/de.quavon.jackpoll.yml
 
-      - name: Build the fdroid release APK
-        working-directory: apps/frontend/android
-        run: ./gradlew assembleFdroidRelease --no-daemon
+      - name: Build like F-Droid
+        run: |
+          docker run --rm \
+            -e APPID -e VERCODE="${{ steps.meta.outputs.code }}" \
+            -v "$PWD/fdroiddata:/builds/fdroiddata" \
+            -v "$PWD/.github/scripts/fdroid-build.sh:/fdroid-build.sh:ro" \
+            "$FDROID_IMAGE" bash /fdroid-build.sh
+          sudo chown -R "$(id -u)" fdroiddata
+          cp "fdroiddata/tmp/${APPID}_${{ steps.meta.outputs.code }}.apk" unsigned.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: app-fdroid-release
-          path: apps/frontend/android/app/build/outputs/apk/fdroid/release/*.apk
-          retention-days: 14
+          name: fdroid-unsigned-${{ steps.meta.outputs.name }}
+          path: unsigned.apk
+          retention-days: 30
+
+      - name: Sign with the release key
+        id: sign
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 not set — only the unsigned build is available."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          out="jackpoll-${{ steps.meta.outputs.name }}.apk"
+          # v2 + v3 only: minSdk 24 needs no v1 JAR signature, and leaving it
+          # out keeps META-INF identical to F-Droid's unsigned build.
+          # --alignment-preserved: without it apksigner re-aligns entries, the
+          # APK is no longer "F-Droid's build + our signature", and F-Droid's
+          # reproducibility check (copying our signature onto their build)
+          # fails with a digest mismatch. Verified with fdroidserver's
+          # verify_apks against an independent build.
+          "$apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KS_PASS --key-pass env:KEY_PASS --alignment-preserved true \
+            --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$out" unsigned.apk
+          rm -f "$RUNNER_TEMP/release.jks"
+          cert="$("$apksigner" verify --print-certs "$out" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "apk=$out" >> "$GITHUB_OUTPUT"
+          {
+            echo "### F-Droid ${{ steps.meta.outputs.name }} (versionCode ${{ steps.meta.outputs.code }})"
+            echo
+            echo "Signing certificate SHA-256 (\`AllowedAPKSigningKeys\`): \`$cert\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attach to the GitHub Release
+        if: steps.sign.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.meta.outputs.name }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag \
+              --title "Jackpoll ${{ steps.meta.outputs.name }} (Android)" \
+              --notes "Android build for F-Droid, built from \`$GITHUB_SHA\` with F-Droid's own build server image and signed with the Jackpoll release key. F-Droid verifies its reproducible build against this APK."
+          fi
+          gh release upload "$TAG" "${{ steps.sign.outputs.apk }}" --clobber
