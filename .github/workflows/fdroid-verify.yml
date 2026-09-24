@@ -21,6 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
+        with:
+          # packageManager lives in apps/frontend/package.json, not the root.
+          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
