@@ -250,9 +250,19 @@ def cmd_beta_add(args: argparse.Namespace) -> None:
     state = asc.call("GET", f"/v1/builds/{build['id']}/buildBetaDetail")
     state = state["data"]["attributes"]["externalBuildState"]
     if state == "READY_FOR_BETA_SUBMISSION":
-        asc.call("POST", "/v1/betaAppReviewSubmissions", {
-            "data": {"type": "betaAppReviewSubmissions",
-                     "relationships": {"build": {"data": {"type": "builds", "id": build["id"]}}}}})
+        try:
+            asc.call("POST", "/v1/betaAppReviewSubmissions", {
+                "data": {"type": "betaAppReviewSubmissions",
+                         "relationships": {"build": {"data": {"type": "builds", "id": build["id"]}}}}})
+        except AscError as err:
+            # Apple reviews one build per train at a time. While an earlier
+            # build is still in beta review this one stays in the group; the
+            # next push after that review is submitted normally.
+            if "ANOTHER_BUILD_IN_REVIEW" not in str(err):
+                raise
+            print(f"::notice::another {args.train} build is still in beta review; "
+                  f"build {number} stays in {args.group} until that review is done")
+            return
         state = asc.call("GET", f"/v1/builds/{build['id']}/buildBetaDetail")
         state = state["data"]["attributes"]["externalBuildState"]
 
