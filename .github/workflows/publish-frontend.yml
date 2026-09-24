@@ -1,14 +1,13 @@
 name: Publish frontend image
 
 # Build the frontend production image and push it to GHCR under the jackpoll-org.
-# Only runs when the frontend app (or this workflow) changes.
+# Runs on every push to the public repo (see triggers below).
 on:
+  # Every sync to the public repo rebuilds the image. Its default branch is
+  # master (main kept in case it is renamed); v* tags publish versioned images.
   push:
-    branches: ["main"]
+    branches: ["master", "main"]
     tags: ["v*"]
-    paths:
-      - "apps/frontend/**"
-      - ".github/workflows/publish-frontend.yml"
   workflow_dispatch:
 
 env:
