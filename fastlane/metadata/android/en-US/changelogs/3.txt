@@ -1,0 +1,6 @@
+First F-Droid release.
+
+• Surveys and quizzes with many question types, including long answers
+• Text and image blocks between questions
+• Grade quiz submissions student by student
+• Push notifications via UnifiedPush (e.g. ntfy)

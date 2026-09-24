@@ -42,7 +42,7 @@ in-app (Settings → Delete account, GDPR Art. 17). No advertising identifiers.
 
 ### English
 - **Short description (≤80):** `Open-source surveys & quizzes — build, share, analyze. Self-hostable.` (72)
-- **Full description (≤4000):** see `fastlane/metadata/android/en-US/full_description.txt`.
+- **Full description (≤4000):** see `fastlane/metadata/android/en-US/full_description.txt` (repo root).
 
 ### Deutsch
 - **Kurzbeschreibung (≤80):** `Open-Source-Umfragen & Quizze — erstellen, teilen, auswerten. Self-hostbar.` (74)
@@ -76,7 +76,7 @@ in-app (Settings → Delete account, GDPR Art. 17). No advertising identifiers.
 | Phone screenshots (≥2) | 16:9 / 9:16, ≥320px | ❌ **missing — only desktop web screenshots exist** (`docs/assets/screenshot-*.png` are desktop 2880×1800). Capture real phone-portrait shots. |
 | Tablet screenshots (optional) | — | ⬜ optional |
 
-Place Play screenshots under `fastlane/metadata/android/en-US/images/phoneScreenshots/` and the
+Place Play screenshots under `fastlane/metadata/android/en-US/images/phoneScreenshots/` (repo root) and the
 feature graphic at `fastlane/metadata/android/en-US/images/featureGraphic.png` for Fastlane upload.
 
 ## 11. Ads declaration

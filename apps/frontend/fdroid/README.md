@@ -38,7 +38,7 @@ against the other one.
 
 1. Raise `versionCode` and `versionName` in `android/app/build.gradle`.
    The tag triggers the signed F-Droid build on the public repo.
-2. Add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`.
+2. Add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt` (repo root).
 3. Push. The OSS sync tags the public repo with `v<versionName>`, and F-Droid's
    update checker (`UpdateCheckMode: Tags ^v[0-9.]+$`) builds it automatically.
 
@@ -52,6 +52,7 @@ Needs a GitLab account.
    Mention: Capacitor app, UnifiedPush for notifications, `fdroid` flavor only.
 4. The fdroiddata CI builds it; answer reviewer questions in the MR.
 
-Store texts, icon and changelogs come from `fastlane/metadata/android/` in the
-source repo. Phone screenshots can be added under
+Store texts, icon, screenshots and changelogs come from `fastlane/metadata/android/`
+at the **repo root**: F-Droid only looks there (or in `src/<flavor>/fastlane`),
+not inside `apps/frontend/`. Phone screenshots can be added under
 `fastlane/metadata/android/en-US/images/phoneScreenshots/`.
