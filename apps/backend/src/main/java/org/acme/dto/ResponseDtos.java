@@ -22,7 +22,19 @@ public final class ResponseDtos {
     // ── Submit / raw responses ────────────────────────────────────
 
     /** One answer; {@code value} is arbitrary JSON (string, list, grid map, files). */
-    public record AnswerDto(@Size(max = 128) String questionId, Object value) {}
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record AnswerDto(
+        @Size(max = 128) String questionId,
+        Object value,
+        // Teacher-awarded points (public #6); output only, ignored on submit.
+        Integer awardedPoints
+    ) {}
+
+    /** Points for one manually graded answer; null clears the grade. */
+    public record GradeDto(@NotNull @Size(max = 128) String questionId, Integer points) {}
+
+    /** Grades to set on one response (public #6). */
+    public record GradeRequest(@NotNull @Size(max = 500) List<@Valid @NotNull GradeDto> grades) {}
 
     // Bounds on this anonymous, public write path: without them a single request
     // could carry an unbounded answer list / oversized fields up to the 10 MB body
@@ -65,7 +77,9 @@ public final class ResponseDtos {
         // Respondent's name when the survey required it (#); null otherwise.
         String respondentName,
         // Live quiz session the answer was given in; null outside live mode.
-        String sessionId
+        String sessionId,
+        // True while manually graded answers still await points (public #6).
+        Boolean gradingPending
     ) {}
 
     /** The data needed to re-open a response for editing (issue #40). */

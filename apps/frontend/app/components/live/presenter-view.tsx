@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
+import { isAnswerable } from "@/app/lib/survey/content-block";
 
 /** The slice of an aggregated question result the presenter tiles read. */
 type QuestionResult = {
@@ -101,7 +102,12 @@ function PresenterInner({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
   const game = isQuizGame(survey.settings);
   const questions = useMemo(
-    () => survey.questions.toSorted((a, b) => a.order - b.order),
+    // Content blocks (public #7) aren't live slides; presenter and participants
+    // filter them the same way so their question indexes stay aligned.
+    () =>
+      survey.questions
+        .filter((q) => isAnswerable(q.type))
+        .toSorted((a, b) => a.order - b.order),
     [survey.questions],
   );
   const [index, setIndex] = useState(0);

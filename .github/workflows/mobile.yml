@@ -7,19 +7,8 @@
 name: Mobile build
 
 on:
-  pull_request:
-    paths:
-      - "apps/frontend/android/**"
-      - "apps/frontend/ios/**"
-      - "apps/frontend/capacitor.config.ts"
-      - "apps/frontend/package.json"
-      - ".github/workflows/mobile.yml"
-  push:
-    branches: ["main"]
-    paths:
-      - "apps/frontend/android/**"
-      - "apps/frontend/ios/**"
-      - "apps/frontend/capacitor.config.ts"
+  # Automatic push/PR runs are off to save GitHub Actions minutes: only the
+  # image-publishing workflows run on push. Start this one manually when needed.
   workflow_dispatch:
 
 permissions:

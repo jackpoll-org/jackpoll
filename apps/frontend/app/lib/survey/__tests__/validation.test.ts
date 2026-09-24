@@ -162,3 +162,10 @@ describe("rule storage helpers", () => {
     expect(settings.foo).toBe("bar");
   });
 });
+
+describe("content blocks (public #7)", () => {
+  it("never report a validation error, even if flagged required", () => {
+    const block = { id: "c1", type: "content", title: "", required: true } as Question;
+    expect(validateAnswer(block, undefined)).toBeNull();
+  });
+});

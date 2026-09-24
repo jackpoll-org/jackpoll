@@ -26,6 +26,7 @@ import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
 import { AltchaWidget } from "@/app/components/survey-player/altcha-widget";
+import { isAnswerable } from "@/app/lib/survey/content-block";
 
 // Big tap-to-answer buttons for single-choice questions (quiz feel, #97).
 const BIG_CHOICE_TYPES = new Set<Question["type"]>(["multiple-choice", "dropdown"]);
@@ -46,7 +47,12 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
   const isQuiz = !!survey.settings.isQuiz;
   const questions = useMemo(
-    () => survey.questions.toSorted((a, b) => a.order - b.order),
+    // Content blocks (public #7) aren't live slides; presenter and participants
+    // filter them the same way so their question indexes stay aligned.
+    () =>
+      survey.questions
+        .filter((q) => isAnswerable(q.type))
+        .toSorted((a, b) => a.order - b.order),
     [survey.questions],
   );
   const [index, setIndex] = useState<number | null>(null);

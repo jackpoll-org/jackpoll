@@ -105,4 +105,18 @@ describe("buildResponsesCsv", () => {
     expect(lines[1]).toContain('"Ada, the great"');
     expect(lines[1]).toContain("5.0");
   });
+
+  it("leaves content blocks out of the columns (public #7)", () => {
+    const withContent: Survey = {
+      ...survey,
+      questions: [
+        question({ id: "c1", type: "content", title: "Read this" }),
+        question({ id: "q1", title: "Name" }),
+      ],
+    };
+    const csv = buildResponsesCsv(withContent, [
+      { id: "r1", submittedAt: "2026-06-11T10:00:00Z", answers: [{ questionId: "q1", value: "Ada" }] },
+    ]);
+    expect(csv.split("\n")[0]).toBe("Response ID,Submitted at,Duration (s),Name");
+  });
 });

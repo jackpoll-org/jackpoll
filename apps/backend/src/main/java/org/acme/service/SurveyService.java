@@ -123,7 +123,9 @@ public class SurveyService {
         for (int i = 0; i < questions.size(); i++) {
             var q = questions.get(i);
             int n = i + 1;
-            if (q.title() == null || q.title().isBlank()) {
+            // A content block's heading is optional (public #7).
+            boolean needsTitle = q.type() == null || q.type().isAnswerable();
+            if (needsTitle && (q.title() == null || q.title().isBlank())) {
                 throw new org.acme.exception.SurveyIncompleteException(
                     "Question " + n + " needs a title before publishing.");
             }

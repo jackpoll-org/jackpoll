@@ -4,12 +4,8 @@
 name: E2E (full stack)
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - "apps/frontend/**"
-      - "apps/backend/**"
-      - ".github/workflows/e2e-fullstack.yml"
+  # Automatic push/PR runs are off to save GitHub Actions minutes: only the
+  # image-publishing workflows run on push. Start this one manually when needed.
   workflow_dispatch:
 
 permissions:

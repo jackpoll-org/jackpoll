@@ -10,6 +10,7 @@ describe("question type registry", () => {
   it("exposes all builder question types", () => {
     expect(BUILDER_QUESTION_TYPES).toEqual([
       "short-answer",
+      "long-answer",
       "multiple-choice",
       "checkboxes",
       "dropdown",
@@ -23,6 +24,7 @@ describe("question type registry", () => {
       "rating-grid",
       "signature",
       "wordcloud",
+      "content",
     ]);
   });
 

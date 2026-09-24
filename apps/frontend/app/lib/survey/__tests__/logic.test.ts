@@ -90,6 +90,11 @@ describe("getPrecedingQuestions", () => {
     expect(getPrecedingQuestions(s, "a")).toEqual([]);
   });
 
+  it("skips content blocks, which have no answer to branch on or pipe (public #7)", () => {
+    const s = survey([pq("a"), { ...pq("text"), type: "content" }, pq("c")]);
+    expect(getPrecedingQuestions(s, "c").map((x) => x.id)).toEqual(["a"]);
+  });
+
   it("spans earlier pages, so the first question of a later section can reference page 1", () => {
     const sections: Section[] = [{ id: "s2", title: "Two", order: 0 }];
     const s = survey([pq("a", null), pq("b", null), pq("c", "s2"), pq("d", "s2")], sections);

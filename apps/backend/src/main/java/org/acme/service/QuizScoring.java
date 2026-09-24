@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.acme.entity.Question;
+import org.acme.entity.QuestionType;
 import org.acme.entity.Survey;
 
 /** Server-side quiz scoring (issue #10). Correct answers never leave the server. */
@@ -20,9 +21,21 @@ public final class QuizScoring {
         return q.correctAnswers != null && !q.correctAnswers.isEmpty();
     }
 
+    /**
+     * Answers a teacher grades by hand (public #6): paragraphs always, and
+     * short-answer / file-upload questions without an answer key when the
+     * owner turned on {@code settings.manualGrading}.
+     */
+    public static boolean isManuallyGraded(Question q) {
+        if (q.type == QuestionType.LONG_ANSWER) return true;
+        if (isScorable(q)) return false;
+        boolean optedIn = q.settings != null && Boolean.TRUE.equals(q.settings.get("manualGrading"));
+        return optedIn && (q.type == QuestionType.SHORT_ANSWER || q.type == QuestionType.FILE_UPLOAD);
+    }
+
     public static int maxScore(Survey survey) {
         return survey.questions.stream()
-            .filter(QuizScoring::isScorable)
+            .filter(q -> isScorable(q) || isManuallyGraded(q))
             .mapToInt(QuizScoring::pointsFor)
             .sum();
     }

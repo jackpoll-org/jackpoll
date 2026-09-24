@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import org.acme.dto.ResponseDtos.AnswerDto;
 import org.acme.dto.ResponseDtos.FileRefDto;
+import org.acme.dto.ResponseDtos.GradeDto;
 import org.acme.dto.ResponseDtos.QuestionResultDto;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.ResponseEditView;
@@ -146,7 +147,7 @@ public class ResponseService {
         if (honeypotTripped) {
             return new ResponseDto(
                 UUID.randomUUID().toString(), Instant.now().toString(),
-                req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null);
+                req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null, null);
         }
 
         // One-response-per-browser guard (issue #31).
@@ -194,6 +195,7 @@ public class ResponseService {
         var values = new java.util.HashMap<String, Object>();
         if (req.answers() != null) {
             for (var a : req.answers()) {
+                if (!acceptsAnswer(survey, a.questionId())) continue;
                 var answer = new ResponseAnswer();
                 answer.id = UUID.randomUUID().toString();
                 answer.response = response;
@@ -215,8 +217,8 @@ public class ResponseService {
                 response.score = QuizScoring.speedAdjusted(
                     response.score, req.durationMs(), seconds * 1000L);
             }
-            var passingScore = survey.settings.passingScore;
-            response.passed = passingScore != null ? response.score >= passingScore : null;
+            response.autoScore = response.score;
+            applyManualGrades(survey, response);
         }
 
         // Per-option quotas (issue #38) — atomic, race-safe; rejects if full.
@@ -463,25 +465,33 @@ public class ResponseService {
             optionRepository.release(optId);
         }
 
+        // Grades stay on answers the respondent left unchanged (public #6).
+        var previous = new java.util.HashMap<String, ResponseAnswer>();
+        for (var old : response.answers) previous.put(old.questionId, old);
         response.answers.clear();
         var values = new java.util.HashMap<String, Object>();
         if (req.answers() != null) {
             for (var a : req.answers()) {
+                if (!acceptsAnswer(survey, a.questionId())) continue;
                 var answer = new ResponseAnswer();
                 answer.id = UUID.randomUUID().toString();
                 answer.response = response;
                 answer.questionId = a.questionId();
                 answer.value = a.value();
+                var old = previous.get(a.questionId());
+                if (old != null && java.util.Objects.equals(old.value, a.value())) {
+                    answer.awardedPoints = old.awardedPoints;
+                    answer.gradedAt = old.gradedAt;
+                }
                 response.answers.add(answer);
                 values.put(a.questionId(), a.value());
             }
         }
 
         if (survey.settings != null && survey.settings.isQuiz) {
-            response.score = QuizScoring.score(survey, values);
+            response.autoScore = QuizScoring.score(survey, values);
             response.maxScore = QuizScoring.maxScore(survey);
-            var passingScore = survey.settings.passingScore;
-            response.passed = passingScore != null ? response.score >= passingScore : null;
+            applyManualGrades(survey, response);
         }
 
         // Re-reserve for the new selection; a now-full option rolls the tx back.
@@ -533,6 +543,82 @@ public class ResponseService {
         } catch (java.time.format.DateTimeParseException e) {
             return null;
         }
+    }
+
+    // ── Manual grading (public #6) ────────────────────────────────
+
+    /**
+     * Set teacher-awarded points on a response's manually graded answers —
+     * owner and editors only. Each grade must target a manually graded
+     * question the respondent answered, within 0..its points.
+     */
+    @Transactional
+    public ResponseDto grade(String userId, String surveyId, String responseId, List<GradeDto> grades) {
+        var survey = surveyService.requireEditable(userId, surveyId);
+        if (survey.settings == null || !survey.settings.isQuiz) {
+            throw badRequest("Grading is only available for quizzes.");
+        }
+        var response = responseRepository.findByIdOptional(responseId)
+            .filter(r -> r.surveyId.equals(surveyId))
+            .orElseThrow(() -> new ResourceNotFoundException("Response not found: " + responseId));
+
+        var questions = new HashMap<String, Question>();
+        for (var q : survey.questions) questions.put(q.id, q);
+        var answers = new HashMap<String, ResponseAnswer>();
+        for (var a : response.answers) answers.put(a.questionId, a);
+
+        var now = Instant.now();
+        for (var g : grades) {
+            var q = questions.get(g.questionId());
+            if (q == null || !QuizScoring.isManuallyGraded(q)) {
+                throw badRequest("This question can't be graded manually.");
+            }
+            var answer = answers.get(g.questionId());
+            if (answer == null || isBlankAnswer(answer.value)) {
+                throw badRequest("There is no answer to grade for this question.");
+            }
+            int max = QuizScoring.pointsFor(q);
+            if (g.points() != null && (g.points() < 0 || g.points() > max)) {
+                throw badRequest("Points must be between 0 and " + max + ".");
+            }
+            answer.awardedPoints = g.points();
+            answer.gradedAt = g.points() != null ? now : null;
+        }
+        applyManualGrades(survey, response);
+        return toDto(response);
+    }
+
+    /**
+     * score = auto score + awarded points. While an answered, manually graded
+     * question has no points yet the response is pending and pass/fail stays
+     * open (null).
+     */
+    private static void applyManualGrades(Survey survey, SurveyResponse response) {
+        var answers = new HashMap<String, ResponseAnswer>();
+        for (var a : response.answers) answers.put(a.questionId, a);
+        int awarded = 0;
+        boolean pending = false;
+        for (var q : survey.questions) {
+            if (!QuizScoring.isManuallyGraded(q)) continue;
+            var answer = answers.get(q.id);
+            if (answer == null || isBlankAnswer(answer.value)) continue; // unanswered = 0
+            if (answer.awardedPoints == null) {
+                pending = true;
+            } else {
+                awarded += answer.awardedPoints;
+            }
+        }
+        response.score = (response.autoScore != null ? response.autoScore : 0) + awarded;
+        response.gradingPending = pending;
+        var passingScore = survey.settings != null ? survey.settings.passingScore : null;
+        response.passed = pending || passingScore == null ? null : response.score >= passingScore;
+    }
+
+    private static boolean isBlankAnswer(Object value) {
+        if (value == null) return true;
+        if (value instanceof String s) return s.isBlank();
+        if (value instanceof java.util.Collection<?> c) return c.isEmpty();
+        return false;
     }
 
     // ── Owner deletes (issue #25) ─────────────────────────────────
@@ -644,6 +730,7 @@ public class ResponseService {
             .orElse(null);
 
         var questionResults = survey.questions.stream()
+            .filter(q -> q.type.isAnswerable())
             .map(q -> aggregateQuestion(q, responses))
             .toList();
 
@@ -697,8 +784,9 @@ public class ResponseService {
     /** Server-side guard: free-text and file-upload answers are never exposed. */
     private static boolean liveAllowed(Survey survey, Question q) {
         if (survey.settings == null || !survey.settings.showLiveResults) return false;
+        if (!q.type.isAnswerable()) return false;
         switch (q.type) {
-            case SHORT_ANSWER, FILE_UPLOAD -> {
+            case SHORT_ANSWER, LONG_ANSWER, FILE_UPLOAD -> {
                 return false;
             }
             default -> {
@@ -787,7 +875,7 @@ public class ResponseService {
                     rows.add(new RowResultDto(row.id, columnCounts));
                 }
             }
-            case SHORT_ANSWER, DATE -> {
+            case SHORT_ANSWER, LONG_ANSWER, DATE -> {
                 textAnswers = new ArrayList<>();
                 for (var v : values) {
                     if (v instanceof String s && !s.isBlank()) textAnswers.add(s);
@@ -909,7 +997,7 @@ public class ResponseService {
 
     private ResponseDto toDto(SurveyResponse r) {
         var answers = r.answers.stream()
-            .map(a -> new AnswerDto(a.questionId, a.value))
+            .map(a -> new AnswerDto(a.questionId, a.value, a.awardedPoints))
             .toList();
         return new ResponseDto(
             r.id,
@@ -922,12 +1010,31 @@ public class ResponseService {
             r.editToken,
             r.editedAt != null ? r.editedAt.toString() : null,
             r.respondentName,
-            r.sessionId);
+            r.sessionId,
+            Boolean.TRUE.equals(r.gradingPending) ? Boolean.TRUE : null);
     }
 
     // ── Server-side answer validation (issue #55) ─────────────────
 
-    /** Reject slider/rating answers that aren't a number within the configured range. */
+    /**
+     * Whether an incoming answer belongs to a question that collects one:
+     * values sent for a display-only content block (public #7) are dropped.
+     */
+    private static boolean acceptsAnswer(Survey survey, String questionId) {
+        return survey.questions.stream()
+            .filter(q -> q.id.equals(questionId))
+            .findFirst()
+            .map(q -> q.type.isAnswerable())
+            .orElse(true);
+    }
+
+    /** Longest accepted paragraph answer, in characters (public #8). */
+    static final int MAX_LONG_ANSWER_LENGTH = 10_000;
+
+    /**
+     * Reject slider/rating answers that aren't a number within the configured
+     * range, and paragraph answers that aren't text or are too long.
+     */
     private void validateAnswers(Survey survey, SubmitResponseRequest req) {
         if (req.answers() == null) return;
         var byId = new java.util.HashMap<String, Question>();
@@ -942,6 +1049,13 @@ public class ResponseService {
                 double v = num.doubleValue();
                 if (v < settingDouble(q, "min", 0) || v > settingDouble(q, "max", 100)) {
                     throw badRequest("A slider answer is out of range.");
+                }
+            } else if (q.type == QuestionType.LONG_ANSWER) {
+                if (!(a.value() instanceof String text)) {
+                    throw badRequest("Invalid value for a paragraph question.");
+                }
+                if (text.length() > MAX_LONG_ANSWER_LENGTH) {
+                    throw badRequest("A paragraph answer is too long.");
                 }
             } else if (q.type == QuestionType.RATING) {
                 if (!(a.value() instanceof Number num)) {
@@ -1067,6 +1181,7 @@ public class ResponseService {
             sb.append("</p>");
         }
         var questions = survey.questions.stream()
+            .filter(q -> q.type.isAnswerable())
             .sorted((a, b) -> Integer.compare(a.order, b.order)).toList();
         for (var q : questions) {
             sb.append("<div class=\"q\"><div class=\"qt\">").append(esc(q.title))

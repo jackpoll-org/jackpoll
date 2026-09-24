@@ -8,6 +8,7 @@ import { normalizeRedirectUrl } from "@/app/lib/survey/redirect";
 
 const questionTypeSchema = z.enum([
   "short-answer",
+  "long-answer",
   "multiple-choice",
   "checkboxes",
   "dropdown",
@@ -20,6 +21,8 @@ const questionTypeSchema = z.enum([
   "ranking",
   "rating-grid",
   "signature",
+  "wordcloud",
+  "content",
 ]);
 
 const surveyStatusSchema = z.enum(["draft", "published", "closed"]);

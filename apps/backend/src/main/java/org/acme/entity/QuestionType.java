@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
  */
 public enum QuestionType {
     SHORT_ANSWER("short-answer"),
+    LONG_ANSWER("long-answer"),
     MULTIPLE_CHOICE("multiple-choice"),
     CHECKBOXES("checkboxes"),
     DROPDOWN("dropdown"),
@@ -21,12 +22,19 @@ public enum QuestionType {
     RANKING("ranking"),
     RATING_GRID("rating-grid"),
     SIGNATURE("signature"),
-    WORDCLOUD("wordcloud");
+    WORDCLOUD("wordcloud"),
+    /** Text/image block between questions; takes no answer (public #7). */
+    CONTENT("content");
 
     private final String json;
 
     QuestionType(String json) {
         this.json = json;
+    }
+
+    /** False for display-only blocks that never collect or score an answer. */
+    public boolean isAnswerable() {
+        return this != CONTENT;
     }
 
     @JsonValue

@@ -5,6 +5,7 @@ import java.util.List;
 import java.time.LocalDate;
 
 import org.acme.dto.ApiResponse;
+import org.acme.dto.ResponseDtos.GradeRequest;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
 import org.acme.service.ExportService;
@@ -16,10 +17,12 @@ import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -98,6 +101,20 @@ public class ResponseResource {
         List<ResponseDto> data = responseService.list(ownerId(), id, from, to, preview, session);
         var meta = new ApiResponse.Meta(data.size(), 0, data.size());
         return Response.ok(ApiResponse.ok(data, meta)).build();
+    }
+
+    /** Award points to manually graded answers (public #6) — owner/editors. */
+    @PUT
+    @Path("/{id}/responses/{responseId}/grades")
+    @Authenticated
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response grade(
+        @PathParam("id") String id,
+        @PathParam("responseId") String responseId,
+        @Valid @NotNull GradeRequest req
+    ) {
+        ResponseDto dto = responseService.grade(ownerId(), id, responseId, req.grades());
+        return Response.ok(ApiResponse.ok(dto)).build();
     }
 
     /** Delete one response — owner only. */

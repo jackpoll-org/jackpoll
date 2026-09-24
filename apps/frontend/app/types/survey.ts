@@ -6,6 +6,7 @@
 
 export type QuestionType =
   | "short-answer"
+  | "long-answer"
   | "multiple-choice"
   | "checkboxes"
   | "dropdown"
@@ -18,7 +19,8 @@ export type QuestionType =
   | "ranking"
   | "rating-grid"
   | "signature"
-  | "wordcloud";
+  | "wordcloud"
+  | "content";
 
 export type SurveyStatus = "draft" | "published" | "closed";
 
@@ -376,6 +378,14 @@ export interface AccessCode {
 export interface AnswerInput {
   questionId: string;
   value: unknown;
+  /** Teacher-awarded points on a manually graded answer (public #6); read-only. */
+  awardedPoints?: number | null;
+}
+
+/** Points for one manually graded answer; null clears the grade (public #6). */
+export interface GradeInput {
+  questionId: string;
+  points: number | null;
 }
 
 export interface SubmitResponseRequest {
@@ -430,6 +440,8 @@ export interface SurveyResponseDto {
   respondentName?: string | null;
   /** Live quiz session the answer was given in; null outside live mode. */
   sessionId?: string | null;
+  /** True while manually graded answers still await points (public #6). */
+  gradingPending?: boolean | null;
 }
 
 /** One player's running total on the live quiz leaderboard. */

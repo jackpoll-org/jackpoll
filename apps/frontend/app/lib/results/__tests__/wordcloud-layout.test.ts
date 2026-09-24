@@ -30,6 +30,7 @@ vi.mock("d3-cloud", () => ({
         onEnd(
           words
             .filter((w) => !w.text.startsWith("TOO-LONG"))
+            .filter((w) => !calls.size || fontSize(w) * w.text.length * 0.6 <= calls.size[0])
             .map((w, i) => ({ text: w.text, size: fontSize(w), x: i * 10, y: -i * 5 })),
         );
         return api;
@@ -39,7 +40,7 @@ vi.mock("d3-cloud", () => ({
   },
 }));
 
-import { layoutCloud } from "../wordcloud-layout";
+import { fitCloud, layoutCloud } from "../wordcloud-layout";
 
 describe("layoutCloud", () => {
   const opts = { width: 400, height: 200, minFontSize: 10, maxFontSize: 40, scale: "relative" as const };
@@ -75,5 +76,36 @@ describe("layoutCloud", () => {
 
   it("returns nothing to place for no words", async () => {
     expect(await layoutCloud([], opts)).toEqual({ placed: [], dropped: [] });
+  });
+});
+
+describe("fitCloud", () => {
+  const phone = { width: 340, height: 320, minFontSize: 20, maxFontSize: 70, scale: "absolute" as const };
+
+  it("shrinks fonts until words that overflow a narrow box fit", async () => {
+    const words = [
+      { text: "Interoperability", value: 10 },
+      { text: "Collaboration", value: 3 },
+      { text: "Fun", value: 1 },
+    ];
+    // At 70px "Interoperability" (16 chars) needs ~672px on the fake — too wide.
+    expect((await layoutCloud(words, phone)).dropped).toHaveLength(1);
+
+    const { placed, dropped } = await fitCloud(words, phone);
+
+    expect(dropped).toEqual([]);
+    expect(placed.map((w) => w.text).toSorted()).toEqual(["Collaboration", "Fun", "Interoperability"]);
+  });
+
+  it("keeps sizes untouched when everything already fits", async () => {
+    const { placed } = await fitCloud([{ text: "Hi", value: 1 }], phone);
+    expect(placed[0]?.size).toBe(21);
+  });
+
+  it("reports what still doesn't fit after the last attempt", async () => {
+    const { dropped } = await fitCloud([{ text: "TOO-LONG never fits", value: 1 }], phone, {
+      maxAttempts: 3,
+    });
+    expect(dropped).toEqual([{ text: "TOO-LONG never fits", value: 1 }]);
   });
 });

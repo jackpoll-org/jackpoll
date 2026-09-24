@@ -3,15 +3,8 @@ name: DB migrations
 # Apply the Flyway migrations against a throwaway Postgres so a broken or
 # out-of-order migration is caught before it reaches a real database.
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - "apps/backend/src/main/resources/db/migration/**"
-      - ".github/workflows/migrations.yml"
-  pull_request:
-    paths:
-      - "apps/backend/src/main/resources/db/migration/**"
-      - ".github/workflows/migrations.yml"
+  # Automatic push/PR runs are off to save GitHub Actions minutes: only the
+  # image-publishing workflows run on push. Start this one manually when needed.
   workflow_dispatch:
 
 jobs:

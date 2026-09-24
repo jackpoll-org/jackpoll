@@ -53,6 +53,22 @@ class UploadResourceTest {
             .body("data.contentType", is("image/png"));
     }
 
+    /** Teachers download a student's file as an attachment (public #6). */
+    @Test
+    void raw_servesAnAttachmentWhenAskedToDownload() {
+        String key = given()
+            .multiPart("file", "erm.png", PNG, "image/png")
+            .when().post(BASE)
+            .then().statusCode(201).extract().path("data.key");
+
+        given().queryParam("key", key)
+            .when().get(BASE + "/raw")
+            .then().statusCode(200).header("Content-Disposition", is("inline"));
+        given().queryParam("key", key).queryParam("download", "1").queryParam("name", "ERM v2.png")
+            .when().get(BASE + "/raw")
+            .then().statusCode(200).header("Content-Disposition", is("attachment; filename=\"ERM_v2.png\""));
+    }
+
     /**
      * The declared MIME type is never trusted: an executable renamed to .png and
      * announced as an image is rejected on its magic bytes (issue #43). This is

@@ -1,5 +1,6 @@
 import {
   AlignLeft,
+  AlignJustify,
   CircleDot,
   ListChecks,
   ChevronDownSquare,
@@ -13,11 +14,13 @@ import {
   Table2,
   PenLine,
   Cloud,
+  Text,
 } from "lucide-react";
 import type { QuestionType } from "@/app/types/survey";
 import type { QuestionTypeDefinition } from "./types";
 import { createOption } from "./helpers";
 import { ShortAnswerEditor } from "./editors/short-answer-editor";
+import { LongAnswerEditor } from "./editors/long-answer-editor";
 import { ChoiceEditor } from "./editors/choice-editor";
 import { GridEditor } from "./editors/grid-editor";
 import { FileUploadEditor } from "./editors/file-upload-editor";
@@ -27,7 +30,9 @@ import { DateEditor } from "./editors/date-editor";
 import { RatingGridEditor } from "./editors/rating-grid-editor";
 import { SignatureEditor } from "./editors/signature-editor";
 import { WordcloudEditor } from "./editors/wordcloud-editor";
+import { ContentEditor } from "./editors/content-editor";
 import { ShortAnswerPreview } from "./previews/short-answer-preview";
+import { LongAnswerPreview } from "./previews/long-answer-preview";
 import { ChoicePreview } from "./previews/choice-preview";
 import { GridPreview } from "./previews/grid-preview";
 import { FileUploadPreview } from "./previews/file-upload-preview";
@@ -38,6 +43,7 @@ import { RankingPreview } from "./previews/ranking-preview";
 import { RatingGridPreview } from "./previews/rating-grid-preview";
 import { SignaturePreview } from "./previews/signature-preview";
 import { WordcloudPreview } from "./previews/wordcloud-preview";
+import { ContentPreview } from "./previews/content-preview";
 
 /**
  * Registry of all question types available in milestone 1. Builder and player
@@ -52,6 +58,15 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
     createDefaults: () => ({}),
     Editor: ShortAnswerEditor,
     Preview: ShortAnswerPreview,
+  },
+  "long-answer": {
+    type: "long-answer",
+    label: "Long answer",
+    labelKey: "qtype.long-answer",
+    icon: AlignJustify,
+    createDefaults: () => ({}),
+    Editor: LongAnswerEditor,
+    Preview: LongAnswerPreview,
   },
   "multiple-choice": {
     type: "multiple-choice",
@@ -185,11 +200,21 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
     Editor: WordcloudEditor,
     Preview: WordcloudPreview,
   },
+  content: {
+    type: "content",
+    label: "Text & image",
+    labelKey: "qtype.content",
+    icon: Text,
+    createDefaults: () => ({ required: false, description: "" }),
+    Editor: ContentEditor,
+    Preview: ContentPreview,
+  },
 };
 
 /** Question types offered in the builder's "add question" menu. */
 export const BUILDER_QUESTION_TYPES: QuestionType[] = [
   "short-answer",
+  "long-answer",
   "multiple-choice",
   "checkboxes",
   "dropdown",
@@ -203,6 +228,7 @@ export const BUILDER_QUESTION_TYPES: QuestionType[] = [
   "rating-grid",
   "signature",
   "wordcloud",
+  "content",
 ];
 
 export function getQuestionTypeDefinition(

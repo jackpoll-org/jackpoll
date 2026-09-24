@@ -228,8 +228,8 @@ export async function exportResultsPdf(data: PdfExportData): Promise<void> {
     let layout: CloudLayout | undefined;
     if (cloud) {
       // d3-cloud is only loaded when the PDF actually contains a cloud.
-      const { layoutCloud } = await import("@/app/lib/results/wordcloud-layout");
-      layout = await layoutCloud(cloud.words, {
+      const { fitCloud } = await import("@/app/lib/results/wordcloud-layout");
+      layout = await fitCloud(cloud.words, {
         width: CONTENT_W,
         height: CLOUD_H,
         minFontSize: CLOUD_MIN_FONT,

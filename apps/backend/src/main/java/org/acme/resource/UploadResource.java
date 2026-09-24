@@ -92,7 +92,13 @@ public class UploadResource {
     @Path("/raw")
     @PermitAll
     @Produces(MediaType.WILDCARD)
-    public Response raw(@QueryParam("key") String key) {
+    public Response raw(
+        @QueryParam("key") String key,
+        // Save instead of display, e.g. a teacher downloading a student's file (public #6).
+        // "1" or "true" (a primitive boolean param would read "1" as false).
+        @QueryParam("download") String download,
+        @QueryParam("name") String name
+    ) {
         if (key == null || !KEY.matcher(key).matches()) {
             throw new NotFoundException("Upload not found.");
         }
@@ -104,8 +110,24 @@ public class UploadResource {
             // Defense in depth: never let the browser MIME-sniff a stored object
             // into an executable type, and force inline rendering.
             .header("X-Content-Type-Options", "nosniff")
-            .header("Content-Disposition", "inline")
+            .header("Content-Disposition", wantsDownload(download) ? attachment(name) : "inline")
             .build();
+    }
+
+    private static boolean wantsDownload(String flag) {
+        return "1".equals(flag) || "true".equalsIgnoreCase(flag);
+    }
+
+    /**
+     * {@code attachment} disposition with a header-safe file name: anything but
+     * letters, digits, dot, dash and underscore becomes "_", so a crafted name
+     * can't inject quotes or header lines.
+     */
+    static String attachment(String name) {
+        String safe = name == null ? "" : name.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (safe.length() > 120) safe = safe.substring(safe.length() - 120);
+        if (safe.isBlank() || safe.chars().allMatch(c -> c == '.' || c == '_')) safe = "upload";
+        return "attachment; filename=\"" + safe + "\"";
     }
 
     /**

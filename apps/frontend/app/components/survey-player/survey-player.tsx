@@ -682,6 +682,18 @@ export function SurveyPlayer({
       )}
 
       {currentPage.questions.map((question) => {
+        if (question.type === "content") {
+          return (
+            <ContentBlockCard
+              key={question.id}
+              question={{
+                ...question,
+                title: resolvePiping(question.title, answers, survey.questions),
+                description: resolvePiping(question.description, answers, survey.questions),
+              }}
+            />
+          );
+        }
         const { Preview } = getQuestionTypeDefinition(question.type);
         const error = errors[question.id];
         const currentValue = answers[question.id];
@@ -959,5 +971,23 @@ function ConfirmationScreen({
       {showSummary && <LiveResultsSummary survey={survey} />}
       <PoweredBy survey={survey} />
     </div>
+  );
+}
+
+/** A display-only content block (public #7): optional heading, text, image. */
+function ContentBlockCard({ question }: { question: Question }) {
+  const { Preview } = getQuestionTypeDefinition("content");
+  const heading = question.title.trim();
+  return (
+    <Card id={questionIds(question.id).group}>
+      {heading && (
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">{heading}</CardTitle>
+        </CardHeader>
+      )}
+      <CardContent>
+        <Preview question={question} />
+      </CardContent>
+    </Card>
   );
 }

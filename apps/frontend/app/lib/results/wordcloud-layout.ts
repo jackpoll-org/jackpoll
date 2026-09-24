@@ -1,6 +1,6 @@
-// Word-cloud layout without React, for the PDF export: d3-cloud (the same
-// engine @visx/wordcloud uses on screen) positions the words, and the caller
-// draws them. Browser-only — d3-cloud measures words on a canvas.
+// Word-cloud layout without React, shared by the on-screen cloud and the PDF
+// export: d3-cloud positions the words, and the caller draws them. Browser-only
+// — d3-cloud measures words on a canvas.
 
 import cloud from "d3-cloud";
 import { cloudFontSize, type CloudScale, type CloudWord } from "./wordcloud";
@@ -66,4 +66,38 @@ export function layoutCloud(
       })
       .start();
   });
+}
+
+export interface FitOptions {
+  /** Layout passes before giving up and reporting what still doesn't fit. */
+  maxAttempts?: number;
+  /** Factor both font bounds shrink by after a pass that dropped words. */
+  shrink?: number;
+  /** Smallest font size a shrink may reach. */
+  minFloor?: number;
+}
+
+/**
+ * {@link layoutCloud}, shrinking the fonts and retrying while d3-cloud drops
+ * words, so every word is shown whatever the container size (issue #9). Words
+ * still dropped after the last pass are returned for the caller to list.
+ */
+export async function fitCloud(
+  words: CloudWord[],
+  opts: CloudLayoutOptions,
+  fit: FitOptions = {},
+): Promise<{ placed: PlacedWord[]; dropped: CloudWord[] }> {
+  const { maxAttempts = 6, shrink = 0.85, minFloor = 8 } = fit;
+  let current = opts;
+  let result = await layoutCloud(words, current);
+  for (let attempt = 1; attempt < maxAttempts && result.dropped.length > 0; attempt++) {
+    if (current.maxFontSize <= minFloor) break;
+    current = {
+      ...current,
+      minFontSize: Math.max(minFloor, current.minFontSize * shrink),
+      maxFontSize: Math.max(minFloor, current.maxFontSize * shrink),
+    };
+    result = await layoutCloud(words, current);
+  }
+  return result;
 }

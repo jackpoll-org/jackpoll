@@ -46,7 +46,8 @@ export function validateSurveyForSave(
 
   survey.questions.forEach((question, index) => {
     const n = String(index + 1);
-    if (isBlank(question.title)) {
+    // A content block's heading is optional (public #7).
+    if (question.type !== "content" && isBlank(question.title)) {
       issues.push({
         questionId: question.id,
         message: t("builder.validation.questionTitle", { n }),

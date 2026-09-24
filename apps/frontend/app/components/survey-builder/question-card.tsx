@@ -32,6 +32,7 @@ import { QuestionValidationEditor } from "./question-validation-editor";
 import { QuestionLogicEditor } from "./question-logic-editor";
 import { QuestionQuizEditor } from "./question-quiz-editor";
 import { ResultChartSelect } from "./result-chart-select";
+import { isAnswerable } from "@/app/lib/survey/content-block";
 
 interface QuestionCardProps {
   question: Question;
@@ -41,7 +42,12 @@ interface QuestionCardProps {
 
 /** Free-text and file-upload answers are never aggregated for live results. */
 function liveResultsApplicable(type: Question["type"]): boolean {
-  return type !== "short-answer" && type !== "file-upload";
+  return (
+    isAnswerable(type) &&
+    type !== "short-answer" &&
+    type !== "long-answer" &&
+    type !== "file-upload"
+  );
 }
 
 export function QuestionCard({ question, index, total }: QuestionCardProps) {
@@ -56,7 +62,10 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
     attemptedSave,
     setFocus,
   } = useBuilder();
-  const titleMissing = attemptedSave && !question.title.trim();
+  // Content blocks (public #7) take no answer: optional heading, and none of
+  // the answer-only settings (required, validation, quiz, charts, live).
+  const answerable = isAnswerable(question.type);
+  const titleMissing = answerable && attemptedSave && !question.title.trim();
   const sections = survey.sections ?? [];
   // Collaborators currently editing this question (issue #85).
   const peers = focusByQuestion.get(question.id) ?? [];
@@ -162,19 +171,25 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span
-            className="text-base text-destructive"
-            aria-label={t("builder.required")}
-            title={t("builder.required")}
-          >
-            *
-          </span>
+          {answerable && (
+            <span
+              className="text-base text-destructive"
+              aria-label={t("builder.required")}
+              title={t("builder.required")}
+            >
+              *
+            </span>
+          )}
           <CollabTextInput
             questionId={question.id}
             field="title"
             value={question.title}
             onChange={(v) => updateQuestion(question.id, { title: v })}
-            placeholder={t("builder.question.titlePlaceholder")}
+            placeholder={
+              answerable
+                ? t("builder.question.titlePlaceholder")
+                : t("builder.question.headingPlaceholder")
+            }
             className={
               titleMissing
                 ? "text-base border-destructive focus-visible:ring-destructive"
@@ -225,10 +240,12 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
           onChange={(patch) => updateQuestion(question.id, patch)}
         />
 
-        <QuestionValidationEditor
-          question={question}
-          onChange={(patch) => updateQuestion(question.id, patch)}
-        />
+        {answerable && (
+          <QuestionValidationEditor
+            question={question}
+            onChange={(patch) => updateQuestion(question.id, patch)}
+          />
+        )}
 
         <QuestionLogicEditor
           question={question}
@@ -236,7 +253,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
           onChange={(patch) => updateQuestion(question.id, patch)}
         />
 
-        {survey.settings.isQuiz && (
+        {survey.settings.isQuiz && answerable && (
           <QuestionQuizEditor
             question={question}
             onChange={(patch) => updateQuestion(question.id, patch)}
@@ -272,10 +289,12 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
             </div>
           )}
 
-          <ResultChartSelect
-            question={question}
-            onChange={(patch) => updateQuestion(question.id, patch)}
-          />
+          {answerable && (
+            <ResultChartSelect
+              question={question}
+              onChange={(patch) => updateQuestion(question.id, patch)}
+            />
+          )}
 
           {survey.settings.showLiveResults && liveResultsApplicable(question.type) && (
             <div className="flex items-center gap-2">
@@ -295,18 +314,20 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <Label htmlFor={`required-${question.id}`} className="text-sm font-normal">
-              Required
-            </Label>
-            <Switch
-              id={`required-${question.id}`}
-              checked={question.required}
-              onCheckedChange={(checked) =>
-                updateQuestion(question.id, { required: checked })
-              }
-            />
-          </div>
+          {answerable && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor={`required-${question.id}`} className="text-sm font-normal">
+                Required
+              </Label>
+              <Switch
+                id={`required-${question.id}`}
+                checked={question.required}
+                onCheckedChange={(checked) =>
+                  updateQuestion(question.id, { required: checked })
+                }
+              />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

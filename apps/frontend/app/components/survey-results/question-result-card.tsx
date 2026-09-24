@@ -286,6 +286,23 @@ export function QuestionResultCard({
         );
       }
 
+      case "long-answer": {
+        // Paragraph answers (public #8) stay verbatim — grouping multi-paragraph
+        // texts is pointless — and keep the respondent's line breaks.
+        return (
+          <ul className="grid gap-2">
+            {(result.textAnswers ?? []).map((text, i) => (
+              <li
+                key={i}
+                className="rounded-md border bg-muted/40 px-3 py-2 text-sm break-words whitespace-pre-wrap"
+              >
+                {text}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+
       case "date": {
         // Group by date (and by time within a date) instead of repeating the
         // same date once per response (#).

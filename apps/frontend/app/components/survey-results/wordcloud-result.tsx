@@ -8,28 +8,32 @@ import { useTranslation } from "@/app/i18n/context";
 import { liveResultsEnabled } from "@/app/lib/results/live-socket";
 import type { CloudScale, CloudWord } from "@/app/lib/results/wordcloud";
 
-// @visx/wordcloud + d3-cloud only run in the browser and add weight — load on
+// d3-cloud only runs in the browser and add weight — load on
 // demand (client-only), matching the recharts lazy pattern in result-charts.tsx.
 const WordcloudCloud = dynamic(
   () => import("./wordcloud-cloud-impl").then((m) => m.WordcloudCloud),
   { ssr: false },
 );
 
-/** Track an element's width so the (fixed-size) cloud can fill its container. */
-function useElementWidth() {
+/** Track an element's size so the (fixed-size) cloud can fill its container. */
+function useElementSize() {
   const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
-      setWidth(entries[0]?.contentRect.width ?? 0);
+      const rect = entries[0]?.contentRect;
+      setSize({ width: rect?.width ?? 0, height: rect?.height ?? 0 });
     });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  return { ref, width };
+  return { ref, ...size };
 }
+
+const CARD_HEIGHT = 320;
+const MIN_PRESENT_HEIGHT = 240;
 
 interface WordcloudResultProps {
   /** Words sized by value — see lib/results/wordcloud for building them. */
@@ -50,7 +54,11 @@ interface WordcloudResultProps {
  */
 export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudResultProps) {
   const { t } = useTranslation();
-  const { ref, width } = useElementWidth();
+  const { ref, width } = useElementSize();
+  // In presentation mode the cloud fills whatever the viewport leaves below the
+  // header — measured, not derived from the width, so a portrait phone gets its
+  // full height instead of a squashed strip (issue #9).
+  const { ref: stageRef, height: stageHeight } = useElementSize();
   const [presenting, setPresenting] = useState(false);
   // Resolve the live flag after mount so SSR and first client render match
   // (liveResultsEnabled reads window).
@@ -99,7 +107,7 @@ export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudR
     return () => window.removeEventListener("keydown", onKey);
   }, [presenting, exit]);
 
-  const height = presenting ? Math.round(width * 0.55) : 320;
+  const height = presenting ? Math.max(Math.floor(stageHeight), MIN_PRESENT_HEIGHT) : CARD_HEIGHT;
 
   return (
     <div
@@ -141,7 +149,7 @@ export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudR
         </Button>
       </div>
 
-      <div className={presenting ? "min-h-0 flex-1" : ""}>
+      <div ref={stageRef} className={presenting ? "min-h-0 flex-1" : ""}>
         {words.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {t("results.noAnswers")}
@@ -150,8 +158,7 @@ export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudR
           <WordcloudCloud
             words={words}
             width={width}
-            height={presenting ? Math.max(height, 360) : height}
-            maxFontSize={presenting ? 160 : 80}
+            height={height}
             colors={colors}
             scale={scale}
           />

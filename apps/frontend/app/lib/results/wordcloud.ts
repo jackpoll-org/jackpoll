@@ -19,6 +19,11 @@ export type CloudScale = "absolute" | "relative";
 // 1-vote word; a larger one keeps the gap gentle for a live poll's small counts.
 const VOTES_TO_MAX = 10;
 
+// Bounds for container-derived font sizes (see cloudFontRange).
+const MAX_CLOUD_FONT = 160;
+const MIN_CLOUD_MAX_FONT = 24;
+const MIN_CLOUD_FONT = 12;
+
 /** A wordcloud question's word -> count map, most frequent first. */
 export function countsToWords(
   counts: Record<string, number> | null | undefined,
@@ -63,4 +68,20 @@ export function cloudFontSize(
   const base = Math.max(minFontSize, Math.round(maxFontSize * 0.3));
   const step = (maxFontSize - base) / VOTES_TO_MAX;
   return Math.min(maxFontSize, base + Math.max(0, value - 1) * step);
+}
+
+/**
+ * Font-size range for a cloud drawn in a {@code width} x {@code height} box.
+ * Sizes follow the box instead of fixed pixels, so a phone shows the same words
+ * as a desktop or a projector — just smaller (issue #9: fixed sizes made
+ * d3-cloud drop every word that didn't fit on narrow screens).
+ */
+export function cloudFontRange(
+  width: number,
+  height: number,
+): { minFontSize: number; maxFontSize: number } {
+  const side = Math.max(0, Math.min(width, height));
+  const maxFontSize = Math.round(Math.min(MAX_CLOUD_FONT, Math.max(MIN_CLOUD_MAX_FONT, side * 0.22)));
+  const minFontSize = Math.max(MIN_CLOUD_FONT, Math.round(maxFontSize * 0.28));
+  return { minFontSize, maxFontSize };
 }

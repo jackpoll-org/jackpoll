@@ -22,6 +22,8 @@ export function rulesForType(type: QuestionType): ValidationRuleType[] {
   switch (type) {
     case "short-answer":
       return ["minLength", "maxLength", "pattern"];
+    case "long-answer":
+      return ["minLength", "maxLength"];
     case "checkboxes":
       return ["minSelected", "maxSelected"];
     default:
@@ -86,6 +88,8 @@ export function validateAnswer(
   answer: AnswerValue,
   t?: TranslateFn,
 ): string | null {
+  // Content blocks (public #7) take no answer, so nothing to validate.
+  if (question.type === "content") return null;
   if (question.required && isEmpty(answer)) {
     return t ? t("validation.required") : "This question is required.";
   }

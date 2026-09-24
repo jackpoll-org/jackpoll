@@ -5,10 +5,12 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Checkbox } from "@/app/components/ui/checkbox";
+import { Switch } from "@/app/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
 import type { Option, Question } from "@/app/types/survey";
 import type { QuestionEditorProps } from "@/app/components/question-types/types";
 import { useTranslation } from "@/app/i18n/context";
+import { isManuallyGraded } from "@/app/lib/survey/grading";
 
 const SCORABLE = new Set<Question["type"]>([
   "multiple-choice",
@@ -179,16 +181,8 @@ export function QuestionQuizEditor({ question, onChange }: QuestionEditorProps) 
     );
   }
 
-  if (!SCORABLE.has(question.type)) {
+  function pointsInput() {
     return (
-      <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-        {t("builder.quiz.notScored")}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-3 rounded-lg border border-dashed p-3">
       <div className="flex items-center gap-2">
         <Label htmlFor={`points-${question.id}`} className="text-sm font-medium">
           {t("builder.quiz.points")}
@@ -204,10 +198,68 @@ export function QuestionQuizEditor({ question, onChange }: QuestionEditorProps) 
           }
         />
       </div>
+    );
+  }
+
+  function manualGradingToggle() {
+    return (
+      <div className="flex items-center gap-2">
+        <Switch
+          id={`manual-${question.id}`}
+          checked={question.settings?.manualGrading === true}
+          onCheckedChange={(c) =>
+            onChange({ settings: { ...(question.settings ?? {}), manualGrading: c } })
+          }
+        />
+        <Label htmlFor={`manual-${question.id}`} className="font-normal">
+          {t("builder.quiz.gradeManually")}
+        </Label>
+      </div>
+    );
+  }
+
+  // Graded by the teacher in the results (public #6): paragraphs always,
+  // file uploads when opted in.
+  if (question.type === "long-answer" || question.type === "file-upload") {
+    const manual = isManuallyGraded(question);
+    return (
+      <div className="grid gap-3 rounded-lg border border-dashed p-3">
+        {question.type === "file-upload" && manualGradingToggle()}
+        {manual ? (
+          <>
+            {pointsInput()}
+            <p className="text-xs text-muted-foreground">{t("builder.quiz.manualHint")}</p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("builder.quiz.notScored")}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (!SCORABLE.has(question.type)) {
+    return (
+      <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+        {t("builder.quiz.notScored")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 rounded-lg border border-dashed p-3">
+      {pointsInput()}
       <div className="grid gap-1">
         <span className="text-sm font-medium">{t("builder.quiz.correctAnswer")}</span>
         {answerConfig()}
       </div>
+      {question.type === "short-answer" && correct.length === 0 && (
+        <>
+          {manualGradingToggle()}
+          {isManuallyGraded(question) && (
+            <p className="text-xs text-muted-foreground">{t("builder.quiz.manualHint")}</p>
+          )}
+        </>
+      )}
     </div>
   );
 }

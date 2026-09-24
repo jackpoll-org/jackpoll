@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { choiceCountsToWords, cloudFontSize, countsToWords } from "../wordcloud";
+import { choiceCountsToWords, cloudFontRange, cloudFontSize, countsToWords } from "../wordcloud";
 
 describe("countsToWords", () => {
   it("turns a word -> count map into words, most frequent first", () => {
@@ -65,5 +65,18 @@ describe("cloudFontSize", () => {
 
   it("relative scale: equal votes draw equal sizes", () => {
     expect(cloudFontSize(3, 3, { ...sizes, scale: "relative" })).toBe(80);
+  });
+});
+
+describe("cloudFontRange", () => {
+  it("scales with the smaller side of the box", () => {
+    expect(cloudFontRange(700, 320)).toEqual({ minFontSize: 20, maxFontSize: 70 });
+    expect(cloudFontRange(340, 320)).toEqual(cloudFontRange(700, 320));
+    expect(cloudFontRange(375, 700).maxFontSize).toBe(83);
+  });
+
+  it("clamps tiny and huge boxes", () => {
+    expect(cloudFontRange(100, 80)).toEqual({ minFontSize: 12, maxFontSize: 24 });
+    expect(cloudFontRange(3000, 2000)).toEqual({ minFontSize: 45, maxFontSize: 160 });
   });
 });

@@ -21,6 +21,7 @@ import {
   markNotificationReadApi,
   markAllNotificationsReadApi,
   deleteResponseApi,
+  gradeResponseApi,
   deleteSurveyApi,
   editResponseApi,
   getResponseForEditApi,
@@ -71,6 +72,7 @@ import type {
   AddCollaboratorRequest,
   CreateSurveyRequest,
   CreateWebhookRequest,
+  GradeInput,
   NotificationPreferences,
   SaveDraftRequest,
   SubmitResponseRequest,
@@ -864,6 +866,19 @@ export function useDeleteResponse(surveyId: string) {
     mutationFn: async (responseId: string) => {
       const res = await deleteResponseApi(surveyId, responseId);
       if (!res.success) throw new Error(res.error ?? "Failed to delete response");
+    },
+    onSuccess: () => invalidateResponseData(queryClient, surveyId),
+  });
+}
+
+/** Save grades on one response; refreshes the response list and results. */
+export function useGradeResponse(surveyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ responseId, grades }: { responseId: string; grades: GradeInput[] }) => {
+      const res = await gradeResponseApi(surveyId, responseId, grades);
+      if (!res.success || !res.data) throw new Error(res.error ?? "Failed to save grade");
+      return res.data;
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),
   });

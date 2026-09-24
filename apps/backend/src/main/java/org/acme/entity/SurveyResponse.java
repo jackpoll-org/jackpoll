@@ -54,6 +54,15 @@ public class SurveyResponse extends PanacheEntityBase {
     @Column(name = "passed")
     public Boolean passed;
 
+    /** The automatic part of {@link #score} (incl. the live speed bonus); the
+     *  rest are points a teacher awarded by hand (public #6). */
+    @Column(name = "auto_score")
+    public Integer autoScore;
+
+    /** True while answered manually graded questions still await points. */
+    @Column(name = "grading_pending")
+    public Boolean gradingPending;
+
     /** A test submission from the builder preview — excluded from results,
      *  consumes no quota, sends no notifications, auto-purged after 5 min (#). */
     @Column(nullable = false)

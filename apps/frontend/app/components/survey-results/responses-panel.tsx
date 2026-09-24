@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, FileDown, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ClipboardCheck, Eye, FileDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadResponsePdfApi } from "@/app/lib/survey/api";
 import { Button } from "@/app/components/ui/button";
@@ -45,6 +46,7 @@ import { useClearResponses, useDeleteResponse, useResponses } from "@/app/hooks/
 import { formatAnswer } from "@/app/lib/survey/export";
 import { useTranslation } from "@/app/i18n/context";
 import type { Survey, SurveyResponseDto } from "@/app/types/survey";
+import { isAnswerable } from "@/app/lib/survey/content-block";
 
 type PassFilter = "all" | "passed" | "failed";
 
@@ -71,6 +73,14 @@ export function ResponsesPanel({
   }
 
   const all = responses.data ?? [];
+  // Grading (public #6): only quizzes, where scores exist.
+  const gradeHref = (responseId: string) =>
+    `/surveys/${survey.id}/results/grade/${responseId}` +
+    (sessionId ? `?session=${encodeURIComponent(sessionId)}` : "");
+  const firstToGrade =
+    all
+      .toSorted((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
+      .find((r) => r.gradingPending) ?? null;
   const filtered = all.filter((r) => {
     const t = new Date(r.submittedAt).getTime();
     if (from && t < new Date(from).getTime()) return false;
@@ -139,30 +149,40 @@ export function ResponsesPanel({
           )}
         </div>
 
-        {all.length > 0 && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="text-destructive">
-                <Trash2 className="size-4" />
-                {t("results.responses.clearAll")}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t("results.responses.clearTitle")}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("results.responses.clearBody", { count: String(all.length) })}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                <AlertDialogAction onClick={clearAll}>
-                  {t("results.responses.clearConfirm")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {survey.settings.isQuiz && firstToGrade && (
+            <Button asChild>
+              <Link href={gradeHref(firstToGrade.id)}>
+                <ClipboardCheck className="size-4" />
+                {t("grading.start")}
+              </Link>
+            </Button>
+          )}
+          {all.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="text-destructive">
+                  <Trash2 className="size-4" />
+                  {t("results.responses.clearAll")}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("results.responses.clearTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("results.responses.clearBody", { count: String(all.length) })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                  <AlertDialogAction onClick={clearAll}>
+                    {t("results.responses.clearConfirm")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -198,6 +218,9 @@ export function ResponsesPanel({
                       {r.score != null ? (
                         <span className="flex items-center gap-2">
                           {r.score}/{r.maxScore}
+                          {r.gradingPending && (
+                            <Badge variant="secondary">{t("grading.pending")}</Badge>
+                          )}
                           {r.passed != null && (
                             <Badge variant={r.passed ? "default" : "destructive"}>
                               {r.passed ? t("results.responses.pass") : t("results.responses.fail")}
@@ -210,6 +233,17 @@ export function ResponsesPanel({
                     </TableCell>
                   )}
                   <TableCell className="text-right">
+                    {survey.settings.isQuiz && (
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link
+                          href={gradeHref(r.id)}
+                          aria-label={t("grading.grade")}
+                          title={t("grading.grade")}
+                        >
+                          <ClipboardCheck className="size-4" />
+                        </Link>
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -250,14 +284,14 @@ export function ResponsesPanel({
           </DialogHeader>
           {selected && (
             <div className="grid gap-3">
-              {survey.questions.map((q) => {
+              {survey.questions.filter((q) => isAnswerable(q.type)).map((q) => {
                 const answer = selected.answers.find((a) => a.questionId === q.id);
                 return (
                   <div key={q.id} className="grid gap-0.5">
                     <span className="text-sm font-medium">
                       {q.title || t("results.untitledQuestion")}
                     </span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm break-words whitespace-pre-wrap text-muted-foreground">
                       {answer ? formatAnswer(q, answer.value) || "—" : "—"}
                     </span>
                   </div>

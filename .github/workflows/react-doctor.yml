@@ -7,16 +7,9 @@
 name: React Doctor
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "apps/frontend/**"
-      - ".github/workflows/react-doctor.yml"
-  push:
-    branches: ["main"]
-    paths:
-      - "apps/frontend/**"
-      - ".github/workflows/react-doctor.yml"
+  # Automatic push/PR runs are off to save GitHub Actions minutes: only the
+  # image-publishing workflows run on push. Start this one manually when needed.
+  workflow_dispatch:
 
 permissions:
   contents: read

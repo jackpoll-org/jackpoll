@@ -1,5 +1,7 @@
 package org.acme.entity;
 
+import java.time.Instant;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -34,4 +36,11 @@ public class ResponseAnswer extends PanacheEntityBase {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     public Object value;
+
+    /** Points a teacher awarded to a manually graded answer (public #6); null = ungraded. */
+    @Column(name = "awarded_points")
+    public Integer awardedPoints;
+
+    @Column(name = "graded_at")
+    public Instant gradedAt;
 }

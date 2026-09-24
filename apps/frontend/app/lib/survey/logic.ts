@@ -6,6 +6,7 @@ import type {
   Survey,
 } from "@/app/types/survey";
 import type { AnswerValue } from "./validation";
+import { isAnswerable } from "@/app/lib/survey/content-block";
 
 /**
  * Flatten a survey's questions into the order a respondent actually answers
@@ -32,7 +33,8 @@ export function getPrecedingQuestions(
 ): Question[] {
   const ordered = orderedQuestions(survey);
   const index = ordered.findIndex((q) => q.id === questionId);
-  return index <= 0 ? [] : ordered.slice(0, index);
+  // Only questions with an answer can drive logic or be piped in (public #7).
+  return index <= 0 ? [] : ordered.slice(0, index).filter((q) => isAnswerable(q.type));
 }
 
 /** Read the conditional-logic rule stored in a question's settings JSON. */

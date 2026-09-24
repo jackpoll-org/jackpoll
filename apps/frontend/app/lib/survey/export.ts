@@ -7,6 +7,7 @@ import type {
   UploadedFile,
 } from "@/app/types/survey";
 import { saveTextFile } from "@/app/lib/native/file-share";
+import { isAnswerable } from "@/app/lib/survey/content-block";
 
 /** Build a label lookup (option/row/column id → label) for a question. */
 export function labelMap(question: Question | undefined): Record<string, string> {
@@ -62,11 +63,12 @@ export function buildResponsesCsv(
   survey: Survey,
   responses: SurveyResponseDto[],
 ): string {
+  const questions = survey.questions.filter((q) => isAnswerable(q.type));
   const header = [
     "Response ID",
     "Submitted at",
     "Duration (s)",
-    ...survey.questions.map((q) => q.title || "Untitled question"),
+    ...questions.map((q) => q.title || "Untitled question"),
   ];
 
   const rows = responses.map((response) => {
@@ -75,7 +77,7 @@ export function buildResponsesCsv(
       response.id,
       response.submittedAt,
       response.durationMs != null ? (response.durationMs / 1000).toFixed(1) : "",
-      ...survey.questions.map((q) => formatAnswer(q, byQuestion.get(q.id))),
+      ...questions.map((q) => formatAnswer(q, byQuestion.get(q.id))),
     ];
   });
 
