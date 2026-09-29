@@ -14,8 +14,10 @@ services:
       retries: 20
 
   minio:
-    image: quay.io/minio/minio:latest # Docker Hub's minio/minio no longer pulls
-    command: server /data
+    # quay.io/minio/minio now answers 401 and Docker Hub's minio/minio stopped
+    # updating; Bitnami's frozen legacy image still pulls anonymously (the unit
+    # test workflow uses it too). It starts the server itself — no command.
+    image: bitnamilegacy/minio:latest
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
