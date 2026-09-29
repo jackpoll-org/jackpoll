@@ -238,6 +238,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
         <Editor
           question={question}
           onChange={(patch) => updateQuestion(question.id, patch)}
+          isQuiz={survey.settings.isQuiz}
         />
 
         {answerable && (
@@ -302,7 +303,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
                 htmlFor={`live-${question.id}`}
                 className="text-sm font-normal"
               >
-                Show in live results
+                {t("builder.showInLiveResults")}
               </Label>
               <Switch
                 id={`live-${question.id}`}
@@ -317,7 +318,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
           {answerable && (
             <div className="flex items-center gap-2">
               <Label htmlFor={`required-${question.id}`} className="text-sm font-normal">
-                Required
+                {t("builder.required")}
               </Label>
               <Switch
                 id={`required-${question.id}`}

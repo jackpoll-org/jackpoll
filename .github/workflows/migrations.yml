@@ -3,8 +3,11 @@ name: DB migrations
 # Apply the Flyway migrations against a throwaway Postgres so a broken or
 # out-of-order migration is caught before it reaches a real database.
 on:
-  # Automatic push/PR runs are off to save GitHub Actions minutes: only the
-  # image-publishing workflows run on push. Start this one manually when needed.
+  # Runs on every push and pull request: GitHub-hosted runners are free for
+  # public repositories.
+  push:
+    branches: ["master", "main"]
+  pull_request:
   workflow_dispatch:
 
 jobs:

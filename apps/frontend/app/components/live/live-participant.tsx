@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Loader2, Presentation, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -26,7 +26,7 @@ import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
 import { AltchaWidget } from "@/app/components/survey-player/altcha-widget";
-import { isAnswerable } from "@/app/lib/survey/content-block";
+import { isInfoSlide, liveSlides } from "@/app/lib/live/slides";
 
 // Big tap-to-answer buttons for single-choice questions (quiz feel, #97).
 const BIG_CHOICE_TYPES = new Set<Question["type"]>(["multiple-choice", "dropdown"]);
@@ -46,15 +46,11 @@ function elapsedSince(startedAt: number | null): number | undefined {
 export function LiveParticipant({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
   const isQuiz = !!survey.settings.isQuiz;
-  const questions = useMemo(
-    // Content blocks (public #7) aren't live slides; presenter and participants
-    // filter them the same way so their question indexes stay aligned.
-    () =>
-      survey.questions
-        .filter((q) => isAnswerable(q.type))
-        .toSorted((a, b) => a.order - b.order),
-    [survey.questions],
-  );
+  // Same slide list as the presenter (questions + info slides) so the
+  // broadcast index points at the same slide here.
+  const questions = useMemo(() => liveSlides(survey.questions), [survey.questions]);
+  // Phones show only the answer buttons; the question is on the big screen.
+  const hideQuestion = !!survey.settings.liveHideQuestionOnDevices;
   const [index, setIndex] = useState<number | null>(null);
   const [phase, setPhase] = useState<LivePhase>("lobby");
   const [value, setValue] = useState<AnswerValue>(undefined);
@@ -124,14 +120,15 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   });
 
   const question = index != null ? questions[index] : undefined;
+  const info = isInfoSlide(question);
   const answered = answeredIndex === index;
 
   // Countdown tick in the last 3 seconds, mirroring the host's cue.
   useEffect(() => {
-    if (isQuiz && phase === "question" && !answered && remaining != null && remaining > 0 && remaining <= 3) {
+    if (isQuiz && phase === "question" && !info && !answered && remaining != null && remaining > 0 && remaining <= 3) {
       playTick();
     }
-  }, [remaining, isQuiz, phase, answered]);
+  }, [remaining, isQuiz, phase, info, answered]);
 
   // Rendered on the earliest screens (name entry / lobby / waiting-to-start)
   // so it's solved before the first question ever arrives; disappears once
@@ -256,6 +253,17 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
     );
   }
 
+  // Info slide (content block): the presenter shows it; nothing to answer here.
+  if (info) {
+    return (
+      <div className="flex min-h-[60svh] flex-col items-center justify-center gap-3 text-center">
+        <Presentation className="size-10 text-muted-foreground" />
+        <p className="text-lg font-semibold">{t("live.lookAtScreen")}</p>
+        <p className="text-sm text-muted-foreground">{t("live.lookAtScreenHelp")}</p>
+      </div>
+    );
+  }
+
   // Same synced 3-2-1-Go the presenter shows, decorative here — the real
   // per-question timer only starts once the "question" phase actually arrives.
   if (isQuiz && phase === "countdown") {
@@ -275,11 +283,13 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
     const correct = (lastScore ?? 0) > 0;
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-medium">
-            {question.title || t("player.untitledQuestion")}
-          </CardTitle>
-        </CardHeader>
+        {!hideQuestion && (
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              {question.title || t("player.untitledQuestion")}
+            </CardTitle>
+          </CardHeader>
+        )}
         <CardContent>
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             {!answered ? (
@@ -335,11 +345,13 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   if (answered) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-medium">
-            {question.title || t("player.untitledQuestion")}
-          </CardTitle>
-        </CardHeader>
+        {!hideQuestion && (
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              {question.title || t("player.untitledQuestion")}
+            </CardTitle>
+          </CardHeader>
+        )}
         <CardContent>
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <Check className="size-10 text-green-600" />
@@ -362,12 +374,18 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg font-semibold">
-            {question.title || t("player.untitledQuestion")}
-          </CardTitle>
+          {hideQuestion ? (
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("live.lookAtScreen")}
+            </CardTitle>
+          ) : (
+            <CardTitle className="text-lg font-semibold">
+              {question.title || t("player.untitledQuestion")}
+            </CardTitle>
+          )}
           <TimerRing remaining={remaining} fraction={timerFraction} />
         </div>
-        {question.description && (
+        {!hideQuestion && question.description && (
           <p className="text-sm text-muted-foreground">{question.description}</p>
         )}
       </CardHeader>
@@ -379,7 +397,9 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
         ) : bigButtons && options.length > 0 ? (
           // Buzzer: colour + shape only (no text) — players read the options off
           // the presenter screen. The label rides along as the aria-label.
-          <div className="grid gap-3 sm:grid-cols-2">
+          // Always 2 columns, mirroring the presenter's tile layout and keeping
+          // four buttons on a phone screen without scrolling.
+          <div className="grid grid-cols-2 gap-3">
             {options.map((opt, i) => {
               const tile = answerTile(i);
               return (

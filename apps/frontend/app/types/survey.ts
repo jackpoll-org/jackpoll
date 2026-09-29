@@ -182,6 +182,8 @@ export interface SurveySettings {
   liveMode?: boolean;
   /** Live quiz per-question countdown in seconds (faster = more points, #). */
   liveQuestionSeconds?: number | null;
+  /** Live mode: phones show only the answer buttons, not the question text. */
+  liveHideQuestionOnDevices?: boolean;
   /** Custom chart color palette (CSS colors, in cycle order); unset = theme default. */
   colorPalette?: string[] | null;
 }

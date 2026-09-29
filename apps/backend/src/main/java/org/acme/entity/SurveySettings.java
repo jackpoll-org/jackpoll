@@ -93,6 +93,9 @@ public class SurveySettings {
     /** Live quiz per-question countdown in seconds; faster correct answers score
      *  more (#). 0 = no timer / no speed bonus. */
     public Integer liveQuestionSeconds;
+    /** Live mode: participants' phones show only the answer buttons, not the
+     *  question text — the presenter screen carries the question. */
+    public boolean liveHideQuestionOnDevices;
 
     /** Custom chart color palette (CSS colors, in cycle order); null = theme default. */
     public java.util.List<String> colorPalette;

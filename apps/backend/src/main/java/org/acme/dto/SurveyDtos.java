@@ -123,6 +123,7 @@ public final class SurveyDtos {
         // Presenter-paced live mode (#)
         boolean liveMode,
         Integer liveQuestionSeconds,
+        boolean liveHideQuestionOnDevices,
         // First-page heading (issue #94 follow-up)
         String firstPageTitle,
         String firstPageDescription,

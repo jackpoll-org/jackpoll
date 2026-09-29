@@ -8,6 +8,8 @@ import type { TranslationKey } from "@/app/i18n/translations";
 export interface QuestionEditorProps {
   question: Question;
   onChange: (patch: Partial<Question>) => void;
+  /** Survey is a quiz — hides survey-only controls such as option quotas. */
+  isQuiz?: boolean;
 }
 
 /**

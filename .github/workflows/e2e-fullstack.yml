@@ -4,8 +4,11 @@
 name: E2E (full stack)
 
 on:
-  # Automatic push/PR runs are off to save GitHub Actions minutes: only the
-  # image-publishing workflows run on push. Start this one manually when needed.
+  # Runs on every push and pull request: GitHub-hosted runners are free for
+  # public repositories.
+  push:
+    branches: ["master", "main"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -26,6 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

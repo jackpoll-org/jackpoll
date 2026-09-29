@@ -98,6 +98,7 @@ public class SurveyMapper {
             s.requireRespondentName,
             s.liveMode,
             s.liveQuestionSeconds,
+            s.liveHideQuestionOnDevices,
             s.firstPageTitle,
             s.firstPageDescription,
             s.colorPalette
@@ -245,6 +246,7 @@ public class SurveyMapper {
         s.requireRespondentName = d.requireRespondentName();
         s.liveMode = d.liveMode();
         s.liveQuestionSeconds = d.liveQuestionSeconds();
+        s.liveHideQuestionOnDevices = d.liveHideQuestionOnDevices();
         s.firstPageTitle = d.firstPageTitle();
         s.firstPageDescription = d.firstPageDescription();
         s.colorPalette = d.colorPalette();

@@ -1,0 +1,123 @@
+# Unit & integration tests. The e2e workflows only exercise the app through a
+# browser, so until this existed nothing in CI ran `./mvnw test` or Vitest —
+# assertions could (and did) rot unnoticed against changed behaviour.
+name: Tests
+
+on:
+  # Runs on every push and pull request: GitHub-hosted runners are free for
+  # public repositories.
+  push:
+    branches: ["master", "main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (mvn test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: survey
+          POSTGRES_PASSWORD: survey
+          POSTGRES_DB: survey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U survey -d survey"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      # Object storage for the upload tests (the real MinIO, as locally).
+      # A Bitnami MinIO rather than the official image: service containers can't
+      # pass the `server /data` command the official image needs. Bitnami moved
+      # its free images from bitnami/* to the frozen bitnamilegacy/* in 2025, and
+      # the old name no longer resolves. Readiness is polled from the runner
+      # below instead of via --health-cmd, which would depend on curl existing
+      # inside the image.
+      minio:
+        image: bitnamilegacy/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: survey
+      DB_USERNAME: survey
+      DB_PASSWORD: survey
+      MINIO_URL: http://localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      # No Keycloak in this job: every test authenticates with @TestSecurity, so
+      # the OIDC tenant is switched off rather than booting a realm we'd never
+      # call. Auth *behaviour* (401s, roles) is still exercised — see the e2e
+      # workflows for the real Keycloak path.
+      QUARKUS_OIDC_TENANT_ENABLED: "false"
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Wait for MinIO
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+              echo "MinIO ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "MinIO did not become ready"; exit 1
+
+      - name: Run tests
+        run: ./mvnw --batch-mode test
+
+      - name: Upload surefire reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: apps/backend/target/surefire-reports/
+          retention-days: 7
+
+  frontend:
+    name: Frontend (vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/frontend
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test

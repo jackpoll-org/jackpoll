@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,9 @@ import { CountdownOverlay } from "./countdown-overlay";
 import { Leaderboard } from "./leaderboard";
 import { LobbyView } from "./lobby-view";
 import { Podium } from "./podium";
+import { InfoSlide } from "./info-slide";
+import { SurveyLogo } from "./survey-logo";
+import { brandingStyle } from "@/app/components/survey-player/branding-frame";
 import { TimerRing } from "./timer-ring";
 import { answerTile } from "@/app/lib/live/answer-tiles";
 import { QUIZ_GAME_DEFAULT_SECONDS, isQuizGame } from "@/app/lib/live/quiz-game";
@@ -26,7 +30,7 @@ import {
 import { toast } from "sonner";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
-import { isAnswerable } from "@/app/lib/survey/content-block";
+import { isInfoSlide, liveSlides, questionNumber } from "@/app/lib/live/slides";
 
 /** The slice of an aggregated question result the presenter tiles read. */
 type QuestionResult = {
@@ -101,15 +105,9 @@ function GameAnswerTiles({
 function PresenterInner({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
   const game = isQuizGame(survey.settings);
-  const questions = useMemo(
-    // Content blocks (public #7) aren't live slides; presenter and participants
-    // filter them the same way so their question indexes stay aligned.
-    () =>
-      survey.questions
-        .filter((q) => isAnswerable(q.type))
-        .toSorted((a, b) => a.order - b.order),
-    [survey.questions],
-  );
+  // Questions plus content blocks as info slides (public #7); participants
+  // build the same list so the broadcast index stays aligned.
+  const questions = useMemo(() => liveSlides(survey.questions), [survey.questions]);
   const [index, setIndex] = useState(0);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   // Quiz games open in a lobby; the host starts the first question from there.
@@ -136,11 +134,13 @@ function PresenterInner({ survey }: { survey: Survey }) {
     ? survey.settings.liveQuestionSeconds ?? QUIZ_GAME_DEFAULT_SECONDS
     : 0;
   const remaining = useCountdown(startedAt, seconds);
+  const onInfoSlide = isInfoSlide(questions[index]);
   const timerFraction = useCountdownFraction(startedAt, seconds);
   const go = (next: number) => {
     setIndex(next);
     setStage("asking");
-    if (game && next < questions.length) {
+    // Info slides are just shown: no 3-2-1 countdown, timer or reveal.
+    if (game && next < questions.length && !isInfoSlide(questions[next])) {
       // Timer starts once the countdown completes, not now (handleCountdownComplete).
       setCountdownActive(true);
     } else {
@@ -158,6 +158,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
     if (
       game &&
       started &&
+      !onInfoSlide &&
       stage === "asking" &&
       !countdownActive &&
       remaining != null &&
@@ -166,7 +167,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
     ) {
       playTick();
     }
-  }, [remaining, game, started, stage, countdownActive]);
+  }, [remaining, game, started, onInfoSlide, stage, countdownActive]);
   useEffect(() => {
     if (game && stage === "reveal") playReveal();
   }, [stage, game]);
@@ -175,11 +176,11 @@ function PresenterInner({ survey }: { survey: Survey }) {
   useEffect(() => {
     // Timer hit 0 → move from asking to the reveal; syncing UI stage to an
     // external countdown is exactly what an effect is for.
-    if (game && started && stage === "asking" && !countdownActive && remaining === 0) {
+    if (game && started && !onInfoSlide && stage === "asking" && !countdownActive && remaining === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStage("reveal");
     }
-  }, [game, started, stage, countdownActive, remaining]);
+  }, [game, started, onInfoSlide, stage, countdownActive, remaining]);
 
   // Broadcast the current position + phase to participants on mount and each
   // move (lobby while waiting to start, then question/results).
@@ -214,11 +215,29 @@ function PresenterInner({ survey }: { survey: Survey }) {
 
   if (inLobby) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col gap-4 bg-background p-6">
+      <div
+        className="fixed inset-0 z-50 flex flex-col gap-4 bg-background p-6"
+        style={brandingStyle(survey)}
+      >
+        {survey.settings.headerImageUrl && (
+          <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-lg border">
+            <Image
+              src={survey.settings.headerImageUrl}
+              alt=""
+              fill
+              unoptimized
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {survey.title || t("player.untitledSurvey")}
-          </h1>
+          <div className="flex min-w-0 items-center gap-4">
+            <SurveyLogo survey={survey} />
+            <h1 className="text-2xl font-bold tracking-tight">
+              {survey.title || t("player.untitledSurvey")}
+            </h1>
+          </div>
           <Button asChild variant="ghost" size="sm">
             <Link href={`/surveys/${survey.id}/results`}>
               <X className="size-4" />
@@ -254,22 +273,24 @@ function PresenterInner({ survey }: { survey: Survey }) {
   );
   const atStart = index === 0;
   const atLastQuestion = index === questions.length - 1;
+  const info = !isResults && isInfoSlide(question);
   const showTimer =
-    !isResults && !countdownActive && remaining != null && (!game || stage === "asking");
+    !isResults && !info && !countdownActive && remaining != null && (!game || stage === "asking");
+  const numbering = questionNumber(questions, index);
 
   // Advance: non-game jumps straight to the next question; a game walks through
   // asking → reveal → standings first.
   const handleNext = () => {
-    if (game && !isResults) {
+    if (game && !isResults && !info) {
       if (stage === "asking") return setStage("reveal");
       if (stage === "reveal") return setStage("standings");
     }
     go(Math.min(questions.length, index + 1));
   };
   const nextLabel =
-    game && !isResults && stage === "asking"
+    game && !isResults && !info && stage === "asking"
       ? t("live.reveal")
-      : game && !isResults && stage === "reveal"
+      : game && !isResults && !info && stage === "reveal"
         ? t("live.standings")
         : atLastQuestion
           ? t("live.showResults")
@@ -281,22 +302,30 @@ function PresenterInner({ survey }: { survey: Survey }) {
     ? t("live.finalResults")
     : game && stage === "standings"
       ? t("live.standings")
-      : question.title || t("player.untitledQuestion");
+      : info
+        ? question.title
+        : question.title || t("player.untitledQuestion");
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col gap-4 bg-background p-6">
+    <div
+        className="fixed inset-0 z-50 flex flex-col gap-4 bg-background p-6"
+        style={brandingStyle(survey)}
+      >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-3">
+          <SurveyLogo survey={survey} />
           {!isResults && (
             <span className="text-sm text-muted-foreground tabular-nums">
-              {t("live.questionOf", {
-                current: String(index + 1),
-                total: String(questions.length),
-              })}
+              {info
+                ? t("live.infoSlide")
+                : t("live.questionOf", {
+                    current: String(numbering.current),
+                    total: String(numbering.total),
+                  })}
             </span>
           )}
           {showTimer && <TimerRing remaining={remaining} fraction={timerFraction} />}
-          {game && !isResults && stage === "asking" && result && (
+          {game && !isResults && !info && stage === "asking" && result && (
             <span className="text-sm text-muted-foreground tabular-nums">
               {roster.length > 0
                 ? t("live.answeredOfTotal", {
@@ -315,9 +344,11 @@ function PresenterInner({ survey }: { survey: Survey }) {
         </Button>
       </div>
 
-      <h1 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
-        {title}
-      </h1>
+      {title && (
+        <h1 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
+          {title}
+        </h1>
+      )}
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
         {isResults ? (
@@ -334,6 +365,10 @@ function PresenterInner({ survey }: { survey: Survey }) {
                 </Button>
               </div>
             )}
+          </div>
+        ) : info ? (
+          <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col justify-center overflow-y-auto">
+            <InfoSlide slide={question} />
           </div>
         ) : game && stage === "standings" ? (
           <div className="mx-auto min-h-0 w-full max-w-xl flex-1 overflow-y-auto">
@@ -379,7 +414,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
             )}
           </div>
         )}
-        {game && stage === "asking" && (
+        {game && !info && stage === "asking" && (
           <CountdownOverlay
             active={countdownActive}
             onComplete={handleCountdownComplete}

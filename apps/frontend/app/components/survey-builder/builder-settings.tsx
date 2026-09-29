@@ -101,6 +101,24 @@ export function BuilderSettings() {
           {t("builder.settings.liveModeHelp")}
         </p>
 
+        {settings.liveMode && (
+          <div className="grid gap-1.5">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="live-hide-question"
+                checked={settings.liveHideQuestionOnDevices ?? false}
+                onCheckedChange={(c) => updateSettings({ liveHideQuestionOnDevices: c })}
+              />
+              <Label htmlFor="live-hide-question" className="font-normal">
+                {t("builder.settings.liveHideQuestion")}
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("builder.settings.liveHideQuestionHelp")}
+            </p>
+          </div>
+        )}
+
         {settings.liveMode && settings.isQuiz && (
           <div className="grid gap-1.5 sm:max-w-[16rem]">
             <Label htmlFor="live-seconds" className="text-xs">

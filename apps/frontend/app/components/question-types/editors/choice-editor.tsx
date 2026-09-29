@@ -6,12 +6,13 @@ import { OptionListEditor } from "./option-list-editor";
 import { useTranslation } from "@/app/i18n/context";
 
 /** Editor for multiple-choice, checkboxes and dropdown — a single list of options. */
-export function ChoiceEditor({ question, onChange }: QuestionEditorProps) {
+export function ChoiceEditor({ question, onChange, isQuiz }: QuestionEditorProps) {
   const { t } = useTranslation();
   const options: Option[] = question.options ?? [];
-  // Per-option quotas apply to single-select choices only (issue #38).
+  // Per-option quotas apply to single-select choices only (issue #38), and
+  // make no sense in a quiz, where every player answers every question.
   const showCapacity =
-    question.type === "multiple-choice" || question.type === "dropdown";
+    !isQuiz && (question.type === "multiple-choice" || question.type === "dropdown");
 
   return (
     <OptionListEditor

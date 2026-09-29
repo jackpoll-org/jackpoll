@@ -7,8 +7,25 @@
 name: Mobile build
 
 on:
-  # Automatic push/PR runs are off to save GitHub Actions minutes: only the
-  # image-publishing workflows run on push. Start this one manually when needed.
+  # Free on public repositories, but only worth running when the native shell
+  # changed: web-only changes reach the apps through the instance, not a build.
+  push:
+    branches: ["master", "main"]
+    paths:
+      - "apps/frontend/ios/**"
+      - "apps/frontend/android/**"
+      - "apps/frontend/mobile/**"
+      - "apps/frontend/capacitor.config.ts"
+      - "apps/frontend/package.json"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "apps/frontend/ios/**"
+      - "apps/frontend/android/**"
+      - "apps/frontend/mobile/**"
+      - "apps/frontend/capacitor.config.ts"
+      - "apps/frontend/package.json"
+      - ".github/workflows/mobile.yml"
   workflow_dispatch:
 
 permissions:
@@ -29,6 +46,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -55,6 +74,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

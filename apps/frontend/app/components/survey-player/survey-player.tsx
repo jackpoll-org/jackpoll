@@ -28,6 +28,7 @@ import { trackEvent } from "@/app/lib/survey/track";
 import { LiveResultsSummary } from "./live-results-summary";
 import { LiveParticipant } from "@/app/components/live/live-participant";
 import { BrandingHeader, PoweredBy, brandingStyle } from "./branding-frame";
+import { SurveyLogo } from "@/app/components/live/survey-logo";
 import { SaveLaterDialog } from "./save-later-dialog";
 import { AltchaWidget } from "./altcha-widget";
 import {
@@ -260,13 +261,21 @@ export function SurveyPlayer({
   // Presenter-paced live mode (#): a real respondent answers only the question
   // the host is currently presenting, not the whole form at once.
   if (analytics && !isEditing && !preview && survey.settings.liveMode) {
+    // Compact header when phones show only the answer buttons, so the
+    // buttons always fit on screen without scrolling.
+    const compact = !!survey.settings.liveHideQuestionOnDevices;
     return (
-      <div className="grid gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">{survey.title || t("player.untitledSurvey")}</h2>
-          {survey.description && (
-            <p className="mt-1 text-muted-foreground">{survey.description}</p>
-          )}
+      <div className="grid gap-4" style={brandingStyle(survey)}>
+        <div className="flex items-center gap-3">
+          <SurveyLogo survey={survey} />
+          <div className="min-w-0">
+            <h2 className={compact ? "truncate text-lg font-bold" : "text-2xl font-bold"}>
+              {survey.title || t("player.untitledSurvey")}
+            </h2>
+            {!compact && survey.description && (
+              <p className="mt-1 text-muted-foreground">{survey.description}</p>
+            )}
+          </div>
         </div>
         <LiveParticipant survey={survey} />
       </div>
