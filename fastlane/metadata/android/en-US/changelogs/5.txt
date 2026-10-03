@@ -1,0 +1,2 @@
+• Links to other websites now open in your browser instead of inside the app
+• Switching servers restarts the app on the new server

@@ -1,0 +1,2 @@
+• Links zu anderen Websites öffnen sich jetzt im Browser statt in der App
+• Beim Serverwechsel startet die App direkt auf dem neuen Server neu

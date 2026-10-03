@@ -47,7 +47,10 @@ const config: CapacitorConfig = {
     ...(DEV_SERVER_URL ? { url: DEV_SERVER_URL } : {}),
     androidScheme: "https",
     iosScheme: "capacitor",
-    // Allow the bridge to stay active on whatever instance the user connects to.
+    // iOS (and CAP_SERVER_URL dev builds): keep the bridge active on whatever
+    // instance the user connects to. Release Android builds ignore this:
+    // MainActivity builds its own config that keeps only the configured
+    // instance in-app and opens every other host in the browser.
     allowNavigation: ["*"],
   },
   android: {

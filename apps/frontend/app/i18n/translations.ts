@@ -1123,6 +1123,7 @@ export const en = {
   "instance.httpsRequired": "Use an https:// address.",
   "instance.invalidUrl": "Enter a valid URL.",
   "instance.unreachable": "Couldn't reach that server.",
+  "instance.switchFailed": "Couldn't switch to that server. Please try again.",
 
   // ── Spam & bot protection (issue #31) ────────────────────────────
   "spam.captchaRequired": "Please complete the verification first.",
@@ -2271,6 +2272,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "instance.httpsRequired": "Nutze eine https://-Adresse.",
   "instance.invalidUrl": "Gib eine gültige URL ein.",
   "instance.unreachable": "Server nicht erreichbar.",
+  "instance.switchFailed": "Wechsel zum Server fehlgeschlagen. Bitte versuche es erneut.",
 
   "spam.captchaRequired": "Bitte zuerst die Verifizierung abschließen.",
 

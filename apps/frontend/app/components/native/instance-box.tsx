@@ -89,7 +89,12 @@ export function InstanceBox() {
       setError(t("instance.unreachable"));
       return;
     }
-    await switchToInstance(url); // navigates away to the new instance
+    try {
+      await switchToInstance(url); // navigates away to the new instance
+    } catch {
+      setBusy(false);
+      setError(t("instance.switchFailed"));
+    }
   }
 
   return (

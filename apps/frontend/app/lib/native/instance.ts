@@ -5,11 +5,16 @@
 // from the box under the login form. The web build is unaffected (no native
 // platform → the box renders nothing and these helpers aren't used).
 
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 
 const INSTANCE_KEY = "instance_url";
 const LAST_PATH_KEY = "last_path";
+
+/** Native Android bridge (InstancePlugin.kt): stores the URL and reboots the app on it. */
+const InstanceBridge = registerPlugin<{ switchTo(options: { url: string }): Promise<void> }>(
+  "Instance",
+);
 
 /** The default instance the app boots into before the user changes it. */
 export const DEFAULT_INSTANCE_URL = "https://app.jackpoll.org";
@@ -64,11 +69,24 @@ export function normalizeInstanceUrl(raw: string): string {
 }
 
 /**
- * Store the chosen instance and load it. The cross-origin navigation is allowed
- * by capacitor.config `allowNavigation: ["*"]`, which keeps the native bridge
- * active on the new instance.
+ * Store the chosen instance and load it. On Android only the configured
+ * instance's host stays in the WebView (other hosts open in the browser), so the
+ * native bridge stores the URL and recreates the activity on the new instance.
+ * iOS keeps the cross-origin navigation allowed by capacitor.config
+ * `allowNavigation`, which keeps the native bridge active on the new instance.
  */
 export async function switchToInstance(url: string): Promise<void> {
+  if (Capacitor.getPlatform() === "android") {
+    try {
+      await InstanceBridge.switchTo({ url });
+      return;
+    } catch (err) {
+      // App builds before 1.0.4 have no Instance bridge (the web UI comes from
+      // the server, so it can be newer than the app): fall through to the old
+      // navigation, which those builds still allow.
+      if ((err as { code?: string })?.code !== "UNIMPLEMENTED") throw err;
+    }
+  }
   try {
     await Preferences.set({ key: INSTANCE_KEY, value: url });
   } catch {

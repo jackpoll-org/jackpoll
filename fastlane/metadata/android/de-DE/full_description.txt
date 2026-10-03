@@ -20,4 +20,4 @@ Datenschutz und Offenheit:
 Benachrichtigungen:
 Push-Benachrichtigungen laufen über UnifiedPush. Installiere einen Distributor wie ntfy (auf F-Droid verfügbar), und Jackpoll stellt Benachrichtigungen darüber zu, über ntfy.sh oder deinen eigenen ntfy-Server.
 
-Die App ist ein Client für einen Jackpoll-Server. Nutze die offizielle Instanz oder verbinde sie mit deiner eigenen Installation.
+Die App ist ein Client für einen Jackpoll-Server. Beim ersten Start verbindet sie sich mit der offiziellen Instanz (app.jackpoll.org), und die Oberfläche der App wird von dem Server geladen, mit dem du verbunden bist. Für deine eigene Installation tippe vor der Anmeldung unter dem Login-Formular auf „Server ändern“. Links zu anderen Websites öffnen sich in deinem Browser.

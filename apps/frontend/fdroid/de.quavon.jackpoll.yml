@@ -29,9 +29,9 @@ Repo: https://github.com/jackpoll-org/jackpoll.git
 Binaries: https://github.com/jackpoll-org/jackpoll/releases/download/v%v/jackpoll-%v.apk
 
 Builds:
-  - versionName: 1.0.3
-    versionCode: 4
-    commit: v1.0.3
+  - versionName: 1.0.4
+    versionCode: 5
+    commit: v1.0.4
     subdir: apps/frontend/android/app
     sudo:
       - echo "deb https://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
@@ -51,5 +51,5 @@ AllowedAPKSigningKeys: 879d9185bb491834aea31c81c7f29308c317ea255920bb778947378c3
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
-CurrentVersion: 1.0.3
-CurrentVersionCode: 4
+CurrentVersion: 1.0.4
+CurrentVersionCode: 5
