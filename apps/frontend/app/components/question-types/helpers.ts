@@ -1,3 +1,4 @@
+import { arrayMove } from "@dnd-kit/sortable";
 import type { Option } from "@/app/types/survey";
 
 /** Generate a client-side id. The backend regenerates ids it doesn't recognise. */
@@ -34,4 +35,19 @@ export function updateOptionCapacity(
   capacity: number | null,
 ): Option[] {
   return options.map((o) => (o.id === id ? { ...o, capacity } : o));
+}
+
+/**
+ * Immutably move the option `activeId` to the position of `overId` (#10).
+ * Returns the input unchanged when either id is unknown or they are equal.
+ */
+export function reorderOptions(
+  options: Option[],
+  activeId: string,
+  overId: string,
+): Option[] {
+  const from = options.findIndex((o) => o.id === activeId);
+  const to = options.findIndex((o) => o.id === overId);
+  if (from === -1 || to === -1 || from === to) return options;
+  return arrayMove(options, from, to);
 }
