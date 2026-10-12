@@ -53,6 +53,18 @@ describe("evaluateCondition", () => {
     expect(evaluateCondition({ questionId: "q1", operator: "greaterThan", value: "3" }, { q1: "5" })).toBe(true);
     expect(evaluateCondition({ questionId: "q1", operator: "lessThan", value: "3" }, { q1: "1" })).toBe(true);
   });
+  it.each([0, 5, 100])("treats numeric answer %s as non-empty", (value) => {
+    expect(
+      evaluateCondition({ questionId: "q1", operator: "empty" }, { q1: value }),
+    ).toBe(false);
+
+    expect(
+      evaluateCondition(
+        { questionId: "q1", operator: "notEmpty" },
+        { q1: value },
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("getPrecedingQuestions", () => {
