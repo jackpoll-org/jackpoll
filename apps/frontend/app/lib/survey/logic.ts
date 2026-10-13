@@ -67,6 +67,7 @@ export function hasLogic(question: Question): boolean {
 
 function isEmpty(value: AnswerValue): boolean {
   if (value == null) return true;
+  if (typeof value === "number") return false;
   if (typeof value === "string") return value.trim() === "";
   if (Array.isArray(value)) return value.length === 0;
   return Object.keys(value).length === 0;
