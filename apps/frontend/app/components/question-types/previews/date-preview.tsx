@@ -1,6 +1,9 @@
 "use client";
 
 import { Input } from "@/app/components/ui/input";
+import { Label } from "@/app/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
+import { formatDateOnly } from "@/app/lib/survey/format";
 import { dateConfig } from "../editors/date-editor";
 import type { QuestionPreviewProps } from "../types";
 import { useTranslation } from "@/app/i18n/context";
@@ -14,13 +17,37 @@ export function DatePreview({
   onChange,
   disabled,
 }: QuestionPreviewProps) {
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
   const cfg = dateConfig(question.settings);
   const interactive = !!onChange && !disabled;
   const current = typeof value === "string" ? value : "";
   // Force dd.mm.yyyy / 24h formatting for German rather than the browser/OS
   // locale, independent of the min/max values themselves (#).
   const inputLang = locale === "de" ? "de-DE" : "en-US";
+
+  if (cfg.fixedDates) {
+    const dates = [...new Set(cfg.dates.filter(Boolean))].sort();
+    if (dates.length === 0) {
+      return <p className="text-sm text-muted-foreground italic">{t("qprev.date.empty")}</p>;
+    }
+    return (
+      <RadioGroup
+        disabled={!interactive}
+        value={current}
+        onValueChange={interactive ? (v) => onChange?.(v) : undefined}
+        className="grid gap-2"
+      >
+        {dates.map((d) => (
+          <div key={d} className="flex items-center gap-2">
+            <RadioGroupItem value={d} id={`${question.id}-${d}`} />
+            <Label htmlFor={`${question.id}-${d}`} className="font-normal">
+              {formatDateOnly(d, locale)}
+            </Label>
+          </div>
+        ))}
+      </RadioGroup>
+    );
+  }
 
   if (cfg.mode === "datetime") {
     const [datePart = "", timePart = ""] = current.split("T");

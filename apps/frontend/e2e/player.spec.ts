@@ -59,6 +59,34 @@ test.describe("survey player", () => {
     await expect(page.getByRole("textbox").first()).toHaveValue("Grace Hopper");
   });
 
+  test("picks one of the fixed dates", async ({ page }) => {
+    const ctx = await mockPublicSurvey(page, {
+      ...MOCK_SURVEY,
+      questions: [
+        {
+          id: "q-date",
+          type: "date",
+          title: "Which day suits you?",
+          required: true,
+          order: 0,
+          sectionId: "s1",
+          settings: { mode: "date", fixedDates: true, dates: ["2026-05-08", "2026-05-01", ""] },
+        },
+      ],
+      sections: [{ id: "s1", title: "Scheduling", order: 0 }],
+    });
+    await page.goto(EMBED);
+
+    const radios = page.getByRole("radio");
+    await expect(radios).toHaveCount(2);
+    await expect(page.getByText("May 1, 2026")).toBeVisible();
+    await page.getByText("May 8, 2026").click();
+    await page.getByRole("button", { name: "Submit", exact: true }).click();
+
+    await expect(page.getByText("Thanks — your response was recorded!")).toBeVisible();
+    expect(JSON.stringify(ctx.submitted[0])).toContain('"2026-05-08"');
+  });
+
   test("has no critical accessibility violations", async ({ page }) => {
     await mockPublicSurvey(page);
     await page.goto(EMBED);

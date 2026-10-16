@@ -1,7 +1,10 @@
 "use client";
 
+import { Plus, X } from "lucide-react";
+import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { Switch } from "@/app/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -57,6 +60,10 @@ export function dateConfig(settings: Record<string, unknown> | null | undefined)
     dateMax: settings?.dateMax != null ? str(settings.dateMax) : legacyMax.date,
     timeMin: settings?.timeMin != null ? str(settings.timeMin) : legacyMin.time,
     timeMax: settings?.timeMax != null ? str(settings.timeMax) : legacyMax.time,
+    fixedDates: mode === "date" && settings?.fixedDates === true,
+    dates: Array.isArray(settings?.dates)
+      ? settings.dates.filter((d): d is string => typeof d === "string")
+      : [],
   };
 }
 
@@ -90,7 +97,61 @@ export function DateEditor({ question, onChange }: QuestionEditorProps) {
         </Select>
       </div>
 
-      {(cfg.mode === "date" || cfg.mode === "datetime") && (
+      {cfg.mode === "date" && (
+        <div className="flex items-center gap-2">
+          <Switch
+            id={`${question.id}-fixed-dates`}
+            checked={cfg.fixedDates}
+            onCheckedChange={(c) =>
+              patch({ fixedDates: c, dates: c && cfg.dates.length === 0 ? [""] : cfg.dates })
+            }
+          />
+          <Label htmlFor={`${question.id}-fixed-dates`} className="font-normal">
+            {t("qedit.date.fixedDates")}
+          </Label>
+        </div>
+      )}
+
+      {cfg.fixedDates && (
+        <div className="grid gap-2">
+          {cfg.dates.map((d, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input
+                type="date"
+                lang={inputLang}
+                aria-label={t("qedit.date.date")}
+                value={d}
+                onChange={(e) =>
+                  patch({ dates: cfg.dates.map((x, j) => (j === i ? e.target.value : x)) })
+                }
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={t("qedit.removeItem", { label: d || t("qedit.date.date") })}
+                onClick={() => patch({ dates: cfg.dates.filter((_, j) => j !== i) })}
+                disabled={cfg.dates.length <= 1}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          ))}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => patch({ dates: [...cfg.dates, ""] })}
+            >
+              <Plus className="size-4" />
+              {t("qedit.date.addDate")}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {((cfg.mode === "date" && !cfg.fixedDates) || cfg.mode === "datetime") && (
         <div className="grid gap-1">
           <Label className="text-xs">{t("qedit.date.dateRange")}</Label>
           <div className="grid grid-cols-2 gap-3">

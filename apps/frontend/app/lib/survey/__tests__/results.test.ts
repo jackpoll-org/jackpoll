@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupTextAnswers } from "../results";
+import { groupDateAnswers, groupTextAnswers } from "../results";
 
 describe("groupTextAnswers", () => {
   it("groups answers case-insensitively and counts them", () => {
@@ -31,5 +31,21 @@ describe("groupTextAnswers", () => {
 
   it("returns an empty array for no answers", () => {
     expect(groupTextAnswers([])).toEqual([]);
+  });
+});
+
+describe("groupDateAnswers", () => {
+  it("lists offered dates nobody picked with a zero count", () => {
+    const out = groupDateAnswers(["2026-11-13", "2026-11-13"], "date", [
+      "2026-11-20",
+      "2026-11-06",
+      "2026-11-13",
+      "",
+    ]);
+    expect(out.map((g) => [g.date, g.count])).toEqual([
+      ["2026-11-06", 0],
+      ["2026-11-13", 2],
+      ["2026-11-20", 0],
+    ]);
   });
 });

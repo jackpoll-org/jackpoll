@@ -69,4 +69,24 @@ describe("dateConfig", () => {
     expect(cfg.dateMin).toBe("2026-01-01");
     expect(cfg.dateMax).toBe("2026-12-31");
   });
+
+  it("defaults to no fixed dates", () => {
+    const cfg = dateConfig({ mode: "date" });
+    expect(cfg.fixedDates).toBe(false);
+    expect(cfg.dates).toEqual([]);
+  });
+
+  it("reads fixed dates, dropping non-string entries", () => {
+    const cfg = dateConfig({
+      mode: "date",
+      fixedDates: true,
+      dates: ["2026-05-01", 7, "2026-05-08"],
+    });
+    expect(cfg.fixedDates).toBe(true);
+    expect(cfg.dates).toEqual(["2026-05-01", "2026-05-08"]);
+  });
+
+  it("only enables fixed dates in date mode", () => {
+    expect(dateConfig({ mode: "datetime", fixedDates: true }).fixedDates).toBe(false);
+  });
 });

@@ -59,9 +59,16 @@ function countBy(values: string[]): Map<string, number> {
  * count instead of repeating it per response (e.g. "×6  11.12.1990" with the
  * chosen times listed underneath), rather than a flat per-response list.
  */
-export function groupDateAnswers(answers: string[], mode: DateAnswerMode): DateGroup[] {
+export function groupDateAnswers(
+  answers: string[],
+  mode: DateAnswerMode,
+  offeredDates: string[] = [],
+): DateGroup[] {
   if (mode === "date") {
     const counts = countBy(answers);
+    for (const date of offeredDates) {
+      if (date && !counts.has(date)) counts.set(date, 0);
+    }
     return [...counts.entries()]
       .map(([date, count]) => ({ date, count, times: [] }))
       .sort((a, b) => a.date.localeCompare(b.date));

@@ -763,6 +763,9 @@ export const en = {
   "qedit.date.latest": "Latest (optional)",
   "qedit.date.dateRange": "Date range",
   "qedit.date.timeRange": "Time range",
+  "qedit.date.fixedDates": "Only specific dates to choose from",
+  "qedit.date.addDate": "Add date",
+  "qprev.date.empty": "No dates yet",
 
   // ── Question-type previews / player (issue #93) ──────────────────
   "qprev.signature.pad": "Signature pad",
@@ -1914,6 +1917,9 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "qedit.date.latest": "Spätestens (optional)",
   "qedit.date.dateRange": "Datumsbereich",
   "qedit.date.timeRange": "Uhrzeitbereich",
+  "qedit.date.fixedDates": "Nur bestimmte Daten zur Auswahl",
+  "qedit.date.addDate": "Datum hinzufügen",
+  "qprev.date.empty": "Noch keine Daten",
 
   // ── Vorschauen / Player (issue #93) ──────────────────────────────
   "qprev.signature.pad": "Unterschriftsfeld",

@@ -308,7 +308,7 @@ export function QuestionResultCard({
         // same date once per response (#).
         const answers = result.textAnswers ?? [];
         const cfg = dateConfig(question?.settings);
-        const groups = groupDateAnswers(answers, cfg.mode);
+        const groups = groupDateAnswers(answers, cfg.mode, cfg.fixedDates ? cfg.dates : []);
         return (
           <ul className="grid gap-2">
             {groups.map((g) => (
