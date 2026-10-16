@@ -88,7 +88,7 @@
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
-            <version>8.5.17</version>
+            <version>8.6.0</version>
         </dependency>
 
         <!-- Excel (.xlsx) export (issue #32) -->
