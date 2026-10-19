@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 
 import { Button } from "@/app/components/ui/button";
+import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Alert, AlertDescription } from "@/app/components/ui/alert";
@@ -23,6 +25,9 @@ export function RegisterForm() {
   const registerMutation = useRegister();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const termsRequired =
+    false;
 
   const schema = useMemo(() => registerSchema(t), [t]);
   const {
@@ -36,7 +41,7 @@ export function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      const res = await registerMutation.mutateAsync(data);
+      const res = await registerMutation.mutateAsync({ ...data, acceptedTerms });
       // Instances with email verification disabled (self-host without a mail
       // provider) activate the account immediately — send the user to sign in
       // instead of the "check your email" screen.
@@ -147,7 +152,12 @@ export function RegisterForm() {
           )}
         </div>
 
-        <Button type="submit" disabled={registerMutation.isPending} className="w-full">
+
+        <Button
+          type="submit"
+          disabled={registerMutation.isPending || (termsRequired && !acceptedTerms)}
+          className="w-full"
+        >
           {registerMutation.isPending ? (
             <>
               <Spinner className="size-4" />

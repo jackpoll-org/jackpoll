@@ -1,10 +1,14 @@
 package org.acme.resource;
 
 import org.acme.dto.ApiResponse;
+import org.acme.exception.RateLimitedException;
+import org.acme.service.AccessCodeService;
 import org.acme.service.LivePresentService;
+import org.acme.service.RateLimiterService;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -12,11 +16,13 @@ import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -36,6 +42,12 @@ public class LiveResource {
     @Inject
     org.acme.service.LiveSessionService sessionService;
 
+    @Inject
+    AccessCodeService accessCodes;
+
+    @Inject
+    RateLimiterService rateLimiter;
+
     /** Broadcast the presenter's current position to all participants. */
     @POST
     @Path("/state")
@@ -52,7 +64,17 @@ public class LiveResource {
     @POST
     @Path("/join")
     @PermitAll
-    public Response join(@PathParam("id") String id, @Valid JoinRequest req) {
+    public Response join(
+        @PathParam("id") String id,
+        @Valid JoinRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context HttpServerRequest http
+    ) {
+        String ip = ClientIp.of(forwardedFor, http);
+        if (!rateLimiter.allow("live-join|" + id + "|" + (ip == null ? "unknown" : ip), 1200, 60)) {
+            throw new RateLimitedException("Too many requests. Please wait a moment and try again.");
+        }
+        accessCodes.requireAccess(id);
         liveService.announceJoin(id, req.name());
         return Response.ok(ApiResponse.ok(null)).build();
     }
@@ -98,6 +120,7 @@ public class LiveResource {
         @PathParam("id") String id,
         @QueryParam("limit") @DefaultValue("10") int limit
     ) {
+        accessCodes.requireAccess(id);
         return Response.ok(ApiResponse.ok(sessionService.leaderboard(id, limit))).build();
     }
 

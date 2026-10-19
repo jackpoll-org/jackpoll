@@ -143,8 +143,8 @@ export async function changePasswordApi(
 }
 
 /** GDPR erasure (Art. 17) — delete the account and all its data. */
-export async function deleteAccountApi(): Promise<ApiResponse<null>> {
-  return request<null>("/me", { method: "DELETE" });
+export async function deleteAccountApi(password: string): Promise<ApiResponse<null>> {
+  return request<null>("/me", { method: "DELETE", body: JSON.stringify({ password }) });
 }
 
 /** GDPR access/portability (Art. 15/20) — download all of the user's data as JSON. */

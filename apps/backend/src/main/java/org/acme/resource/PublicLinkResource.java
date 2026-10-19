@@ -1,6 +1,7 @@
 package org.acme.resource;
 
 import org.acme.dto.ApiResponse;
+import org.acme.service.AccessCodeService;
 import org.acme.service.ShareLinkService;
 
 import jakarta.annotation.security.PermitAll;
@@ -20,10 +21,15 @@ public class PublicLinkResource {
     @Inject
     ShareLinkService shareLinkService;
 
+    @Inject
+    AccessCodeService accessCodes;
+
     @GET
     @Path("/{slug}")
     @PermitAll
     public Response resolve(@PathParam("slug") String slug) {
-        return Response.ok(ApiResponse.ok(shareLinkService.resolve(slug))).build();
+        var survey = shareLinkService.resolve(slug);
+        accessCodes.requireAccess(survey.id());
+        return Response.ok(ApiResponse.ok(survey)).build();
     }
 }

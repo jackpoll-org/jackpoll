@@ -1,11 +1,19 @@
 package org.acme.resource;
 
 import org.acme.dto.ApiResponse;
+import org.acme.dto.AuthDtos.DeleteAccountRequest;
+import org.acme.exception.ForbiddenAccessException;
+import org.acme.exception.RateLimitedException;
+import org.acme.repository.UserRepository;
 import org.acme.service.GdprService;
+import org.acme.service.KeycloakService;
+import org.acme.service.RateLimiterService;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
+import jakarta.validation.Valid;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -26,6 +34,15 @@ public class GdprResource {
     @Inject
     SecurityIdentity identity;
 
+    @Inject
+    UserRepository users;
+
+    @Inject
+    KeycloakService keycloak;
+
+    @Inject
+    RateLimiterService rateLimiter;
+
     private String userId() {
         return identity.getPrincipal().getName();
     }
@@ -40,9 +57,17 @@ public class GdprResource {
             .build();
     }
 
-    /** Right to erasure (Art. 17) — delete the account and all its data. */
+    /** Right to erasure (Art. 17) — delete the account and all its data, after re-entering the password. */
     @DELETE
-    public Response deleteAccount() {
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response deleteAccount(@Valid DeleteAccountRequest req) {
+        if (!rateLimiter.allow("delete-me|" + userId(), 5, 900)) {
+            throw new RateLimitedException("Too many attempts. Please wait a moment and try again.");
+        }
+        var email = users.findByIdOptional(userId()).map(u -> u.email).orElse(null);
+        if (req == null || email == null || !keycloak.verifyPassword(email, req.password())) {
+            throw new ForbiddenAccessException("The password is incorrect.");
+        }
         gdprService.deleteAccount(userId());
         // Drop the refresh cookie — the session is gone.
         var cleared = new NewCookie.Builder("refresh_token")

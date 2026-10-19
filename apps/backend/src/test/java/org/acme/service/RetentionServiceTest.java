@@ -8,6 +8,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+import org.acme.entity.Question;
+import org.acme.entity.QuestionType;
+import org.acme.entity.ResponseAnswer;
 import org.acme.entity.Survey;
 import org.acme.entity.SurveyResponse;
 import org.acme.entity.SurveySettings;
@@ -84,5 +87,89 @@ class RetentionServiceTest {
         assertEquals(1, affected);
         var kept = responseRepo.findByIdOptional(oldId).orElseThrow();
         assertNull(kept.clientId, "client id cleared on anonymise");
+    }
+
+    @Test
+    void anonymiseDropsNameAndIdentifyingAnswers() {
+        var survey = newSurvey(30, true);
+        var text = new Question();
+        text.id = UUID.randomUUID().toString();
+        text.type = QuestionType.SHORT_ANSWER;
+        text.title = "Your name?";
+        var rating = new Question();
+        rating.id = UUID.randomUUID().toString();
+        rating.type = QuestionType.RATING;
+        rating.title = "Rate us";
+        String responseId = UUID.randomUUID().toString();
+        QuarkusTransaction.requiringNew().run(() -> {
+            var s = surveys.findById(survey.id);
+            text.survey = s;
+            rating.survey = s;
+            s.questions.add(text);
+            s.questions.add(rating);
+            var r = new SurveyResponse();
+            r.id = responseId;
+            r.surveyId = survey.id;
+            r.submittedAt = Instant.now().minus(60, ChronoUnit.DAYS);
+            r.respondentName = "Ada";
+            r.answers.add(answer(r, text.id, "Ada Lovelace"));
+            r.answers.add(answer(r, rating.id, 5));
+            responseRepo.persist(r);
+        });
+
+        QuarkusTransaction.requiringNew().run(() -> responses.applyRetention(survey, 30, true));
+
+        QuarkusTransaction.requiringNew().run(() -> {
+            var kept = responseRepo.findById(responseId);
+            assertNull(kept.respondentName);
+            assertEquals(1, kept.answers.size());
+            assertEquals(rating.id, kept.answers.get(0).questionId);
+        });
+    }
+
+    private static ResponseAnswer answer(SurveyResponse r, String questionId, Object value) {
+        var a = new ResponseAnswer();
+        a.id = UUID.randomUUID().toString();
+        a.response = r;
+        a.questionId = questionId;
+        a.value = value;
+        return a;
+    }
+
+    @Inject
+    RetentionService retention;
+
+    @Inject
+    org.acme.repository.ResponseDraftRepository drafts;
+
+    @Inject
+    org.acme.repository.NotificationRepository notifications;
+
+    @Test
+    void purgesExpiredDraftsAndOldNotifications() {
+        var draft = new org.acme.entity.ResponseDraft();
+        draft.id = UUID.randomUUID().toString();
+        draft.token = UUID.randomUUID().toString();
+        draft.surveyId = UUID.randomUUID().toString();
+        draft.answers = java.util.Map.of();
+        draft.createdAt = Instant.now().minus(31, ChronoUnit.DAYS);
+        draft.updatedAt = draft.createdAt;
+        draft.expiresAt = Instant.now().minus(1, ChronoUnit.DAYS);
+        var old = new org.acme.entity.Notification();
+        old.id = UUID.randomUUID().toString();
+        old.userId = UUID.randomUUID().toString();
+        old.eventType = "new_response";
+        old.title = "Old";
+        old.body = "Old";
+        old.createdAt = Instant.now().minus(91, ChronoUnit.DAYS);
+        QuarkusTransaction.requiringNew().run(() -> {
+            drafts.persist(draft);
+            notifications.persist(old);
+        });
+
+        retention.purgeStale();
+
+        assertEquals(0, drafts.count("id", draft.id), "expired draft purged");
+        assertEquals(0, notifications.count("id", old.id), "old notification purged");
     }
 }

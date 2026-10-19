@@ -349,7 +349,7 @@ export interface Invitation {
 
 /** Passwordless editing link (issue #22). */
 export interface CollabLink {
-  slug: string;
+  slug: string | null;
   expiresAt?: string | null;
 }
 

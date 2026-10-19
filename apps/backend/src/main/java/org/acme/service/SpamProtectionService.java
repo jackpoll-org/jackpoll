@@ -32,6 +32,7 @@ public class SpamProtectionService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long ALTCHA_MAX_NUMBER = 100_000L;
+    private static final long ALTCHA_TTL_SECONDS = 20 * 60;
     private static final String GENERIC = "Your submission could not be processed.";
 
     @ConfigProperty(name = "survey.spam.secret", defaultValue = "change-me-spam-secret")
@@ -85,18 +86,19 @@ public class SpamProtectionService {
 
     // ── Altcha proof-of-work CAPTCHA ──────────────────────────────
 
-    /** Build a fresh Altcha challenge for the widget. */
-    public AltchaChallenge createChallenge() {
+    /** Build a fresh Altcha challenge for the widget, valid only for {@code surveyId}. */
+    public AltchaChallenge createChallenge(String surveyId) {
         byte[] saltBytes = new byte[12];
         RANDOM.nextBytes(saltBytes);
-        String salt = HexFormat.of().formatHex(saltBytes);
+        long expires = Instant.now().getEpochSecond() + ALTCHA_TTL_SECONDS;
+        String salt = HexFormat.of().formatHex(saltBytes) + "?expires=" + expires + "&survey=" + surveyId;
         long number = (long) (RANDOM.nextDouble() * ALTCHA_MAX_NUMBER);
         String challenge = sha256Hex(salt + number);
         String signature = hmacHex(challenge);
         return new AltchaChallenge("SHA-256", challenge, ALTCHA_MAX_NUMBER, salt, signature);
     }
 
-    private void verifyCaptcha(String payloadBase64) {
+    void verifyCaptcha(String payloadBase64, String surveyId) {
         if (payloadBase64 == null || payloadBase64.isBlank()) throw spam();
         try {
             byte[] decoded = Base64.getDecoder().decode(payloadBase64);
@@ -109,6 +111,13 @@ public class SpamProtectionService {
             String expectedChallenge = sha256Hex(salt + number);
             if (!constantTimeEquals(expectedChallenge, challenge)) throw spam();
             if (!constantTimeEquals(hmacHex(challenge), signature)) throw spam();
+            int at = salt.indexOf("?expires=");
+            int survey = salt.indexOf("&survey=");
+            if (at < 0 || survey < at
+                    || Long.parseLong(salt.substring(at + 9, survey)) < Instant.now().getEpochSecond()
+                    || !salt.substring(survey + 8).equals(surveyId)) {
+                throw spam();
+            }
         } catch (SpamRejectedException e) {
             throw e;
         } catch (Exception e) {
@@ -149,7 +158,7 @@ public class SpamProtectionService {
             verifyTiming(surveyId, beginToken, settings.minSubmitSeconds);
         }
         if (settings.requireCaptcha) {
-            verifyCaptcha(captcha);
+            verifyCaptcha(captcha, surveyId);
         }
         return false;
     }
@@ -166,7 +175,7 @@ public class SpamProtectionService {
 
     // ── Crypto helpers ────────────────────────────────────────────
 
-    private String hmacHex(String data) {
+    String hmacHex(String data) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
@@ -185,7 +194,7 @@ public class SpamProtectionService {
         }
     }
 
-    private boolean constantTimeEquals(String a, String b) {
+    static boolean constantTimeEquals(String a, String b) {
         if (a == null || b == null) return false;
         return MessageDigest.isEqual(
             a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));

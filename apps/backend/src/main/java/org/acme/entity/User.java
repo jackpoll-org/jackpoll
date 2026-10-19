@@ -47,6 +47,12 @@ public class User extends PanacheEntityBase {
     @Column(name = "name_changed_at")
     public Instant nameChangedAt;
 
+    @Column(name = "terms_accepted_at")
+    public Instant termsAcceptedAt;
+
+    @Column(name = "terms_version", length = 32)
+    public String termsVersion;
+
     @PrePersist
     void onCreate() {
         var now = Instant.now();

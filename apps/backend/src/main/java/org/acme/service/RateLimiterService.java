@@ -10,6 +10,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import io.quarkus.redis.datasource.RedisDataSource;
+import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -32,6 +33,7 @@ import jakarta.inject.Inject;
 public class RateLimiterService {
 
     private static final Logger LOG = Logger.getLogger(RateLimiterService.class);
+    private static final long IDLE_EVICT_MS = Duration.ofHours(2).toMillis();
 
     @ConfigProperty(name = "survey.rate-limit.backend", defaultValue = "memory")
     String backend;
@@ -41,6 +43,7 @@ public class RateLimiterService {
 
     /** key → recent hit timestamps (epoch millis), for the in-memory backend. */
     private final Map<String, Deque<Long>> hits = new ConcurrentHashMap<>();
+
 
     /**
      * Record one hit for {@code key} and report whether it is within the limit.
@@ -55,6 +58,19 @@ public class RateLimiterService {
             // Redis unreachable → degrade to the local window rather than failing.
         }
         return allowInMemory(key, max, windowSeconds);
+    }
+
+    /** Drop in-memory windows idle for longer than any limit uses, so the map can't grow without bound. */
+    @Scheduled(every = "10m", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+    void evictIdle() {
+        long cutoff = System.currentTimeMillis() - IDLE_EVICT_MS;
+        for (String key : hits.keySet()) {
+            hits.computeIfPresent(key, (k, deque) -> {
+                synchronized (deque) {
+                    return deque.isEmpty() || deque.peekLast() < cutoff ? null : deque;
+                }
+            });
+        }
     }
 
     // ── Redis fixed-window ────────────────────────────────────────

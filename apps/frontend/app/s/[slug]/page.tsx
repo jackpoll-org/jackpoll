@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ApiError } from "@/app/lib/survey/api";
 import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
 import { usePublicLink } from "@/app/hooks/survey";
 import { Spinner } from "@/app/components/ui/spinner";
@@ -29,10 +31,17 @@ export default function ShareLinkPage() {
 
   if (isError || !survey) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          {error instanceof Error ? error.message : t("player.linkUnavailable")}
-        </p>
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : t("player.linkUnavailable")}
+          </p>
+          {error instanceof ApiError && error.status === 403 && (
+            <Link href="/join" className="text-sm font-medium underline underline-offset-4">
+              {t("join.title")}
+            </Link>
+          )}
+        </div>
       </div>
     );
   }

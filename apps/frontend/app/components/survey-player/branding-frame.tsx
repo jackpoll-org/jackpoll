@@ -56,10 +56,9 @@ export function BrandingHeader({ survey }: { survey: Survey }) {
 
 export function PoweredBy({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
-  if (!survey.settings.showPoweredBy) return null;
   return (
-    <p className="pt-2 text-center text-xs text-muted-foreground">
-      {t("player.poweredBy")}
-    </p>
+    <div className="grid gap-1 pt-2 text-center text-xs text-muted-foreground">
+      {survey.settings.showPoweredBy && <p>{t("player.poweredBy")}</p>}
+    </div>
   );
 }

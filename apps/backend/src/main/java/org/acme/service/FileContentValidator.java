@@ -102,8 +102,10 @@ public final class FileContentValidator {
         String text = new String(b, StandardCharsets.UTF_8);
         String lower = text.toLowerCase(Locale.ROOT);
         if (!lower.contains("<svg")) return false;
-        if (lower.contains("<script") || lower.contains("javascript:")) return false;
-        if (lower.matches("(?s).*\\son[a-z]+\\s*=.*")) return false;
+        if (lower.contains("<script") || lower.contains("javascript:")
+            || lower.contains("<foreignobject") || lower.contains("&#")
+            || lower.contains("<!entity")) return false;
+        if (lower.matches("(?s).*[\\s/\"']on[a-z]+\\s*=.*")) return false;
         return true;
     }
 

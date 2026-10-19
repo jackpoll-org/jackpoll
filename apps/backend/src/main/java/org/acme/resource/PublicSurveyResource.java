@@ -4,6 +4,7 @@ import org.acme.dto.AnalyticsDtos.TrackRequest;
 import org.acme.dto.ApiResponse;
 import org.acme.dto.DraftDtos.SaveDraftRequest;
 import org.acme.dto.SpamDtos.BeginResponse;
+import org.acme.service.AccessCodeService;
 import org.acme.service.AnalyticsService;
 import org.acme.service.DraftService;
 import org.acme.service.ResponseService;
@@ -42,10 +43,14 @@ public class PublicSurveyResource {
     @Inject
     SpamProtectionService spamProtection;
 
+    @Inject
+    AccessCodeService accessCodes;
+
     @GET
     @Path("/{id}")
     @PermitAll
     public Response getPublished(@PathParam("id") String id) {
+        accessCodes.requireAccess(id);
         return Response.ok(ApiResponse.ok(surveyService.getPublished(id))).build();
     }
 
@@ -63,6 +68,7 @@ public class PublicSurveyResource {
     @Path("/{id}/live-results")
     @PermitAll
     public Response liveResults(@PathParam("id") String id) {
+        accessCodes.requireAccess(id);
         return Response.ok(ApiResponse.ok(responseService.liveResults(id))).build();
     }
 
@@ -72,6 +78,7 @@ public class PublicSurveyResource {
     @PermitAll
     @Consumes(MediaType.APPLICATION_JSON)
     public Response saveDraft(@PathParam("id") String id, @Valid SaveDraftRequest req) {
+        accessCodes.requireAccess(id);
         return Response.ok(ApiResponse.ok(draftService.save(id, req))).build();
     }
 
@@ -80,6 +87,7 @@ public class PublicSurveyResource {
     @Path("/{id}/begin")
     @PermitAll
     public Response begin(@PathParam("id") String id) {
+        accessCodes.requireAccess(id);
         return Response.ok(
             ApiResponse.ok(new BeginResponse(spamProtection.issueBeginToken(id)))).build();
     }
@@ -90,6 +98,6 @@ public class PublicSurveyResource {
     @PermitAll
     public Response altcha(@PathParam("id") String id) {
         // Altcha widgets expect the raw challenge object (no envelope).
-        return Response.ok(spamProtection.createChallenge()).build();
+        return Response.ok(spamProtection.createChallenge(id)).build();
     }
 }

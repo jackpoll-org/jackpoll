@@ -42,6 +42,8 @@ test.describe("full-stack smoke", () => {
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByLabel("Confirm Password").fill(password);
+    const terms = page.getByRole("checkbox");
+    if (await terms.count()) await terms.check();
     await page.getByRole("button", { name: "Create account" }).click();
 
     // Without email verification (the e2e stack mocks mail), registration sends

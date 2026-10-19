@@ -44,7 +44,7 @@ export default function ResumeDraftPage() {
 
   if (draftQuery.isError || !draft) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-4 text-center">
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">{t("draft.expired")}</p>
       </div>
     );
@@ -52,7 +52,7 @@ export default function ResumeDraftPage() {
 
   if (surveyQuery.isError || !survey) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-4 text-center">
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">
           {t("player.linkUnavailable")}
         </p>

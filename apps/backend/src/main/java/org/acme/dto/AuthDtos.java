@@ -30,7 +30,8 @@ public final class AuthDtos {
         @NotBlank @Size(min = 8)
         @Pattern(regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).+$",
                  message = "Password must contain at least one uppercase letter, one lowercase letter, and one number")
-        String password
+        String password,
+        Boolean acceptedTerms
     ) {}
 
     // ── Email verification (#security email-verify) ───────────────
@@ -88,6 +89,8 @@ public final class AuthDtos {
     public record UpdateProfileRequest(
         @NotBlank @Size(max = 100) String name
     ) {}
+
+    public record DeleteAccountRequest(@NotBlank String password) {}
 
     public record ChangePasswordRequest(
         @NotBlank String currentPassword,

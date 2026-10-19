@@ -674,11 +674,16 @@ public class ResponseService {
 
     // ── Data retention (issue #64) ────────────────────────────────
 
+    private static final Set<QuestionType> IDENTIFYING_TYPES = java.util.EnumSet.of(
+        QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER, QuestionType.WORDCLOUD,
+        QuestionType.DATE, QuestionType.FILE_UPLOAD, QuestionType.SIGNATURE);
+
     /**
      * Purge or anonymise responses to {@code survey} older than its retention
      * window. Delete mode releases any quota the response held (#38);
      * anonymise mode de-links the response from the respondent (clears the
-     * hashed client id and edit token) while keeping answers for aggregates.
+     * hashed client id, edit token and name, and drops free-text, date, file
+     * and signature answers) while keeping the rest for aggregates.
      * Runs in its own transaction per survey. Returns the number affected.
      */
     @Transactional
@@ -687,9 +692,15 @@ public class ResponseService {
         var expired = responseRepository.findOlderThan(survey.id, cutoff);
         if (expired.isEmpty()) return 0;
         if (anonymize) {
+            var identifying = new HashSet<String>();
+            for (var q : surveyRepository.findById(survey.id).questions) {
+                if (IDENTIFYING_TYPES.contains(q.type)) identifying.add(q.id);
+            }
             for (var r : expired) {
                 r.clientId = null;
                 r.editToken = null;
+                r.respondentName = null;
+                r.answers.removeIf(a -> identifying.contains(a.questionId));
             }
         } else {
             var capped = cappedOptionIds(survey);

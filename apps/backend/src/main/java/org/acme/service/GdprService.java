@@ -2,8 +2,10 @@ package org.acme.service;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
+import org.acme.entity.User;
 import org.acme.exception.ResourceNotFoundException;
 import org.acme.mapper.SurveyMapper;
 import org.acme.repository.AccessCodeRepository;
@@ -21,8 +23,12 @@ import org.acme.repository.TemplateRepository;
 import org.acme.repository.UserRepository;
 import org.acme.repository.WebhookRepository;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 /**
@@ -34,6 +40,8 @@ import jakarta.transaction.Transactional;
 public class GdprService {
 
     @Inject UserRepository users;
+    @Inject EntityManager em;
+    @Inject ObjectMapper json;
     @Inject SurveyRepository surveys;
     @Inject SurveyMapper surveyMapper;
     @Inject ResponseService responseService;
@@ -65,21 +73,53 @@ public class GdprService {
             entry.put("survey", surveyMapper.toDto(s));
             // Responses to the user's own surveys are part of their data.
             entry.put("responses", responseService.list(userId, s.id, null, null, false));
+            entry.put("shareLink", shareLinks.findBySurvey(s.id).map(l -> l.slug).orElse(null));
+            entry.put("accessCode", accessCodes.findBySurvey(s.id).map(c -> c.code).orElse(null));
+            entry.put("webhooks", webhooks.findBySurvey(s.id).stream()
+                .map(w -> Map.of("url", w.url, "createdAt", String.valueOf(w.createdAt)))
+                .toList());
             return entry;
         }).toList();
 
         var out = new LinkedHashMap<String, Object>();
         out.put("exportedAt", Instant.now().toString());
-        out.put("user", Map.of(
-            "id", user.id,
-            "email", user.email,
-            "name", user.name == null ? "" : user.name,
-            "emailVerified", user.emailVerified,
-            "createdAt", user.createdAt == null ? "" : user.createdAt.toString()));
+        var profile = new LinkedHashMap<String, Object>();
+        profile.put("id", user.id);
+        profile.put("email", user.email);
+        profile.put("name", user.name);
+        profile.put("emailVerified", user.emailVerified);
+        profile.put("locale", user.locale);
+        profile.put("createdAt", user.createdAt);
+        profile.put("nameChangedAt", user.nameChangedAt);
+        profile.put("termsAcceptedAt", user.termsAcceptedAt);
+        profile.put("termsVersion", user.termsVersion);
+        out.put("user", profile);
         out.put("surveys", surveyExports);
+        out.put("collaborations", collaborators.findByUser(userId).stream()
+            .map(c -> Map.of("surveyId", c.surveyId, "role", c.role, "status", c.status))
+            .toList());
         out.put("folders", folders.list("ownerId", userId));
         out.put("templates", templates.list("ownerId", userId));
+        out.put("devices", devices.findByUser(userId).stream()
+            .map(d -> Map.of("platform", String.valueOf(d.platform), "registeredAt", String.valueOf(d.createdAt)))
+            .toList());
+        out.put("notificationPreferences", notificationPrefs.findAllForUser(userId));
+        out.put("notifications", notifications.list("userId", userId));
         return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<JsonNode> jsonRows(String sql, User user) {
+        var query = em.createNativeQuery(sql);
+        if (sql.contains(":id")) query.setParameter("id", user.id);
+        query.setParameter("email", user.email);
+        return ((List<String>) query.getResultList()).stream().map(row -> {
+            try {
+                return json.readTree(row);
+            } catch (Exception e) {
+                throw new IllegalStateException("Unreadable export row", e);
+            }
+        }).toList();
     }
 
     // ── Erasure (Art. 17) ─────────────────────────────────────────

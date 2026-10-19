@@ -40,6 +40,10 @@ public class AuthService {
     @ConfigProperty(name = "survey.profile.name-change.min-interval-days", defaultValue = "7")
     int nameChangeMinIntervalDays;
 
+    /** Version of the terms of use new accounts must accept; empty = this instance has none. */
+    @ConfigProperty(name = "app.terms-version")
+    java.util.Optional<String> termsVersion;
+
     public AuthService(UserRepository userRepository, KeycloakService keycloakService,
                        EmailCodeService emailCodeService, GdprService gdprService) {
         this.userRepository = userRepository;
@@ -57,12 +61,20 @@ public class AuthService {
     @Transactional
     public ApiResponse<AuthDtos.RegisterResult> register(
         AuthDtos.RegisterRequest req, String acceptLanguage) {
+        if (termsVersion.isPresent() && !Boolean.TRUE.equals(req.acceptedTerms())) {
+            throw new IllegalArgumentException("Please accept the terms of use.");
+        }
         var result = keycloakService.register(req);
         if (!result.success()) {
             return ApiResponse.error(result.error());
         }
         syncLocalUser(result.data(), acceptLanguage); // emailVerified = false
         String email = result.data().email();
+        termsVersion.ifPresent(version ->
+            userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(u -> {
+                u.termsAcceptedAt = Instant.now();
+                u.termsVersion = version;
+            }));
 
         // Verification disabled (self-host without a mail provider): activate the
         // account immediately so the user can sign in without confirming a code.

@@ -1,6 +1,5 @@
 package org.acme.service;
 
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -95,8 +94,8 @@ public class WebhookService {
     @Inject
     NotificationPreferenceRepository notificationPrefs;
 
-    @ConfigProperty(name = "survey.webhook.allow-private", defaultValue = "false")
-    boolean allowPrivate;
+    @Inject
+    OutboundUrlGuard urlGuard;
 
     @ConfigProperty(name = "survey.webhook.timeout-seconds", defaultValue = "10")
     long timeoutSeconds;
@@ -111,7 +110,7 @@ public class WebhookService {
     @Transactional
     public WebhookDto create(String ownerId, String surveyId, CreateWebhookRequest req) {
         surveyService.requireOwner(ownerId, surveyId);
-        validateUrl(req.url());
+        urlGuard.ensureAllowed(req.url());
         var hook = new Webhook();
         hook.id = UUID.randomUUID().toString();
         hook.surveyId = surveyId;
@@ -201,7 +200,7 @@ public class WebhookService {
 
     private Outcome deliverOnce(String url, String secret, String event, String body) {
         try {
-            ensureAllowed(url);
+            urlGuard.ensureAllowed(url);
             String timestamp = String.valueOf(Instant.now().getEpochSecond());
             String signature = "sha256=" + hmacHex(secret, timestamp + "." + body);
             var request = HttpRequest.newBuilder(URI.create(url))
@@ -266,45 +265,6 @@ public class WebhookService {
             QuarkusTransaction.requiringNew().run(() -> recordOutcomeTx(webhookId, outcome));
         } catch (Exception e) {
             LOG.warnf("Failed to record webhook outcome: %s", e.getMessage());
-        }
-    }
-
-    // ── SSRF guard ────────────────────────────────────────────────
-
-    /** Reject obviously-internal targets unless explicitly allowed (dev). */
-    private void validateUrl(String url) {
-        try {
-            ensureAllowed(url);
-        } catch (SpamRejectedException e) {
-            throw new SpamRejectedException(e.getMessage());
-        }
-    }
-
-    private void ensureAllowed(String url) {
-        URI uri;
-        try {
-            uri = URI.create(url);
-        } catch (Exception e) {
-            throw new SpamRejectedException("Invalid webhook URL.");
-        }
-        var scheme = uri.getScheme();
-        if (scheme == null || !(scheme.equals("http") || scheme.equals("https"))) {
-            throw new SpamRejectedException("Webhook URL must use http or https.");
-        }
-        if (allowPrivate) return;
-        try {
-            for (InetAddress addr : InetAddress.getAllByName(uri.getHost())) {
-                if (addr.isLoopbackAddress() || addr.isAnyLocalAddress()
-                        || addr.isLinkLocalAddress() || addr.isSiteLocalAddress()
-                        || addr.isMulticastAddress()) {
-                    throw new SpamRejectedException(
-                        "Webhook URL must point to a public address.");
-                }
-            }
-        } catch (SpamRejectedException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new SpamRejectedException("Webhook host could not be resolved.");
         }
     }
 

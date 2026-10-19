@@ -50,8 +50,7 @@ public class EmailCodeService {
     int maxAttempts;
 
     /** HMAC key for hashing codes at rest. Set EMAIL_CODE_SECRET in production. */
-    @ConfigProperty(name = "survey.auth.email-code.secret",
-        defaultValue = "change-me-email-code-secret")
+    @ConfigProperty(name = "survey.auth.email-code.secret")
     String secret;
 
     /**

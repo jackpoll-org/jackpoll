@@ -78,7 +78,7 @@ public class AuthResource {
      */
     private void enforceAuthRateLimit(String endpoint, String forwardedFor,
         io.vertx.core.http.HttpServerRequest http, String account) {
-        String ip = clientIp(forwardedFor, http);
+        String ip = ClientIp.of(forwardedFor, http);
         boolean ipOk = rateLimiter.allow(
             "auth|" + endpoint + "|ip|" + (ip == null ? "unknown" : ip),
             authRateLimitMax, authRateLimitWindowSeconds);
@@ -91,22 +91,6 @@ public class AuthResource {
         }
     }
 
-    /**
-     * Real client IP for brute-force rate limiting. The reverse proxy (Traefik)
-     * appends the true client address as the LAST X-Forwarded-For hop, so any
-     * values a client injects sit to its left. Take the rightmost hop — NOT the
-     * leftmost, which is attacker-controlled and would let a spoofed header mint
-     * a fresh rate-limit bucket per request. Falls back to the socket peer.
-     */
-    private static String clientIp(String forwardedFor, io.vertx.core.http.HttpServerRequest http) {
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            String[] hops = forwardedFor.split(",");
-            return hops[hops.length - 1].trim();
-        }
-        return http != null && http.remoteAddress() != null
-            ? http.remoteAddress().hostAddress()
-            : null;
-    }
 
     @ConfigProperty(name = "keycloak.url", defaultValue = "http://localhost:8180")
     String keycloakUrl;

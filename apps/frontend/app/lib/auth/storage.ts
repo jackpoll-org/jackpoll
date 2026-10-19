@@ -63,3 +63,10 @@ export function jwtExpiryMs(token: string): number | null {
     return null;
   }
 }
+
+/** Whether the stored access token has expired; a token without a readable expiry counts as valid. */
+export function storedTokenExpired(): boolean {
+  const token = getStoredToken();
+  const expiry = token ? jwtExpiryMs(token) : null;
+  return expiry !== null && expiry <= Date.now();
+}

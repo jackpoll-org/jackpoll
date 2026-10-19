@@ -2,12 +2,12 @@
 
 > TOMs for the SaaS deployment. Pairs with [OPERATIONS.md](../OPERATIONS.md)
 > (secrets, backups, health) and the [RoPA](./ropa.md).
-> **Last reviewed:** 2026-06-25.
+> **Last reviewed:** 2026-10-19.
 
 ## Encryption in transit
 
 - **TLS everywhere at the edge:** Traefik terminates HTTPS for the app, API,
-  Keycloak (`auth.survey.quavon.de`), and the collab websocket. HTTP→HTTPS
+  Keycloak, and the collab websocket. HTTP→HTTPS
   upgrade enforced.
 - **Internal traffic** stays on the Docker overlay network (not publicly
   routable).
@@ -48,7 +48,11 @@
 - **"Log out of all devices" (#76)** revokes all sessions via the Keycloak admin
   API.
 - **Authorisation:** role-based survey access (owner/editor/viewer, #8); every
-  owner endpoint checks ownership server-side.
+  owner endpoint checks ownership server-side. The co-editing WebSocket requires
+  a bearer token and survey access; viewers cannot push edits.
+- **Access codes** are enforced server-side with an HMAC token bound to the
+  current code; rotating the code revokes access.
+- **Account deletion** in the app requires the current password.
 
 ## Application hardening
 
@@ -57,7 +61,12 @@
   (embed widget intentionally framable, #7).
 - **CSRF:** SameSite cookies + token checks.
 - **Rate limiting & spam protection** on public endpoints (#31, HMAC tokens).
-- **File uploads:** type/size validation; optional ClamAV scan (`CLAMAV_*`).
+- **File uploads:** type/size validation; optional ClamAV scan (`CLAMAV_*`);
+  served with a sandboxing CSP so an uploaded SVG cannot run script.
+- **SSRF:** webhooks and Web Push endpoints only reach public addresses
+  (private, loopback, link-local, ULA, CGNAT blocked), redirects not followed.
+- **Secrets:** production refuses to start without its own email-code,
+  unsubscribe and spam secrets.
 - **Clickjacking:** `X-Frame-Options: SAMEORIGIN` + CSP (non-embed routes).
 
 ## Availability & resilience

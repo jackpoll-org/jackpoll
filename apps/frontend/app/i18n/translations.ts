@@ -53,6 +53,7 @@ export const en = {
   // ── Legal / GDPR ─────────────────────────────────────────────────
   "legal.imprint": "Imprint",
   "legal.privacy": "Privacy",
+  "legal.terms": "Terms of Use",
   "legal.cookies": "Cookies",
   "legal.badgeAlt": "GDPR compliant",
   "privacy.respondentInfo":
@@ -243,7 +244,7 @@ export const en = {
   "builder.retention.daysPlaceholder": "Off (keep forever)",
   "builder.retention.anonymize": "Anonymise instead of delete",
   "builder.retention.anonymizeHelp":
-    "Keep answers for aggregate results but remove the link to the respondent (browser id and edit link).",
+    "Keep choice and rating answers for aggregate results; remove the respondent's name, browser id, edit link, and all text, date, file and signature answers.",
   "builder.privacy.title": "Respondent privacy",
   "builder.privacy.help":
     "Shown to respondents before they submit. The platform privacy policy is always linked; add your own notice and require consent if your survey needs an explicit legal basis (GDPR Art. 6/13).",
@@ -541,6 +542,7 @@ export const en = {
   "profile.delete.confirmBody":
     "This permanently deletes your account and all of your surveys and their responses. This action cannot be undone.",
   "profile.delete.confirmAction": "Delete everything",
+  "profile.delete.password": "Enter your password to confirm",
   "profile.delete.done": "Your account and data have been deleted.",
   "profile.delete.failed": "Failed to delete account",
 
@@ -564,6 +566,9 @@ export const en = {
   "auth.login.failed": "Login failed. Please try again.",
   "auth.login.expired": "Your session expired. Please sign in again.",
   "auth.register.submit": "Create account",
+  "auth.register.termsPrefix": "I accept the",
+  "auth.register.termsSuffix": ". How we process your data is explained in the",
+  "auth.register.privacyLink": "privacy policy",
   "auth.register.submitting": "Creating account…",
   "auth.register.failed": "Registration failed. Please try again.",
   "auth.forgot.checkTitle": "Check your email",
@@ -964,6 +969,10 @@ export const en = {
   "share.code.enterAt": "Participants enter this code at",
   "share.code.lastRotated": "Last rotated {date}",
   "share.edit.title": "Edit link (no account needed)",
+  "share.edit.create": "Create edit link",
+  "share.edit.disable": "Turn off edit link",
+  "share.edit.disableConfirm": "Turn off the edit link? Anyone holding it loses access.",
+  "share.edit.disabled": "Edit link turned off",
   "share.edit.description":
     "Anyone with this link can edit the survey until it expires.",
   "share.edit.copied": "Edit link copied",
@@ -1105,6 +1114,7 @@ export const en = {
   "offline.queued":
     "Saved on your device. Your response will be sent automatically when you're back online.",
   "offline.synced": "Synced {count} saved response(s).",
+  "offline.rejected": "{count} response(s) saved offline could not be submitted because the survey no longer accepts them.",
   "offline.banner":
     "You're offline. Your answers are saved and will send when you're back online.",
   "offline.pending": "{count} response(s) waiting to sync…",
@@ -1201,6 +1211,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
 
   "legal.imprint": "Impressum",
   "legal.privacy": "Datenschutz",
+  "legal.terms": "Nutzungsbedingungen",
   "legal.cookies": "Cookies",
   "legal.badgeAlt": "DSGVO-konform",
   "privacy.respondentInfo":
@@ -1396,7 +1407,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.retention.daysPlaceholder": "Aus (für immer behalten)",
   "builder.retention.anonymize": "Anonymisieren statt löschen",
   "builder.retention.anonymizeHelp":
-    "Behält Antworten für aggregierte Ergebnisse, entfernt aber die Verknüpfung zur teilnehmenden Person (Browser-ID und Bearbeitungslink).",
+    "Behält Auswahl- und Bewertungsantworten für aggregierte Ergebnisse; entfernt Namen, Browser-ID und Bearbeitungslink sowie alle Text-, Datums-, Datei- und Unterschriftsantworten.",
   "builder.privacy.title": "Datenschutz für Teilnehmende",
   "builder.privacy.help":
     "Wird Teilnehmenden vor dem Absenden angezeigt. Die Datenschutzerklärung der Plattform ist immer verlinkt; füge deinen eigenen Hinweis hinzu und verlange eine Einwilligung, wenn deine Umfrage eine ausdrückliche Rechtsgrundlage braucht (DSGVO Art. 6/13).",
@@ -1694,6 +1705,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "profile.delete.confirmBody":
     "Dies löscht dein Konto und alle deine Umfragen samt Antworten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
   "profile.delete.confirmAction": "Alles löschen",
+  "profile.delete.password": "Gib zur Bestätigung dein Passwort ein",
   "profile.delete.done": "Dein Konto und deine Daten wurden gelöscht.",
   "profile.delete.failed": "Konto konnte nicht gelöscht werden",
 
@@ -1717,6 +1729,9 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "auth.login.failed": "Anmeldung fehlgeschlagen. Bitte erneut versuchen.",
   "auth.login.expired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
   "auth.register.submit": "Konto erstellen",
+  "auth.register.termsPrefix": "Ich akzeptiere die",
+  "auth.register.termsSuffix": ". Wie wir deine Daten verarbeiten, erklärt die",
+  "auth.register.privacyLink": "Datenschutzerklärung",
   "auth.register.submitting": "Konto wird erstellt…",
   "auth.register.failed": "Registrierung fehlgeschlagen. Bitte erneut versuchen.",
   "auth.forgot.checkTitle": "Prüfe deine E-Mails",
@@ -2124,6 +2139,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "share.code.enterAt": "Teilnehmende geben diesen Code ein unter",
   "share.code.lastRotated": "Zuletzt erneuert: {date}",
   "share.edit.title": "Bearbeitungslink (kein Konto nötig)",
+  "share.edit.create": "Bearbeitungslink erstellen",
+  "share.edit.disable": "Bearbeitungslink deaktivieren",
+  "share.edit.disableConfirm": "Bearbeitungslink deaktivieren? Wer ihn hat, verliert den Zugriff.",
+  "share.edit.disabled": "Bearbeitungslink deaktiviert",
   "share.edit.description":
     "Wer diesen Link hat, kann die Umfrage bearbeiten, bis er abläuft.",
   "share.edit.copied": "Bearbeitungslink kopiert",
@@ -2259,6 +2278,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "offline.queued":
     "Auf deinem Gerät gespeichert. Deine Antwort wird automatisch gesendet, sobald du wieder online bist.",
   "offline.synced": "{count} gespeicherte Antwort(en) synchronisiert.",
+  "offline.rejected": "{count} offline gespeicherte Antwort(en) konnten nicht übermittelt werden, weil die Umfrage sie nicht mehr annimmt.",
   "offline.banner":
     "Du bist offline. Deine Antworten werden gespeichert und gesendet, sobald du wieder online bist.",
   "offline.pending": "{count} Antwort(en) warten auf Synchronisierung…",

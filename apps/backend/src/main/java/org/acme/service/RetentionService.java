@@ -1,12 +1,18 @@
 package org.acme.service;
 
+import java.time.Duration;
+import java.time.Instant;
+
 import org.acme.entity.Survey;
+import org.acme.repository.NotificationRepository;
+import org.acme.repository.ResponseDraftRepository;
 import org.acme.repository.SurveyRepository;
 import org.jboss.logging.Logger;
 
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 
 /**
  * Data-retention enforcement (issue #64, GDPR Art. 5(1)(e) storage limitation).
@@ -17,12 +23,28 @@ import jakarta.inject.Inject;
 public class RetentionService {
 
     private static final Logger LOG = Logger.getLogger(RetentionService.class);
+    static final Duration NOTIFICATION_RETENTION = Duration.ofDays(90);
 
     @Inject
     SurveyRepository surveys;
 
     @Inject
     ResponseService responses;
+
+    @Inject
+    ResponseDraftRepository drafts;
+
+    @Inject
+    NotificationRepository notifications;
+
+    /** Expired drafts and in-app notifications older than 90 days are deleted daily. */
+    @Scheduled(cron = "{survey.retention.cron:0 30 3 * * ?}")
+    @Transactional
+    void purgeStale() {
+        var now = Instant.now();
+        drafts.delete("expiresAt < ?1", now);
+        notifications.delete("createdAt < ?1", now.minus(NOTIFICATION_RETENTION));
+    }
 
     /** Runs daily at 03:30 (override via {@code survey.retention.cron}). */
     @Scheduled(cron = "{survey.retention.cron:0 30 3 * * ?}")

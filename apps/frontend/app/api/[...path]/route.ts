@@ -118,8 +118,9 @@ async function proxyRequest(
   }
   // Biometric persistent login (native): the request to opt into an offline
   // token, and the offline token itself on refresh/logout. Without forwarding
-  // these the backend never issues/accepts the offline token.
-  for (const name of ["X-Auth-Offline", "X-Refresh-Token"]) {
+  // these the backend never issues/accepts the offline token. X-Access-Token
+  // and X-Resume-Token unlock surveys that require an access code.
+  for (const name of ["X-Auth-Offline", "X-Refresh-Token", "X-Access-Token", "X-Resume-Token"]) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
@@ -147,6 +148,10 @@ async function proxyRequest(
     const disposition = response.headers.get("Content-Disposition");
     if (disposition) {
       responseHeaders.set("Content-Disposition", disposition);
+    }
+    const csp = response.headers.get("Content-Security-Policy");
+    if (csp) {
+      responseHeaders.set("Content-Security-Policy", csp);
     }
 
     // Forward Set-Cookie headers

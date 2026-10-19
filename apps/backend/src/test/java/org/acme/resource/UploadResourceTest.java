@@ -2,6 +2,7 @@ package org.acme.resource;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
 
@@ -110,5 +111,25 @@ class UploadResourceTest {
             .then()
             .statusCode(400)
             .body("success", is(false));
+    }
+
+    /** An SVG opened directly is a document: it must be sandboxed so embedded script can't run. */
+    @Test
+    void raw_servesUploadsSandboxed() {
+        String key = given()
+            .multiPart("file", "logo.svg",
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"1\" height=\"1\"/></svg>".getBytes(),
+                "image/svg+xml")
+            .when().post(BASE)
+            .then().statusCode(201)
+            .extract().path("data.key");
+
+        given()
+            .queryParam("key", key)
+            .when().get(BASE + "/raw")
+            .then()
+            .statusCode(200)
+            .header("Content-Security-Policy", containsString("sandbox"))
+            .header("X-Content-Type-Options", is("nosniff"));
     }
 }

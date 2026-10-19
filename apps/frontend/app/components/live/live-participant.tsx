@@ -21,6 +21,7 @@ import { useCountdown, useCountdownFraction, useJoinLive, useLivePresence } from
 import type { LivePhase } from "@/app/lib/live/messages";
 import { useBeginToken, useSubmitResponse } from "@/app/hooks/survey";
 import { altchaChallengeUrl } from "@/app/lib/survey/api";
+import { validCaptcha } from "@/app/lib/survey/captcha";
 import { prefersReducedMotion } from "@/app/lib/survey/a11y";
 import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import type { Question, Survey } from "@/app/types/survey";
@@ -167,7 +168,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
         respondentName: isQuiz && name.trim() ? name.trim() : undefined,
         durationMs: elapsedSince(startedAt),
         beginToken: beginToken ?? undefined,
-        captcha: requireCaptcha ? (captcha ?? undefined) : undefined,
+        captcha: requireCaptcha && captcha ? await validCaptcha(survey.id, captcha) : undefined,
       });
       const gained = res.score ?? 0;
       setLastScore(gained);

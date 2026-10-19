@@ -37,7 +37,8 @@ import {
   useBeginToken,
   useEditResponse,
 } from "@/app/hooks/survey";
-import { altchaChallengeUrl } from "@/app/lib/survey/api";
+import { accessTokenFor, altchaChallengeUrl } from "@/app/lib/survey/api";
+import { validCaptcha } from "@/app/lib/survey/captcha";
 import { getClientId } from "@/app/lib/survey/client-id";
 import {
   answersToInputs,
@@ -278,6 +279,7 @@ export function SurveyPlayer({
           </div>
         </div>
         <LiveParticipant survey={survey} />
+        <PoweredBy survey={survey} />
       </div>
     );
   }
@@ -308,32 +310,41 @@ export function SurveyPlayer({
   const opensAt = survey.settings.opensAt;
   if (analytics && opensAt && new Date(opensAt).getTime() > nowMs()) {
     return (
-      <Card className="mx-auto max-w-xl text-center">
-        <CardContent className="py-12 text-sm text-muted-foreground">
-          {t("player.notOpenYet", {
-            date: new Date(opensAt).toLocaleString(),
-          })}
-        </CardContent>
-      </Card>
+      <div className="mx-auto grid max-w-xl gap-4">
+        <Card className="text-center">
+          <CardContent className="py-12 text-sm text-muted-foreground">
+            {t("player.notOpenYet", {
+              date: new Date(opensAt).toLocaleString(),
+            })}
+          </CardContent>
+        </Card>
+        <PoweredBy survey={survey} />
+      </div>
     );
   }
 
   const closesAt = survey.settings.closesAt;
   if (closesAt && new Date(closesAt).getTime() < nowMs()) {
     return (
-      <Card className="mx-auto max-w-xl text-center">
-        <CardContent className="py-12 text-sm text-muted-foreground">
-          {t("player.closed")}
-        </CardContent>
-      </Card>
+      <div className="mx-auto grid max-w-xl gap-4">
+        <Card className="text-center">
+          <CardContent className="py-12 text-sm text-muted-foreground">
+            {t("player.closed")}
+          </CardContent>
+        </Card>
+        <PoweredBy survey={survey} />
+      </div>
     );
   }
 
   if (survey.questions.length === 0 || pageCount === 0 || !currentPage) {
     return (
-      <p className="py-12 text-center text-sm text-muted-foreground">
-        {t("player.noQuestions")}
-      </p>
+      <div className="grid gap-4">
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          {t("player.noQuestions")}
+        </p>
+        <PoweredBy survey={survey} />
+      </div>
     );
   }
 
@@ -355,7 +366,7 @@ export function SurveyPlayer({
   // — it's not single-use and satisfies a survey's minimum-submit-time check.
   // The captcha token isn't consumed server-side either (SpamProtectionService
   // re-verifies it cryptographically each call), so the same solved token is
-  // reused across every word in the page without asking the respondent again.
+  // reused across every word in the page, re-solved before the next submit once it expires.
   async function submitWord(question: Question, value: AnswerValue) {
     const words = Array.isArray(value) ? value : [];
     if (words.length === 0) return;
@@ -372,7 +383,7 @@ export function SurveyPlayer({
       answers: [{ questionId: question.id, value: words }],
       honeypot: analytics ? honeypot.current : undefined,
       beginToken: analytics ? (beginToken ?? undefined) : undefined,
-      captcha: requireCaptcha ? (captcha ?? undefined) : undefined,
+      captcha: requireCaptcha && captcha ? await validCaptcha(survey.id, captcha) : undefined,
       preview: preview || undefined,
     });
     if (analytics) trackEvent(survey.id, "submit");
@@ -455,7 +466,7 @@ export function SurveyPlayer({
       answers: answerInputs,
       honeypot: analytics ? honeypot.current : undefined,
       beginToken: analytics ? (beginToken ?? undefined) : undefined,
-      clientId: analytics ? getClientId() : undefined,
+      clientId: analytics && survey.settings.onePerBrowser ? getClientId() : undefined,
       captcha: captcha ?? undefined,
       respondentEmail:
         offerReceipt && receiptEmail.trim() ? receiptEmail.trim() : undefined,
@@ -501,7 +512,7 @@ export function SurveyPlayer({
     // Offline (mobile phase 2): queue a fresh submission and confirm; it syncs
     // when the connection returns.
     if (!isEditing && offline) {
-      await enqueueSubmission(survey.id, payload);
+      await enqueueSubmission(survey.id, payload, accessTokenFor(survey.id));
       setResult(null);
       setQueuedOffline(true);
       finishSubmitted();
@@ -515,7 +526,11 @@ export function SurveyPlayer({
             durationMs: payload.durationMs,
             answers: answerInputs,
           })
-        : await submitResponse.mutateAsync(payload);
+        : await submitResponse.mutateAsync(
+            payload.captcha
+              ? { ...payload, captcha: await validCaptcha(survey.id, payload.captcha) }
+              : payload,
+          );
       setResult(res);
       // Quiz: warn on a failed attempt, celebrate a pass; otherwise plain success.
       void hNotify(
@@ -526,7 +541,7 @@ export function SurveyPlayer({
     } catch (err) {
       // A network failure on a fresh submission → queue it for later sync.
       if (!isEditing && isNetworkError(err)) {
-        await enqueueSubmission(survey.id, payload);
+        await enqueueSubmission(survey.id, payload, accessTokenFor(survey.id));
         setResult(null);
         setQueuedOffline(true);
         finishSubmitted();

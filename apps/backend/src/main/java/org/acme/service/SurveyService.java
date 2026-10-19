@@ -206,10 +206,14 @@ public class SurveyService {
 
     public Survey requireEditable(String userId, String id) {
         var survey = requireReadable(userId, id);
-        if (isOwner(userId, survey) || roleOf(userId, survey) == CollaboratorRole.EDITOR) {
+        if (canEdit(userId, survey)) {
             return survey;
         }
         throw new ForbiddenAccessException("You don't have edit access to this survey.");
+    }
+
+    public boolean canEdit(String userId, Survey survey) {
+        return isOwner(userId, survey) || roleOf(userId, survey) == CollaboratorRole.EDITOR;
     }
 
     public Survey requireOwner(String userId, String id) {

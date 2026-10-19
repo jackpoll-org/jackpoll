@@ -3,6 +3,7 @@ package org.acme.resource;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -34,8 +35,12 @@ class CollabLinkResourceTest {
             .when().post(SURVEYS)
             .then().statusCode(201).extract().path("data.id");
 
+        // No link exists until the owner asks for one.
+        given().when().get(SURVEYS + "/" + id + "/collab-link")
+            .then().statusCode(200).body("data.slug", nullValue());
+
         String slug = given()
-            .when().get(SURVEYS + "/" + id + "/collab-link")
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
             .then().statusCode(200)
             .body("data.slug", notNullValue())
             .extract().path("data.slug");
@@ -72,7 +77,7 @@ class CollabLinkResourceTest {
             .then().statusCode(201).extract().path("data.id");
 
         String slug = given()
-            .when().get(SURVEYS + "/" + id + "/collab-link")
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
             .then().statusCode(200).extract().path("data.slug");
 
         given()
@@ -82,5 +87,25 @@ class CollabLinkResourceTest {
             .then().statusCode(200);
 
         given().when().get(COLLAB + "/" + slug).then().statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void disabledLinkStopsWorking_andMalformedExpiryIsRejected() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Revocable\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        given().contentType(ContentType.JSON).body("{\"expiresAt\":\"tomorrow\"}")
+            .when().put(SURVEYS + "/" + id + "/collab-link")
+            .then().statusCode(400);
+
+        given().when().delete(SURVEYS + "/" + id + "/collab-link").then().statusCode(204);
+        given().when().get(COLLAB + "/" + slug).then().statusCode(404);
     }
 }

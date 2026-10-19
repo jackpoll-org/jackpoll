@@ -56,7 +56,7 @@ export default function CollabPage() {
 
   if (isError || !survey) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-4 text-center">
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">
           {error instanceof Error ? error.message : "This link is not available."}
         </p>

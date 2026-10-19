@@ -8,6 +8,7 @@ import org.acme.dto.ApiResponse;
 import org.acme.dto.ResponseDtos.GradeRequest;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
+import org.acme.service.AccessCodeService;
 import org.acme.service.ExportService;
 import org.acme.service.ResponseService;
 import org.acme.service.SurveyService;
@@ -41,6 +42,9 @@ public class ResponseResource {
     ResponseService responseService;
 
     @Inject
+    AccessCodeService accessCodes;
+
+    @Inject
     ExportService exportService;
 
     @Inject
@@ -64,28 +68,13 @@ public class ResponseResource {
         @jakarta.ws.rs.HeaderParam("X-Forwarded-For") String forwardedFor,
         @jakarta.ws.rs.core.Context io.vertx.core.http.HttpServerRequest http
     ) {
-        var created = responseService.submit(id, req, clientIp(forwardedFor, http));
+        accessCodes.requireAccess(id);
+        var created = responseService.submit(id, req, ClientIp.of(forwardedFor, http));
         return Response.status(Response.Status.CREATED)
             .entity(ApiResponse.ok(created))
             .build();
     }
 
-    /**
-     * Real client IP for per-IP rate limiting. The reverse proxy (Traefik)
-     * appends the true client address as the LAST X-Forwarded-For hop, so any
-     * values a client injects sit to its left. Take the rightmost hop — NOT the
-     * leftmost, which is attacker-controlled and would let a spoofed header mint
-     * a fresh rate-limit bucket per request. Falls back to the socket peer.
-     */
-    private static String clientIp(String forwardedFor, io.vertx.core.http.HttpServerRequest http) {
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            String[] hops = forwardedFor.split(",");
-            return hops[hops.length - 1].trim();
-        }
-        return http != null && http.remoteAddress() != null
-            ? http.remoteAddress().hostAddress()
-            : null;
-    }
 
     /** List individual responses (optional date range) — owner only. */
     @GET

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   createSurveyApi,
   deleteSurveyApi,
+  getPublicSurveyApi,
   getSurveyApi,
   listSurveysApi,
   updateSurveyApi,
@@ -13,6 +14,7 @@ import type { Survey } from "@/app/types/survey";
 beforeEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 function mockFetch(status: number, body: unknown) {
@@ -116,5 +118,17 @@ describe("deleteSurveyApi", () => {
 
     expect(result.success).toBe(true);
     expect((spy.mock.calls[0][1] as RequestInit).method).toBe("DELETE");
+  });
+});
+
+describe("access tokens", () => {
+  it("sends the token entered for this survey, not the last one entered in the tab", async () => {
+    sessionStorage.setItem("survey-access-token:A", "token-a");
+    sessionStorage.setItem("survey-access-token:B", "token-b");
+    sessionStorage.setItem("survey-access-token", "token-b");
+    const fetchSpy = mockFetch(200, { success: true, data: sampleSurvey });
+    await getPublicSurveyApi("A");
+    const headers = fetchSpy.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(headers["X-Access-Token"]).toBe("token-a");
   });
 });

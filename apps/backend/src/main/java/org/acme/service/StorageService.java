@@ -14,9 +14,11 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
+import io.minio.ListObjectsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -174,6 +176,30 @@ public class StorageService {
                 data, contentType != null ? contentType : "application/octet-stream");
         } catch (Exception e) {
             throw new NotFoundException("Upload not found: " + key);
+        }
+    }
+
+    public record StoredObject(String key, java.time.Instant lastModified) {}
+
+    /** Every stored upload with its last-modified time, listed page by page as the stream is consumed. */
+    public java.util.stream.Stream<StoredObject> uploads() {
+        var listing = minio.listObjects(ListObjectsArgs.builder()
+            .bucket(bucket).prefix("uploads/").recursive(true).build());
+        return java.util.stream.StreamSupport.stream(listing.spliterator(), false).map(item -> {
+            try {
+                var object = item.get();
+                return new StoredObject(object.objectName(), object.lastModified().toInstant());
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to list uploads", e);
+            }
+        });
+    }
+
+    public void delete(String key) {
+        try {
+            minio.removeObject(RemoveObjectArgs.builder().bucket(bucket).object(key).build());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to delete upload " + key, e);
         }
     }
 }

@@ -2,6 +2,8 @@ package org.acme.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -70,6 +72,8 @@ class CollaboratorServiceTest {
         service.emailService = emailService;
         service.notificationRecordService = notificationRecordService;
         service.notificationPrefs = notificationPrefs;
+        service.rateLimiter = mock(RateLimiterService.class);
+        when(service.rateLimiter.allow(anyString(), anyInt(), anyLong())).thenReturn(true);
 
         // Default: every channel enabled (the all-on default), unless overridden per-test.
         when(notificationPrefs.isEnabled(anyString(), anyString(), anyString())).thenReturn(true);
@@ -178,11 +182,43 @@ class CollaboratorServiceTest {
         var survey = survey(SURVEY, OWNER, "My Survey");
         when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey);
         when(users.findByIdOptional(OWNER)).thenReturn(Optional.of(user(OWNER, "owner@example.com", "Owner")));
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(new SurveyCollaborator()));
 
         service.remove(OWNER, SURVEY, INVITEE);
 
         verify(pushService).notifyUser(
             eq(INVITEE), eq(NotificationEventType.COLLABORATOR_REMOVED), anyString(), anyString());
         verify(collaborators).deleteBySurveyAndUser(SURVEY, INVITEE);
+    }
+
+    @Test
+    void remove_ofANonCollaboratorNotifiesNobody() {
+        when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey(SURVEY, OWNER, "My Survey"));
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.empty());
+
+        service.remove(OWNER, SURVEY, INVITEE);
+
+        verify(pushService, never()).notifyUser(anyString(), any(), anyString(), anyString());
+    }
+
+    @Test
+    void list_hidesEmailsAndPendingInvitesFromNonOwners() {
+        var survey = survey(SURVEY, OWNER, "My Survey");
+        when(surveyService.requireReadable(INVITEE, SURVEY)).thenReturn(survey);
+        when(surveyService.isOwner(INVITEE, survey)).thenReturn(false);
+        var accepted = new SurveyCollaborator();
+        accepted.userId = INVITEE;
+        accepted.status = CollaboratorStatus.ACCEPTED;
+        var pending = new SurveyCollaborator();
+        pending.userId = "pending-user";
+        pending.status = CollaboratorStatus.PENDING;
+        when(collaborators.findBySurvey(SURVEY)).thenReturn(java.util.List.of(accepted, pending));
+        when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
+
+        var list = service.list(INVITEE, SURVEY);
+
+        assertEquals(1, list.size());
+        assertEquals(null, list.get(0).email());
+        assertEquals("Invitee", list.get(0).name());
     }
 }

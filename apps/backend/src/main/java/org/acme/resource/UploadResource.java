@@ -64,7 +64,7 @@ public class UploadResource {
     ) {
         // Throttle this anonymous, storage-writing endpoint per client IP so it
         // can't be abused to fill object storage (validation still runs below).
-        String ip = clientIp(forwardedFor, http);
+        String ip = ClientIp.of(forwardedFor, http);
         if (!rateLimiter.allow("upload|" + (ip == null ? "unknown" : ip),
                 uploadRateLimitMax, uploadRateLimitWindowSeconds)) {
             throw new RateLimitedException(
@@ -82,6 +82,8 @@ public class UploadResource {
             throw new IllegalStateException("Failed to read uploaded file", e);
         }
     }
+
+    static final String RAW_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
     /**
      * Stream a stored upload to the browser. Anonymous on purpose: survey
@@ -111,6 +113,8 @@ public class UploadResource {
             // into an executable type, and force inline rendering.
             .header("X-Content-Type-Options", "nosniff")
             .header("Content-Disposition", wantsDownload(download) ? attachment(name) : "inline")
+            // An SVG opened directly is a document; sandbox it so no script in it can run.
+            .header("Content-Security-Policy", RAW_CSP)
             .build();
     }
 
@@ -128,20 +132,5 @@ public class UploadResource {
         if (safe.length() > 120) safe = safe.substring(safe.length() - 120);
         if (safe.isBlank() || safe.chars().allMatch(c -> c == '.' || c == '_')) safe = "upload";
         return "attachment; filename=\"" + safe + "\"";
-    }
-
-    /**
-     * Real client IP for per-IP rate limiting. Traefik appends the true client
-     * address as the LAST X-Forwarded-For hop, so take the rightmost hop — the
-     * leftmost is attacker-controlled and would mint a fresh bucket per request.
-     */
-    private static String clientIp(String forwardedFor, io.vertx.core.http.HttpServerRequest http) {
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            String[] hops = forwardedFor.split(",");
-            return hops[hops.length - 1].trim();
-        }
-        return http != null && http.remoteAddress() != null
-            ? http.remoteAddress().hostAddress()
-            : null;
     }
 }

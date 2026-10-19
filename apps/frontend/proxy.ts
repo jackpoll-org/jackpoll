@@ -23,6 +23,7 @@ const PUBLIC_PATHS = [
   // Legal pages must be reachable by anyone (GDPR #61/#62/#67).
   "/privacy",
   "/impressum",
+  "/terms",
 ];
 
 /** Whether a JWT's `exp` has passed. Unreadable tokens count as not expired

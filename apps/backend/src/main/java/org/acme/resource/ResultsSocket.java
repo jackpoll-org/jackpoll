@@ -1,10 +1,15 @@
 package org.acme.resource;
 
+import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.websockets.next.OnClose;
 import io.quarkus.websockets.next.OnOpen;
 import io.quarkus.websockets.next.WebSocket;
 import io.quarkus.websockets.next.WebSocketConnection;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
+
+import org.acme.exception.ResourceNotFoundException;
+import org.acme.service.SurveyService;
 
 /**
  * Live-results WebSocket endpoint (wordcloud / live presentation). One room per
@@ -22,9 +27,16 @@ public class ResultsSocket {
     @Inject
     ResultsRelay relay;
 
+    @Inject
+    SurveyService surveyService;
+
+    @Inject
+    SecurityIdentity identity;
+
     @OnOpen
+    @ActivateRequestContext
     public void onOpen(WebSocketConnection connection) {
-        relay.register(room(connection), connection, isHost(connection));
+        relay.register(room(connection), connection, wantsHost(connection) && canHost(room(connection)));
     }
 
     @OnClose
@@ -36,13 +48,19 @@ public class ResultsSocket {
         return connection.pathParam("surveyId");
     }
 
-    /**
-     * The presenter connects with {@code ?role=host} to also receive host-only
-     * messages (lobby check-ins). Unauthenticated on purpose: check-ins are
-     * nicknames players chose to show on the big screen, so claiming the role
-     * reveals nothing private.
-     */
-    private static boolean isHost(WebSocketConnection connection) {
+    /** Lobby check-ins go to members of the survey only; anyone else asking for the role just listens. */
+    private boolean canHost(String surveyId) {
+        if (identity.isAnonymous()) return false;
+        try {
+            surveyService.requireReadable(identity.getPrincipal().getName(), surveyId);
+            return true;
+        } catch (ResourceNotFoundException e) {
+            return false;
+        }
+    }
+
+    /** The presenter connects with {@code ?role=host} to also receive host-only messages (lobby check-ins). */
+    private static boolean wantsHost(WebSocketConnection connection) {
         var query = connection.handshakeRequest().query();
         if (query == null) return false;
         for (var param : query.split("&")) {

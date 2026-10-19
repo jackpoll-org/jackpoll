@@ -9,6 +9,7 @@ import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -42,6 +43,12 @@ public class CollabLinkResource {
     @Path("/rotate")
     public Response rotate(@PathParam("id") String surveyId) {
         return Response.ok(ApiResponse.ok(collabLinkService.rotate(ownerId(), surveyId))).build();
+    }
+
+    @DELETE
+    public Response disable(@PathParam("id") String surveyId) {
+        collabLinkService.disable(ownerId(), surveyId);
+        return Response.noContent().build();
     }
 
     @PUT

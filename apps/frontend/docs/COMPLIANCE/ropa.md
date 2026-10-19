@@ -1,14 +1,14 @@
 # Records of Processing Activities (GDPR Art. 30 / VVT)
 
 > Verzeichnis von Verarbeitungstätigkeiten. Filled for the SaaS deployment at
-> `survey.quavon.de`; adjust for self-hosted instances. Review at least annually
+> `app.jackpoll.org`; adjust for self-hosted instances. Review at least annually
 > and on any material change.
 
-**Controller (Verantwortlicher):** Leopold Link (Quavon), Langbehnstraße 39,
+**Controller (Verantwortlicher):** Quavon UG (haftungsbeschränkt), Langbehnstraße 39,
 83022 Rosenheim, Germany — contact@quavon.de, +49 (0) 175 4251056.
 **Data Protection Officer:** not required (Art. 37) — contact above for all
 data-protection matters.
-**Last reviewed:** 2026-06-25.
+**Last reviewed:** 2026-10-19.
 
 Sub-processors are listed in [sub-processors.md](./sub-processors.md);
 security measures in [security-measures.md](./security-measures.md).
@@ -23,7 +23,7 @@ security measures in [security-measures.md](./security-measures.md).
 - **Data categories:** email, display name, credential hash, session/login
   metadata, notification preferences, device push tokens.
 - **Legal basis:** Art. 6(1)(b) (contract — providing the service).
-- **Recipients:** Keycloak (identity), SMTP provider (transactional email).
+- **Recipients:** Keycloak (identity), own mail server on netcup (transactional email).
 - **Retention:** for the life of the account; deleted on account erasure
   (Art. 17, self-service "Delete account").
 - **Transfers:** none (German servers).
@@ -48,16 +48,19 @@ security measures in [security-measures.md](./security-measures.md).
   sets the basis (Art. 6(1)(a) consent or (f) legitimate interest) via the
   per-survey privacy notice (#63); Quavon acts as processor for hosting it.
   Receipts: Art. 6(1)(a) (explicit opt-in).
-- **Recipients:** PostgreSQL; MinIO/S3 (files); SMTP (receipts).
+- **Recipients:** PostgreSQL; MinIO/S3 (files); own mail server (receipts).
 - **Retention:** per-survey retention window (#64) — responses past it are
-  auto-deleted/anonymised; otherwise until the survey/account is deleted.
+  auto-deleted or anonymised (name, text, date, file and signature answers
+  removed); otherwise until the survey/account is deleted. Uploaded files are
+  removed at most 8 days after nothing references them; drafts expire after
+  30 days.
 
 ## D. Transactional email
 
 - **Purpose:** verification, password reset, response receipts (#24).
 - **Data categories:** recipient email, message content.
 - **Legal basis:** Art. 6(1)(b); receipts Art. 6(1)(a).
-- **Recipients:** SMTP provider (sub-processor).
+- **Recipients:** own mail server on netcup (no separate sub-processor).
 - **Retention:** not stored beyond send (provider logs per their policy).
 
 ## E. Push notifications (optional)
@@ -65,22 +68,24 @@ security measures in [security-measures.md](./security-measures.md).
 - **Purpose:** notify owners of new responses (#46/#74).
 - **Data categories:** device push token / Web Push subscription.
 - **Legal basis:** Art. 6(1)(a) (the user enables notifications).
-- **Recipients:** Google FCM (native) / browser push services (web) — only when
-  configured. Web Push payloads are end-to-end encrypted (aes128gcm).
-- **Retention:** until the device unregisters or the token is reported stale.
+- **Recipients:** browser push services / UnifiedPush distributor (web, Android),
+  Apple APNs (iOS), Google FCM (Play build fallback) — only when configured.
+  Web Push payloads are end-to-end encrypted (aes128gcm).
+- **Retention:** until the device unregisters or the token is reported stale;
+  in-app notification history 90 days.
 
 ## F. Analytics
 
-- **Purpose:** aggregate product usage.
-- **Data categories:** non-personal, cookieless metrics (Rybbit, German
-  servers) — no cross-site tracking, no profiling.
-- **Legal basis:** Art. 6(1)(f) (legitimate interest); no consent needed as no
-  personal data / no cookies.
-- **Retention:** per Rybbit aggregate retention.
+- **Purpose:** aggregate counters for survey owners (views, starts, submissions).
+- **Data categories:** referrer host, UTM source, device type, day — no
+  identifiers, no cookies, no IP storage.
+- **Legal basis:** Art. 6(1)(f) (legitimate interest).
+- **Retention:** until the survey is deleted. (Website analytics on the landing
+  site is documented there.)
 
 ## G. Security & abuse prevention
 
 - **Purpose:** spam/abuse prevention, rate limiting, audit.
 - **Data categories:** HMAC-hashed client id (#31), request metadata, logs.
 - **Legal basis:** Art. 6(1)(f).
-- **Retention:** short-lived; logs rotated.
+- **Retention:** rate-limit buckets expire with their window; server logs 7 days.

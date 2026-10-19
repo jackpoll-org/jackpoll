@@ -6,7 +6,8 @@ Package: **de.quavon.jackpoll** · Privacy policy: **https://app.jackpoll.org/pr
 
 ## 7. Privacy policy
 
-- Public URL: **https://app.jackpoll.org/privacy** (also reachable in-app: Settings → legal).
+- Public URL: **https://app.jackpoll.org/privacy** (also reachable in-app from the sidebar footer, the
+  sign-in pages and every survey page). Terms of use: **https://app.jackpoll.org/terms**.
 - Push section updated: UnifiedPush (browser push / chosen distributor such as ntfy);
   the Play build may use a bundled Google FCM fallback, the F-Droid build has no Google services.
 - Optional email verification (`EMAIL_VERIFICATION_REQUIRED`): **no privacy change** — it only

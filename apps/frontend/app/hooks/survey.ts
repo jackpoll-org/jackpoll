@@ -49,6 +49,7 @@ import {
   resolveCollabApi,
   resolveLinkApi,
   rotateAccessCodeApi,
+  disableCollabLinkApi,
   rotateCollabLinkApi,
   rotateShareLinkApi,
   saveDraftApi,
@@ -644,6 +645,15 @@ export function useRotateCollabLink(surveyId: string) {
     },
     onSuccess: (data) =>
       queryClient.setQueryData(surveyKeys.collabLink(surveyId), data),
+  });
+}
+
+export function useDisableCollabLink(surveyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => disableCollabLinkApi(surveyId),
+    onSuccess: () =>
+      queryClient.setQueryData(surveyKeys.collabLink(surveyId), { slug: null, expiresAt: null }),
   });
 }
 

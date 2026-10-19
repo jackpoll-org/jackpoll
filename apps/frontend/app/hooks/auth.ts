@@ -124,8 +124,8 @@ export function useChangePassword() {
 export function useDeleteAccount() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const res = await deleteAccountApi();
+    mutationFn: async (password: string) => {
+      const res = await deleteAccountApi(password);
       if (!res.success) {
         throw new Error(res.error ?? "Failed to delete account");
       }

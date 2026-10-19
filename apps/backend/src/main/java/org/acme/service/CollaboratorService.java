@@ -11,6 +11,7 @@ import org.acme.entity.NotificationChannel;
 import org.acme.entity.NotificationEventType;
 import org.acme.entity.SurveyCollaborator;
 import org.acme.exception.ForbiddenAccessException;
+import org.acme.exception.RateLimitedException;
 import org.acme.exception.ResourceNotFoundException;
 import org.acme.repository.CollaboratorRepository;
 import org.acme.repository.NotificationPreferenceRepository;
@@ -37,8 +38,13 @@ public class CollaboratorService {
     @Inject
     SurveyRepository surveys;
 
+    private static final int INVITES_PER_HOUR = 30;
+
     @Inject
     PushService pushService;
+
+    @Inject
+    RateLimiterService rateLimiter;
 
     @Inject
     EmailService emailService;
@@ -49,16 +55,22 @@ public class CollaboratorService {
     @Inject
     NotificationPreferenceRepository notificationPrefs;
 
+    /** Only the owner sees e-mail addresses and pending invitations. */
     public List<CollaboratorDto> list(String requesterId, String surveyId) {
-        surveyService.requireReadable(requesterId, surveyId);
+        var survey = surveyService.requireReadable(requesterId, surveyId);
+        boolean owner = surveyService.isOwner(requesterId, survey);
         return collaborators.findBySurvey(surveyId).stream()
-            .map(this::toDto)
+            .filter(c -> owner || c.status == CollaboratorStatus.ACCEPTED)
+            .map(c -> toDto(c, owner))
             .toList();
     }
 
     @Transactional
     public CollaboratorDto add(String ownerId, String surveyId, AddCollaboratorRequest req) {
         var survey = surveyService.requireOwner(ownerId, surveyId);
+        if (!rateLimiter.allow("collab-invite|" + ownerId, INVITES_PER_HOUR, 3600)) {
+            throw new RateLimitedException("Too many invitations. Please try again later.");
+        }
 
         var user = users.findByEmail(req.email())
             .orElseThrow(() -> new ResourceNotFoundException(
@@ -102,6 +114,7 @@ public class CollaboratorService {
     @Transactional
     public void remove(String ownerId, String surveyId, String userId) {
         var survey = surveyService.requireOwner(ownerId, surveyId);
+        if (collaborators.findBySurveyAndUser(surveyId, userId).isEmpty()) return;
         notifyRemoved(survey.id, survey.title, ownerId, userId);
         collaborators.deleteBySurveyAndUser(surveyId, userId);
     }
@@ -181,10 +194,14 @@ public class CollaboratorService {
     }
 
     private CollaboratorDto toDto(SurveyCollaborator c) {
+        return toDto(c, true);
+    }
+
+    private CollaboratorDto toDto(SurveyCollaborator c, boolean withEmail) {
         var user = users.findByIdOptional(c.userId).orElse(null);
         return new CollaboratorDto(
             c.userId,
-            user != null ? user.email : null,
+            withEmail && user != null ? user.email : null,
             user != null ? user.name : null,
             c.role,
             c.status);

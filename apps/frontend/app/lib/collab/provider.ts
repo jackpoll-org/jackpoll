@@ -18,9 +18,12 @@ import { readSyncMessage, writeSyncStep1, writeUpdate } from "y-protocols/sync";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import { getFieldText } from "./doc";
+import { refreshAccessToken } from "@/app/lib/auth/refresh";
+import { getStoredToken, storedTokenExpired } from "@/app/lib/auth/storage";
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
+const FORBIDDEN = 4403;
 
 // Re-announce local presence on this cadence. The backend relay is stateless
 // (no awareness replay for late joiners), and y-protocols expires a peer's
@@ -99,6 +102,16 @@ function collabUrl(surveyId: string): string {
   return `${proto}://${window.location.host}/collab-ws/${surveyId}`;
 }
 
+/** The bearer token when signed in, plus the edit-link slug on /collab/<slug> so non-members get in too. */
+function collabCredentials(): string[] {
+  const token = getStoredToken();
+  const slug = window.location.pathname?.match(/^\/collab\/([^/]+)/)?.[1];
+  return [
+    ...(token ? [`Authorization#Bearer ${token}`] : []),
+    ...(slug ? [`X-Collab-Link#${slug}`] : []),
+  ];
+}
+
 export class CollabProvider {
   readonly doc = new Y.Doc();
   readonly awareness = new Awareness(this.doc);
@@ -141,14 +154,24 @@ export class CollabProvider {
     this.connect();
   };
 
-  private connect = () => {
+  private connect = (refreshed = false) => {
     if (this.closed) return;
+    // An expired bearer token fails the upgrade with 401 on every retry, so refresh it first.
+    if (!refreshed && storedTokenExpired()) {
+      void refreshAccessToken().finally(() => this.connect(true));
+      return;
+    }
     const url = collabUrl(this.surveyId);
     // Lightweight diagnostics: Capacitor pipes console.* to logcat/Xcode, so
     // these surface why collab fails in the native app (e.g. wrong host, blocked
     // upgrade). Filter with `adb logcat | grep "\[collab\]"`.
     console.info(`[collab] connecting ${url}`);
-    const ws = new WebSocket(url);
+    const credentials = collabCredentials();
+    if (credentials.length === 0) return;
+    const ws = new WebSocket(url, [
+      "bearer-token-carrier",
+      ...credentials.map((c) => encodeURIComponent(`quarkus-http-upgrade#${c}`)),
+    ]);
     ws.binaryType = "arraybuffer";
     this.ws = ws;
     ws.onopen = () => {
@@ -164,7 +187,7 @@ export class CollabProvider {
     ws.onclose = (e) => {
       console.info(`[collab] close code=${e?.code} clean=${e?.wasClean}`);
       this.stopHeartbeat();
-      if (this.closed) return;
+      if (this.closed || e?.code === FORBIDDEN) return;
       this.reconnectTimer = setTimeout(this.connect, 2000);
     };
     ws.onerror = () => {

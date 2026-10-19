@@ -1,7 +1,9 @@
 package org.acme.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -26,5 +28,14 @@ class FileContentValidatorTest {
         assertNull(FileContentValidator.sniffImageType(new byte[] { 0x4D, 0x5A })); // MZ (exe)
         assertNull(FileContentValidator.sniffImageType(new byte[0]));
         assertNull(FileContentValidator.sniffImageType(null));
+    }
+
+    @Test
+    void rejectsSvgScriptVariants() {
+        assertTrue(FileContentValidator.isSafeSvg("<svg><rect width=\"1\"/></svg>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<svg/onload=alert(1)>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<svg><a href=\"&#106;avascript:x\">a</a></svg>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<svg><foreignObject><p/></foreignObject></svg>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<!DOCTYPE s [<!ENTITY x \"y\">]><svg/>".getBytes()));
     }
 }

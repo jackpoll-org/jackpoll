@@ -43,10 +43,16 @@ public class CollabLinkService {
 
     // ── Owner ─────────────────────────────────────────────────────
 
-    @Transactional
+    /** The current link, or an empty DTO when none exists — links are only created on request. */
     public CollabLinkDto get(String ownerId, String surveyId) {
         surveyService.requireOwner(ownerId, surveyId);
-        return toDto(getOrCreate(surveyId));
+        return links.findBySurvey(surveyId).map(this::toDto).orElse(new CollabLinkDto(null, null));
+    }
+
+    @Transactional
+    public void disable(String ownerId, String surveyId) {
+        surveyService.requireOwner(ownerId, surveyId);
+        links.findBySurvey(surveyId).ifPresent(links::delete);
     }
 
     @Transactional
@@ -60,8 +66,16 @@ public class CollabLinkService {
     @Transactional
     public CollabLinkDto update(String ownerId, String surveyId, UpdateCollabLinkRequest req) {
         surveyService.requireOwner(ownerId, surveyId);
+        var expiresAt = req.expiresAt() == null || req.expiresAt().isBlank() ? null : req.expiresAt();
+        if (expiresAt != null) {
+            try {
+                Instant.parse(expiresAt);
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("Invalid expiry date.");
+            }
+        }
         var link = getOrCreate(surveyId);
-        link.expiresAt = req.expiresAt();
+        link.expiresAt = expiresAt;
         return toDto(link);
     }
 
@@ -80,6 +94,15 @@ public class CollabLinkService {
         return mapper.toDto(survey, true);
     }
 
+    /** The survey a valid, unexpired edit link belongs to, or null. */
+    public String validSurveyId(String slug) {
+        try {
+            return requireValidLinkSurvey(slug).id;
+        } catch (ResourceNotFoundException | ForbiddenAccessException e) {
+            return null;
+        }
+    }
+
     private Survey requireValidLinkSurvey(String slug) {
         var link = links.findBySlug(slug)
             .orElseThrow(() -> new ResourceNotFoundException("Link not found."));
@@ -90,12 +113,14 @@ public class CollabLinkService {
 
     private void ensureValid(CollabLink link) {
         if (link.expiresAt != null && !link.expiresAt.isBlank()) {
+            Instant expiry;
             try {
-                if (Instant.now().isAfter(Instant.parse(link.expiresAt))) {
-                    throw new ForbiddenAccessException("This collaboration link has expired.");
-                }
-            } catch (java.time.format.DateTimeParseException ignored) {
-                // malformed → no limit
+                expiry = Instant.parse(link.expiresAt);
+            } catch (java.time.format.DateTimeParseException e) {
+                expiry = Instant.EPOCH;
+            }
+            if (Instant.now().isAfter(expiry)) {
+                throw new ForbiddenAccessException("This collaboration link has expired.");
             }
         }
     }

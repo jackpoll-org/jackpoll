@@ -81,6 +81,8 @@ services:
       APP_BASE_URL: http://localhost:3000
       CORS_ORIGINS: http://localhost:3000
       SURVEY_SPAM_SECRET: e2e-spam-secret
+      EMAIL_CODE_SECRET: e2e-email-code-secret
+      MAIL_UNSUBSCRIBE_SECRET: e2e-mail-secret
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/q/health/ready"]
       interval: 10s

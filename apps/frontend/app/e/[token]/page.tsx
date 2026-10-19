@@ -45,7 +45,7 @@ export default function EditResponsePage() {
 
   if (editQuery.isError || !edit) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-4 text-center">
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">{t("edit.linkUnavailable")}</p>
       </div>
     );
@@ -53,7 +53,7 @@ export default function EditResponsePage() {
 
   if (surveyQuery.isError || !survey) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-4 text-center">
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">
           {t("player.linkUnavailable")}
         </p>

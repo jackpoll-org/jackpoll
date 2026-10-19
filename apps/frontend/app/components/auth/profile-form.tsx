@@ -46,6 +46,7 @@ export function ProfileForm() {
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
   const deleteAccount = useDeleteAccount();
+  const [deletePassword, setDeletePassword] = useState("");
   const logoutAll = useLogoutAllDevices();
   const [exporting, setExporting] = useState(false);
 
@@ -133,7 +134,7 @@ export function ProfileForm() {
 
   async function deleteMyAccount() {
     try {
-      await deleteAccount.mutateAsync();
+      await deleteAccount.mutateAsync(deletePassword);
       toast.success(t("profile.delete.done"));
       router.replace("/login");
     } catch (err) {
@@ -336,10 +337,21 @@ export function ProfileForm() {
                   {t("profile.delete.confirmBody")}
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              <div className="grid gap-2">
+                <Label htmlFor="delete-password">{t("profile.delete.password")}</Label>
+                <Input
+                  id="delete-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                />
+              </div>
               <AlertDialogFooter>
                 <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={deleteMyAccount}
+                  disabled={!deletePassword}
                   className="bg-destructive text-white hover:bg-destructive/90"
                 >
                   {t("profile.delete.confirmAction")}

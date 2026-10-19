@@ -48,4 +48,5 @@ class RateLimiterServiceTest {
         Thread.sleep(1100);
         assertTrue(limiter.allow(key, 1, 1), "window elapsed → allowed again");
     }
+
 }

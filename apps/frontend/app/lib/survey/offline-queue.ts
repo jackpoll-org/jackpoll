@@ -16,6 +16,8 @@ export interface QueuedSubmission {
   id: string;
   surveyId: string;
   payload: SubmitResponseRequest;
+  /** Access-code token the survey was opened with, so a later flush still has it. */
+  accessToken?: string | null;
   createdAt: number;
 }
 
@@ -68,6 +70,7 @@ function nextCreatedAt(): number {
 export async function enqueueSubmission(
   surveyId: string,
   payload: SubmitResponseRequest,
+  accessToken?: string | null,
 ): Promise<QueuedSubmission | null> {
   if (!hasIndexedDb()) return null;
   const entry: QueuedSubmission = {
@@ -77,6 +80,7 @@ export async function enqueueSubmission(
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     surveyId,
     payload,
+    accessToken,
     createdAt: nextCreatedAt(),
   };
   await tx("readwrite", (s) => s.add(entry));

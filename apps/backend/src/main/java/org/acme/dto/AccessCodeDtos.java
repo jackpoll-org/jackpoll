@@ -1,5 +1,7 @@
 package org.acme.dto;
 
+import org.acme.dto.SurveyDtos.SurveyDto;
+
 import jakarta.validation.constraints.NotBlank;
 
 public final class AccessCodeDtos {
@@ -15,4 +17,6 @@ public final class AccessCodeDtos {
     public record UpdateAccessCodeRequest(boolean requireCode) {}
 
     public record EnterCodeRequest(@NotBlank String code) {}
+
+    public record ResolvedAccess(SurveyDto survey, String accessToken) {}
 }

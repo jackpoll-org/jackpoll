@@ -5,6 +5,7 @@ import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 
 import { CollabProvider } from "../provider";
+import { AUTH_STORAGE_KEY } from "@/app/lib/auth/constants";
 import { applyContentToDoc, docToContent, type CollabContent } from "../doc";
 
 const MSG_AWARENESS = 1;
@@ -53,7 +54,10 @@ class MockWebSocket {
   onclose: (() => void) | null = null;
   onerror: (() => void) | null = null;
 
-  constructor(public url: string) {
+  constructor(
+    public url: string,
+    public protocols?: string[],
+  ) {
     MockWebSocket.instances.push(this);
   }
 
@@ -98,6 +102,7 @@ function remotePeerFrame(name: string): Uint8Array {
 
 beforeEach(() => {
   MockWebSocket.instances = [];
+  localStorage.setItem(AUTH_STORAGE_KEY, "test-token");
   vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
   vi.stubGlobal("location", { protocol: "https:", host: "example.com" } as Location);
 });
@@ -221,5 +226,51 @@ describe("CollabProvider document convergence", () => {
 
     host.destroy();
     joiner.destroy();
+  });
+});
+
+describe("CollabProvider auth", () => {
+  it("sends the bearer token as a WebSocket sub-protocol", () => {
+    const p = new CollabProvider("s1", { name: "A", color: "#000" });
+    const [carrier, header] = MockWebSocket.instances[0].protocols ?? [];
+    expect(carrier).toBe("bearer-token-carrier");
+    expect(decodeURIComponent(header)).toBe(
+      "quarkus-http-upgrade#Authorization#Bearer test-token",
+    );
+    p.destroy();
+  });
+
+  it("sends the bearer token and the link slug on an edit-link page when signed in", () => {
+    vi.stubGlobal("location", {
+      protocol: "https:",
+      host: "example.com",
+      pathname: "/collab/abc123",
+    } as Location);
+    const p = new CollabProvider("s1", { name: "A", color: "#000" });
+    const [, bearer, link] = (MockWebSocket.instances[0].protocols ?? []).map(decodeURIComponent);
+    expect(bearer).toBe("quarkus-http-upgrade#Authorization#Bearer test-token");
+    expect(link).toBe("quarkus-http-upgrade#X-Collab-Link#abc123");
+    p.destroy();
+  });
+
+  it("lets a signed-out edit-link guest connect with the slug alone", () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    vi.stubGlobal("location", {
+      protocol: "https:",
+      host: "example.com",
+      pathname: "/collab/abc123",
+    } as Location);
+    const p = new CollabProvider("s1", { name: "A", color: "#000" });
+    const [, header, extra] = MockWebSocket.instances[0].protocols ?? [];
+    expect(decodeURIComponent(header)).toBe("quarkus-http-upgrade#X-Collab-Link#abc123");
+    expect(extra).toBeUndefined();
+    p.destroy();
+  });
+
+  it("does not connect without a stored token", () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    const p = new CollabProvider("s1", { name: "A", color: "#000" });
+    expect(MockWebSocket.instances).toHaveLength(0);
+    p.destroy();
   });
 });

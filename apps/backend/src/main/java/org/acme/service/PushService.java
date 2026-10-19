@@ -61,6 +61,9 @@ public class PushService {
     String vapidSubject;
 
     @Inject
+    OutboundUrlGuard urlGuard;
+
+    @Inject
     DeviceTokenRepository devices;
 
     @Inject
@@ -104,6 +107,7 @@ public class PushService {
     @Transactional
     public void register(String userId, String token, String platform,
                          String p256dh, String auth) {
+        if (!"ios".equals(platform) && p256dh != null) urlGuard.ensureAllowed(token);
         var existing = devices.findByToken(token).orElse(null);
         if (existing != null) {
             existing.userId = userId;
@@ -246,6 +250,7 @@ public class PushService {
         // (this is also how legacy FCM tokens get pruned after the update).
         if (!target.deliverableWeb()) return SendResult.INVALID_TOKEN;
         try {
+            urlGuard.ensureAllowed(target.token());
             var subscription = new nl.martijndwars.webpush.Subscription(
                 target.token(),
                 new nl.martijndwars.webpush.Subscription.Keys(target.p256dh(), target.auth()));

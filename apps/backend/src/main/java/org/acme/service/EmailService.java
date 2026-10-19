@@ -64,7 +64,7 @@ public class EmailService {
     @ConfigProperty(name = "survey.mail.app-url", defaultValue = "http://localhost:3000")
     String appUrl;
 
-    @ConfigProperty(name = "survey.mail.unsubscribe-secret", defaultValue = "change-me-mail-secret")
+    @ConfigProperty(name = "survey.mail.unsubscribe-secret")
     String unsubscribeSecret;
 
     // ── Owner notification (per response) ─────────────────────────

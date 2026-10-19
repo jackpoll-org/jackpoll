@@ -7,6 +7,9 @@
 // backend endpoint is ResultsSocket (`/results-ws/{surveyId}`); when disabled
 // or unavailable, callers fall back to the existing results polling.
 
+import { refreshAccessToken } from "@/app/lib/auth/refresh";
+import { getStoredToken, storedTokenExpired } from "@/app/lib/auth/storage";
+
 const RECONNECT_DELAY_MS = 2_000;
 
 /**
@@ -41,6 +44,14 @@ function resultsUrl(surveyId: string, role?: "host"): string {
   // `/collab-ws`.
   const query = role ? `?role=${role}` : "";
   return `${proto}://${window.location.host}/results-ws/${surveyId}${query}`;
+}
+
+/** Lobby check-ins only reach members, so the presenter's socket carries the bearer token. */
+function hostProtocols(role?: "host"): string[] {
+  const token = role ? getStoredToken() : null;
+  return token
+    ? ["bearer-token-carrier", encodeURIComponent(`quarkus-http-upgrade#Authorization#Bearer ${token}`)]
+    : [];
 }
 
 export class ResultsLiveSocket {
@@ -87,11 +98,16 @@ export class ResultsLiveSocket {
     this.connect();
   };
 
-  private connect = () => {
+  private connect = (refreshed = false) => {
     if (this.closed) return;
+    // An expired bearer token fails the upgrade with 401 on every retry, so refresh it first.
+    if (this.options.role && !refreshed && storedTokenExpired()) {
+      void refreshAccessToken().finally(() => this.connect(true));
+      return;
+    }
     let ws: WebSocket;
     try {
-      ws = new WebSocket(resultsUrl(this.surveyId, this.options.role));
+      ws = new WebSocket(resultsUrl(this.surveyId, this.options.role), hostProtocols(this.options.role));
     } catch {
       this.reconnectTimer = setTimeout(this.connect, RECONNECT_DELAY_MS);
       return;

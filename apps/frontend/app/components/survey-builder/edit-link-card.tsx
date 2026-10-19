@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, Link2Off, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -10,6 +10,7 @@ import { Spinner } from "@/app/components/ui/spinner";
 import { useIsClient } from "@/app/hooks/use-is-client";
 import {
   useCollabLink,
+  useDisableCollabLink,
   useRotateCollabLink,
   useUpdateCollabLink,
 } from "@/app/hooks/survey";
@@ -30,11 +31,30 @@ export function EditLinkCard({ surveyId }: { surveyId: string }) {
   const link = useCollabLink(surveyId, mounted);
   const rotate = useRotateCollabLink(surveyId);
   const update = useUpdateCollabLink(surveyId);
+  const disable = useDisableCollabLink(surveyId);
   const expiryRef = useRef<HTMLInputElement>(null);
 
   if (link.isLoading || !mounted) return <Spinner className="size-5" />;
   const data = link.data;
   if (!data) return null;
+
+  if (!data.slug) {
+    return (
+      <div className="grid gap-3 rounded-lg border border-dashed p-3">
+        <p className="text-sm font-medium">{t("share.edit.title")}</p>
+        <p className="text-xs text-muted-foreground">{t("share.edit.description")}</p>
+        <Button
+          variant="outline"
+          className="justify-self-start"
+          onClick={() => rotate.mutate()}
+          disabled={rotate.isPending}
+        >
+          {rotate.isPending && <Spinner className="size-4" />}
+          {t("share.edit.create")}
+        </Button>
+      </div>
+    );
+  }
 
   const url = `${window.location.origin}/collab/${data.slug}`;
 
@@ -52,6 +72,16 @@ export function EditLinkCard({ surveyId }: { surveyId: string }) {
     try {
       await update.mutateAsync(value ? new Date(value).toISOString() : null);
       toast.success(t("share.edit.validityUpdated"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.updateFailed"));
+    }
+  }
+
+  async function handleDisable() {
+    if (!window.confirm(t("share.edit.disableConfirm"))) return;
+    try {
+      await disable.mutateAsync();
+      toast.success(t("share.edit.disabled"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("common.updateFailed"));
     }
@@ -82,6 +112,15 @@ export function EditLinkCard({ surveyId }: { surveyId: string }) {
         <Button variant="outline" onClick={handleRotate} disabled={rotate.isPending}>
           {rotate.isPending ? <Spinner className="size-4" /> : <RefreshCw className="size-4" />}
           {t("common.rotate")}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleDisable}
+          disabled={disable.isPending}
+          aria-label={t("share.edit.disable")}
+        >
+          <Link2Off className="size-4" />
         </Button>
       </div>
       <div className="flex items-end gap-2">

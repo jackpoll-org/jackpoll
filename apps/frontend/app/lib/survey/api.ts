@@ -58,6 +58,21 @@ export class ApiError extends Error {
 
 // ── Generic fetch helper ──────────────────────────────────────────
 
+const ACCESS_TOKEN_KEY = "survey-access-token";
+
+const RESUME_TOKEN_KEY = "survey-resume-token";
+
+/** Resume (/r) and edit (/e) links unlock their survey even when it requires a code. */
+function rememberResumeToken(token: string): void {
+  if (typeof window !== "undefined") sessionStorage.setItem(RESUME_TOKEN_KEY, token);
+}
+
+/** The access token entered for one survey in this tab, if any. */
+export function accessTokenFor(surveyId: string): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(`${ACCESS_TOKEN_KEY}:${surveyId}`);
+}
+
 export async function request<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -72,6 +87,16 @@ export async function request<T>(
     const token =
       typeof window !== "undefined" ? localStorage.getItem(AUTH_STORAGE_KEY) : null;
     if (token) headers["Authorization"] = `Bearer ${token}`;
+    const surveyId = endpoint.match(/\/surveys\/([^/?]+)/)?.[1];
+    const accessToken = surveyId
+      ? accessTokenFor(surveyId)
+      : typeof window !== "undefined"
+        ? sessionStorage.getItem(ACCESS_TOKEN_KEY)
+        : null;
+    if (accessToken && !headers["X-Access-Token"]) headers["X-Access-Token"] = accessToken;
+    const resumeToken =
+      typeof window !== "undefined" ? sessionStorage.getItem(RESUME_TOKEN_KEY) : null;
+    if (resumeToken) headers["X-Resume-Token"] = resumeToken;
     return headers;
   };
 
@@ -192,10 +217,15 @@ export async function updateAccessCodeApi(
 export async function resolveAccessCodeApi(
   code: string,
 ): Promise<ApiResponse<Survey>> {
-  return request<Survey>(SURVEY_ENDPOINTS.publicAccessCode, {
-    method: "POST",
-    body: JSON.stringify({ code }),
-  });
+  const res = await request<{ survey: Survey; accessToken: string }>(
+    SURVEY_ENDPOINTS.publicAccessCode,
+    { method: "POST", body: JSON.stringify({ code }) },
+  );
+  if (res.data) {
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, res.data.accessToken);
+    sessionStorage.setItem(`${ACCESS_TOKEN_KEY}:${res.data.survey.id}`, res.data.accessToken);
+  }
+  return { ...res, data: res.data?.survey };
 }
 
 // ── Collaboration edit link (issue #22) ───────────────────────────
@@ -204,6 +234,10 @@ export async function getCollabLinkApi(
   surveyId: string,
 ): Promise<ApiResponse<CollabLink>> {
   return request<CollabLink>(SURVEY_ENDPOINTS.collabLink(surveyId));
+}
+
+export async function disableCollabLinkApi(surveyId: string): Promise<void> {
+  await request<null>(SURVEY_ENDPOINTS.collabLink(surveyId), { method: "DELETE" });
 }
 
 export async function rotateCollabLinkApi(
@@ -446,10 +480,12 @@ export async function declineInvitationApi(
 export async function submitResponseApi(
   surveyId: string,
   data: SubmitResponseRequest,
+  accessToken?: string | null,
 ): Promise<ApiResponse<SurveyResponseDto>> {
   return request<SurveyResponseDto>(SURVEY_ENDPOINTS.responses(surveyId), {
     method: "POST",
     body: JSON.stringify(data),
+    headers: accessToken ? { "X-Access-Token": accessToken } : undefined,
   });
 }
 
@@ -597,6 +633,7 @@ export async function deletePreviewResponsesApi(
 export async function getResponseForEditApi(
   token: string,
 ): Promise<ApiResponse<ResponseEditView>> {
+  rememberResumeToken(token);
   return request<ResponseEditView>(SURVEY_ENDPOINTS.responseEdit(token));
 }
 
@@ -640,6 +677,7 @@ export async function saveDraftApi(
 
 /** Restore a draft by token (rejects unknown/expired). */
 export async function getDraftApi(token: string): Promise<ApiResponse<DraftDto>> {
+  rememberResumeToken(token);
   return request<DraftDto>(SURVEY_ENDPOINTS.draft(token));
 }
 

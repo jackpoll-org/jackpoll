@@ -2,18 +2,21 @@
  * Jackpoll service worker (PWA / mobile-app foundation).
  *
  * Hand-written (no build step) so it works with Next 16 + Turbopack. Strategy:
- *   - navigations: network-first, fall back to the cached page, then an
- *     offline shell — so a previously visited survey opens without a network;
+ *   - respondent page navigations: network-first, fall back to the cached
+ *     page, then an offline shell — so a previously visited survey opens
+ *     without a network. Other navigations are never cached (they belong to a
+ *     signed-in account) and only fall back to the offline shell;
  *   - static assets (_next/static, icons, fonts): stale-while-revalidate;
  *   - public survey reads (GET .../public/surveys/...): network-first with a
  *     cache fallback, so a loaded survey can be filled offline (Phase 2).
  * Owner/dashboard and any non-GET request always go to the network.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGES_CACHE = `pages-${VERSION}`;
 const DATA_CACHE = `survey-data-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
+const PUBLIC_PAGE_PREFIXES = ["/s/", "/r/", "/e/", "/embed/", "/join"];
 
 const PRECACHE = ["/offline.html", "/manifest.webmanifest", "/icons/icon.svg"];
 
@@ -84,7 +87,12 @@ self.addEventListener("fetch", (event) => {
   const sameOrigin = url.origin === self.location.origin;
 
   if (request.mode === "navigate") {
-    event.respondWith(networkFirst(request, PAGES_CACHE, OFFLINE_URL));
+    const publicPage = PUBLIC_PAGE_PREFIXES.some((p) => url.pathname.startsWith(p));
+    event.respondWith(
+      publicPage
+        ? networkFirst(request, PAGES_CACHE, OFFLINE_URL)
+        : fetch(request).catch(() => caches.match(OFFLINE_URL)),
+    );
     return;
   }
   if (sameOrigin && isStaticAsset(url)) {
