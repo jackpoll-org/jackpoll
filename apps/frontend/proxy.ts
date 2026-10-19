@@ -55,6 +55,7 @@ export function proxy(request: NextRequest) {
     pathname === "/manifest.webmanifest" ||
     pathname === "/sw.js" ||
     pathname === "/offline.html" ||
+    pathname === "/opengraph-image" ||
     pathname === "/"
   ) {
     return NextResponse.next();

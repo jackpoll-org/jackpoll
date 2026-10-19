@@ -1173,6 +1173,22 @@ export const en = {
   "builder.status.published": "Published",
   "builder.status.closed": "Closed",
 
+  // ── Link preview images ──────────────────────────────────────────
+  "og.brand.title": "Create surveys and quizzes",
+  "og.brand.description": "Open source, GDPR-compliant and free.",
+  "og.join.title": "Join with an access code",
+  "og.join.description": "Enter the code and fill in the survey. No account needed.",
+  "og.resume.title": "Continue your response",
+  "og.resume.description": "Your answers so far are saved.",
+  "og.edit.title": "Edit your response",
+  "og.edit.description": "Use this link to change the answers you submitted.",
+  "og.survey": "Survey",
+  "og.quiz": "Quiz",
+  "og.live": "Live",
+  "og.collab": "Shared for editing",
+  "og.minutes": "~{n} min",
+  "og.moreOptions": "+{n} more",
+
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -2331,6 +2347,22 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.status.draft": "Entwurf",
   "builder.status.published": "Veröffentlicht",
   "builder.status.closed": "Geschlossen",
+
+  // ── Link-Vorschaubilder ──────────────────────────────────────────
+  "og.brand.title": "Umfragen und Quizze erstellen",
+  "og.brand.description": "Open Source, DSGVO-konform und kostenlos.",
+  "og.join.title": "Mit Zugangscode teilnehmen",
+  "og.join.description": "Code eingeben und die Umfrage ausfüllen. Ohne Konto.",
+  "og.resume.title": "Antworten fortsetzen",
+  "og.resume.description": "Deine bisherigen Antworten sind gespeichert.",
+  "og.edit.title": "Antwort bearbeiten",
+  "og.edit.description": "Über diesen Link kannst du deine abgegebene Antwort ändern.",
+  "og.survey": "Umfrage",
+  "og.quiz": "Quiz",
+  "og.live": "Live",
+  "og.collab": "Zum Mitbearbeiten",
+  "og.minutes": "ca. {n} Min.",
+  "og.moreOptions": "+{n} weitere",
 
 };
 

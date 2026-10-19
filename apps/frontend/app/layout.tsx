@@ -11,7 +11,7 @@ import { DeepLinks } from "@/app/components/native/deep-links";
 import { OfflineSync } from "@/app/components/offline-sync";
 import { OfflineBanner } from "@/app/components/offline-banner";
 import { DEFAULT_THEME, type ThemePreset, type ThemeRadius, type ThemeScale, type ThemeContentLayout } from "@/app/lib/themes";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,10 +24,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Jackpoll",
+const metadata: Metadata = {
+  title: { default: "Jackpoll", template: "%s · Jackpoll" },
   description: "Create and manage surveys with ease",
   applicationName: "Jackpoll",
+  openGraph: { siteName: "Jackpoll", type: "website" },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -43,6 +44,15 @@ export const metadata: Metadata = {
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
 };
+
+// Self-hosted deployments have no fixed public URL, so link previews resolve
+// absolute image URLs against the host the request came in on.
+export async function generateMetadata(): Promise<Metadata> {
+  const h = await headers();
+  const host = (h.get("x-forwarded-host") ?? h.get("host"))?.split(",")[0].trim();
+  const proto = (h.get("x-forwarded-proto") ?? "http").split(",")[0].trim();
+  return { ...metadata, metadataBase: host ? URL.parse(`${proto}://${host}`) : null };
+}
 
 export const viewport: Viewport = {
   themeColor: "#024DB2",

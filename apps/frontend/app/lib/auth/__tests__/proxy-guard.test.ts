@@ -34,4 +34,9 @@ describe("proxy auth guard", () => {
   it("sends visitors without a token to login", () => {
     expect(location(visit("/surveys"))).toBe("http://localhost:3000/login?redirect=%2Fsurveys");
   });
+
+  it("serves link preview images to anonymous crawlers", () => {
+    expect(location(visit("/opengraph-image"))).toBeNull();
+    expect(location(visit("/r/opengraph-image"))).toBeNull();
+  });
 });
