@@ -82,7 +82,7 @@
     "eslint-config-next": "16.4.1",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^8.3.0",
