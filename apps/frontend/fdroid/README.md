@@ -42,8 +42,9 @@ against the other one.
 1. Raise `versionCode` and `versionName` in `android/app/build.gradle`.
    The tag triggers the signed F-Droid build on the public repo.
 2. Add `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt` (repo root).
-3. Push. The OSS sync tags the public repo with `v<versionName>`, and F-Droid's
-   update checker (`UpdateCheckMode: Tags ^v[0-9.]+$`) builds it automatically.
+3. Push, then run the `sync-oss` workflow by hand. Only a manual run tags the public repo
+   with `v<versionName>`; F-Droid's update checker (`UpdateCheckMode: Tags ^v[0-9.]+$`) builds
+   from that tag. The Android CI jobs and `fdroid-verify` also run only when started by hand.
 
 ## Submitting (one time)
 
