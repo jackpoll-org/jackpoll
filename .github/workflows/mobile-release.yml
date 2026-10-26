@@ -53,6 +53,15 @@ on:
       - "apps/frontend/package.json"
       - ".github/workflows/mobile-release.yml"
   workflow_dispatch:
+    inputs:
+      ios:
+        description: "Build iOS (TestFlight, App Store)"
+        type: boolean
+        default: true
+      fdroid:
+        description: "Build the F-Droid APK"
+        type: boolean
+        default: true
 
 permissions:
   contents: write # create the GitHub Release
@@ -67,6 +76,7 @@ concurrency:
 
 jobs:
   ios:
+    if: github.event_name == 'push' || inputs.ios
     runs-on: macos-latest
     timeout-minutes: 45
     outputs:
@@ -258,6 +268,7 @@ jobs:
 
       # ── F-Droid flavor (FLOSS, no Google; unsigned — F-Droid re-signs) ──
       - name: Build F-Droid release APK
+        if: inputs.fdroid
         working-directory: apps/frontend/android
         run: ./gradlew assembleFdroidRelease --no-daemon
 
