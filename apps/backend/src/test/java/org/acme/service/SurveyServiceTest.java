@@ -139,6 +139,23 @@ class SurveyServiceTest {
     }
 
     @Test
+    void update_keepsEditorsFromPublishingTheOwnerName() throws Exception {
+        var stored = survey("s1", OWNER);
+        when(repository.findByIdOptional("s1")).thenReturn(Optional.of(stored));
+        when(collaborators.findBySurveyAndUser("s1", OTHER))
+            .thenReturn(Optional.of(collab("s1", OTHER, CollaboratorRole.EDITOR)));
+        var settings = new com.fasterxml.jackson.databind.ObjectMapper()
+            .readValue("{\"ogShowOwner\":true,\"ogStyle\":\"bold\"}", org.acme.dto.SurveyDtos.SurveySettingsDto.class);
+
+        var req = new UpdateSurveyRequest("Edited", null, SurveyStatus.DRAFT, settings, null, null, null, null, null);
+        var dto = service.update(OTHER, "s1", req);
+
+        assertEquals(null, stored.settings.ogShowOwner);
+        assertEquals(null, dto.ownerName());
+        assertEquals("bold", dto.settings().ogStyle());
+    }
+
+    @Test
     void update_forbidsViewerCollaborator() {
         when(repository.findByIdOptional("s1")).thenReturn(Optional.of(survey("s1", OWNER)));
         when(collaborators.findBySurveyAndUser("s1", OTHER))

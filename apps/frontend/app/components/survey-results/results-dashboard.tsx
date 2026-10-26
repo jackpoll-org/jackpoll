@@ -233,6 +233,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
             sessions={sessions.data ?? []}
             value={sessionId}
             onChange={setPickedSession}
+            quiz={!!survey.data?.settings.isQuiz}
           />
           <div className="flex items-center gap-2">
             <Switch

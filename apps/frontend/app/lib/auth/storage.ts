@@ -31,10 +31,13 @@ function cookieSuffix(): string {
   return `path=/; SameSite=Lax;${secure}`;
 }
 
-export function storeAuth(accessToken: string, user: unknown): void {
+export function storeAuth(accessToken: string, user: unknown, sessionSeconds?: number): void {
   localStorage.setItem(AUTH_STORAGE_KEY, accessToken);
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  document.cookie = `survey-auth-token=${accessToken}; max-age=86400; ${cookieSuffix()}`;
+  // Lives as long as the backend refresh cookie, so the route guard lets a
+  // returning user through to the silent refresh instead of the login page.
+  const maxAge = sessionSeconds && sessionSeconds > 0 ? ` max-age=${Math.floor(sessionSeconds)};` : "";
+  document.cookie = `survey-auth-token=${accessToken};${maxAge} ${cookieSuffix()}`;
   notifyAuthChange();
 }
 

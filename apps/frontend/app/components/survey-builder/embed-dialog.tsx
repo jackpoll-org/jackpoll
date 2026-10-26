@@ -111,7 +111,7 @@ export function EmbedDialog({ surveyId, status }: EmbedDialogProps) {
           <div className="overflow-hidden rounded-lg border">
             <iframe
               src={embedUrl}
-              title="Embed preview"
+              title={t("embed.previewTitle")}
               className="h-80 w-full"
               // Curated sandbox: the preview frames our own survey page, which
               // needs to run its scripts and submit the response form, but is

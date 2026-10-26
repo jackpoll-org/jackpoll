@@ -100,13 +100,34 @@ public final class FileContentValidator {
     public static boolean isSafeSvg(byte[] b) {
         if (b == null || b.length == 0 || b.length > 2_000_000) return false;
         String text = new String(b, StandardCharsets.UTF_8);
-        String lower = text.toLowerCase(Locale.ROOT);
+        String lower = decodeCharacterReferences(text).toLowerCase(Locale.ROOT);
         if (!lower.contains("<svg")) return false;
-        if (lower.contains("<script") || lower.contains("javascript:")
-            || lower.contains("<foreignobject") || lower.contains("&#")
+        if (SCRIPT_ELEMENT.matcher(lower).find() || lower.replaceAll("\\s", "").contains("javascript:")
             || lower.contains("<!entity")) return false;
         if (lower.matches("(?s).*[\\s/\"']on[a-z]+\\s*=.*")) return false;
         return true;
+    }
+
+    private static final java.util.regex.Pattern SCRIPT_ELEMENT =
+        java.util.regex.Pattern.compile("<\\s*([a-z0-9_.-]+:)?(script|foreignobject)\\b");
+    private static final java.util.regex.Pattern CHAR_REF =
+        java.util.regex.Pattern.compile("&#(?:[xX]([0-9a-fA-F]+)|([0-9]+));?");
+
+    private static String decodeCharacterReferences(String text) {
+        var m = CHAR_REF.matcher(text);
+        var out = new StringBuilder();
+        while (m.find()) {
+            int cp;
+            try {
+                cp = m.group(1) != null ? Integer.parseInt(m.group(1), 16) : Integer.parseInt(m.group(2), 10);
+            } catch (NumberFormatException e) {
+                cp = '?';
+            }
+            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(
+                Character.isValidCodePoint(cp) ? new String(Character.toChars(cp)) : "?"));
+        }
+        m.appendTail(out);
+        return out.toString();
     }
 
     /**

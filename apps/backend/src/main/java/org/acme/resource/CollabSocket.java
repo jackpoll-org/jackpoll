@@ -49,6 +49,7 @@ public class CollabSocket {
     private static final byte MSG_SYNC = 0;
     private static final byte MSG_AWARENESS = 1;
     private static final byte SYNC_STEP1 = 0;
+    static final byte MSG_READ_ONLY = 9;
 
     @Inject
     CollabRelay relay;
@@ -83,7 +84,7 @@ public class CollabSocket {
     @OnBinaryMessage
     public void onMessage(WebSocketConnection connection, byte[] data) {
         var editable = connection.userData().get(EDITABLE);
-        if (editable == null || (!editable && !isReadOnlyMessage(data))) {
+        if (editable == null || !mayRelay(data, editable)) {
             return;
         }
         relay.onClientMessage(room(connection), connection, data);
@@ -120,7 +121,12 @@ public class CollabSocket {
             connection.close(new CloseReason(FORBIDDEN, "forbidden")).subscribe().with(ignored -> {}, failure -> {});
             return false;
         }
-        connection.userData().put(EDITABLE, editable);
+        var previous = connection.userData().put(EDITABLE, editable);
+        if (!editable.equals(previous) && !(previous == null && editable)) {
+            connection.sendBinary(io.vertx.core.buffer.Buffer.buffer(
+                    new byte[] {MSG_READ_ONLY, (byte) (editable ? 0 : 1)}))
+                .subscribe().with(ignored -> {}, failure -> {});
+        }
         return true;
     }
 
@@ -136,6 +142,11 @@ public class CollabSocket {
     private static Boolean cached(Map<String, Boolean> lookups, String key, Supplier<Boolean> lookup) {
         if (!lookups.containsKey(key)) lookups.put(key, lookup.get());
         return lookups.get(key);
+    }
+
+    static boolean mayRelay(byte[] data, boolean editable) {
+        if (data.length == 0 || (data[0] != MSG_SYNC && data[0] != MSG_AWARENESS)) return false;
+        return editable || isReadOnlyMessage(data);
     }
 
     static boolean isReadOnlyMessage(byte[] data) {

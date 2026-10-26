@@ -8,6 +8,7 @@ import java.util.Set;
 
 import org.jboss.logging.Logger;
 
+import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -60,6 +61,7 @@ public class UploadCleanupService {
     }
 
     @Transactional
+    @TransactionConfiguration(timeout = 900)
     @SuppressWarnings("unchecked")
     Set<String> referencedKeys() {
         var keys = new HashSet<String>();

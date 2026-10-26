@@ -124,7 +124,7 @@ public final class AuthDtos {
         // Refresh token is delivered to the browser as an httpOnly cookie set by
         // the resource — never serialized into the JSON body (#35).
         @JsonIgnore String refreshToken,
-        @JsonIgnore long refreshExpiresIn
+        long refreshExpiresIn
     ) {}
 
     public record AuthResponseData(

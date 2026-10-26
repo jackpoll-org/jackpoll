@@ -42,12 +42,19 @@ describe("SessionPicker", () => {
   });
 
   it("offers all rounds plus each round with its player count", () => {
-    render(<SessionPicker sessions={sessions} value={null} onChange={vi.fn()} />);
+    render(<SessionPicker sessions={sessions} value={null} onChange={vi.fn()} quiz />);
     const options = screen.getAllByRole("option").map((o) => o.textContent);
     expect(options[0]).toBe("results.session.all");
     expect(options[1]).toContain("players=3");
     expect(options[2]).toContain("players=5");
     expect(screen.getByRole("combobox")).toHaveProperty("value", "__all__");
+  });
+
+  it("counts answers instead of players for a plain live survey", () => {
+    render(<SessionPicker sessions={sessions} value={null} onChange={vi.fn()} />);
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options[1]).toContain("answers=6");
+    expect(options[2]).toContain("answers=10");
   });
 
   it("reports the picked round, and null for all rounds", () => {

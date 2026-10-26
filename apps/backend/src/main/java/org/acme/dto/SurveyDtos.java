@@ -128,7 +128,13 @@ public final class SurveyDtos {
         String firstPageTitle,
         String firstPageDescription,
         // Custom chart color palette (#); null = theme default.
-        java.util.List<String> colorPalette
+        java.util.List<String> colorPalette,
+        // Link preview image (#5); null = default (shown / "classic").
+        Boolean ogShowTitle,
+        Boolean ogShowDescription,
+        Boolean ogShowOwner,
+        Boolean ogShowQuestion,
+        String ogStyle
     ) {}
 
     // ── Requests ──────────────────────────────────────────────────
@@ -156,6 +162,7 @@ public final class SurveyDtos {
     public record SurveyDto(
         String id,
         String ownerId,
+        String ownerName,
         String title,
         String description,
         SurveyStatus status,

@@ -88,8 +88,8 @@ export function GlobalSearch() {
                   >
                     <FileText className="size-4" />
                     <span className="truncate">{survey.title}</span>
-                    <span className="ml-auto text-xs capitalize text-muted-foreground">
-                      {survey.status}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {t(`dashboard.status.${survey.status}`)}
                     </span>
                   </CommandItem>
                 ))}

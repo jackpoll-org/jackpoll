@@ -276,6 +276,12 @@
       overflow-x: clip;
     }
   }
+  /* Radix's scroll lock sets `overflow: hidden` on body. With html's overflow
+     set, that stops propagating to the viewport and body becomes a scroll
+     container, so the sticky top bar scrolls away while a menu/dialog is open. */
+  html:has(body[data-scroll-locked]) {
+    overflow-x: visible;
+  }
 }
 
 /* "Hide app icon" preference — hides the brand logo + name wherever it is tagged

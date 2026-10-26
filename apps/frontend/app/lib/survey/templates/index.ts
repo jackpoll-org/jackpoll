@@ -1,9 +1,9 @@
 import { newId } from "@/app/components/question-types/helpers";
 import type { Option, Question } from "@/app/types/survey";
-import { CURATED_TEMPLATES } from "./catalog";
+import { curatedTemplates } from "./catalog";
 import type { SurveyTemplate } from "./types";
 
-export { CURATED_TEMPLATES };
+export { curatedTemplates };
 export type { SurveyTemplate };
 
 function cloneOptions(

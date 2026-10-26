@@ -49,9 +49,8 @@ Default `server.url` is `https://survey.quavon.de` (see `capacitor.config.ts`).
 Source art lives in `assets/` and `public/icons/icon.svg`.
 
 ```bash
-pnpm mobile:icons                 # regenerate PWA PNGs from the SVG
-npx capacitor-assets generate \   # regenerate native icon/splash sets
-  --iconBackgroundColor '#6d5ce7' --splashBackgroundColor '#6d5ce7'
+pnpm mobile:icons          # regenerate PWA PNGs from the SVG
+pnpm mobile:native-assets  # regenerate native icon/splash sets (iOS + Android only)
 ```
 
 ## Before publishing (manual, needs accounts)

@@ -1,4 +1,5 @@
 import { altchaChallengeUrl } from "@/app/lib/survey/api";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 interface AltchaChallenge {
   algorithm: string;
@@ -36,7 +37,7 @@ export async function solveCaptcha(surveyId: string): Promise<string> {
       return btoa(JSON.stringify({ algorithm, challenge, number, salt, signature }));
     }
   }
-  throw new Error("Captcha challenge could not be solved");
+  throw new Error(localizeServerError("Captcha challenge could not be solved"));
 }
 
 /** Solutions expire after 20 minutes; reuse one while it has a minute left, otherwise solve a fresh one. */

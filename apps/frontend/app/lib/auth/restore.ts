@@ -40,7 +40,7 @@ export async function restoreWithOfflineToken(): Promise<boolean> {
     const accessToken: string | undefined = body?.data?.tokens?.accessToken;
     if (!accessToken) return false;
 
-    storeAuth(accessToken, body.data.user);
+    storeAuth(accessToken, body.data.user, body.data.tokens.refreshExpiresIn);
 
     // The backend rotates the offline token on refresh — persist the new one.
     const rotated: string | undefined = body?.data?.offlineToken;

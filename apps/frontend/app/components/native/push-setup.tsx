@@ -37,6 +37,8 @@ export function PushSetup() {
 
   useEffect(() => {
     if (!pushSupported()) return;
+    // State is set after the awaited lookups, not synchronously in the effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
     return onPushRegistrationFailed((reason) => {
       toast.error(`${t("push.setup.registrationFailed")} (${reason})`);

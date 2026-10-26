@@ -19,12 +19,13 @@ import { useCreateSurvey } from "@/app/hooks/survey";
 import { useDeleteTemplate } from "@/app/hooks/templates";
 import { updateSurveyApi } from "@/app/lib/survey/api";
 import {
-  CURATED_TEMPLATES,
+  curatedTemplates,
   instantiateTemplateQuestions,
   type SurveyTemplate,
 } from "@/app/lib/survey/templates";
 import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
 import { useTranslation } from "@/app/i18n/context";
+import type { TranslationKey } from "@/app/i18n/translations";
 
 interface TemplatePickerDialogProps {
   autoOpen?: boolean;
@@ -48,7 +49,7 @@ export function TemplatePickerDialog({
   autoOpen = false,
   customTemplates = NO_CUSTOM_TEMPLATES,
 }: TemplatePickerDialogProps) {
-  const { t: tr } = useTranslation();
+  const { t: tr, locale } = useTranslation();
   const router = useRouter();
   const createSurvey = useCreateSurvey();
   const deleteTemplate = useDeleteTemplate();
@@ -77,7 +78,7 @@ export function TemplatePickerDialog({
   async function startBlank() {
     setBusy(true);
     try {
-      const survey = await createSurvey.mutateAsync({ title: "Untitled survey" });
+      const survey = await createSurvey.mutateAsync({ title: tr("builder.untitledSurvey") });
       router.push(`/surveys/${survey.id}/edit`);
     } catch (err) {
       handleCreateError(err);
@@ -143,7 +144,7 @@ export function TemplatePickerDialog({
     }
   }
 
-  const curated = CURATED_TEMPLATES.filter((t) => matches(t, query));
+  const curated = curatedTemplates(locale).filter((t) => matches(t, query));
   const custom = customTemplates.filter((t) => matches(t, query));
 
   return (
@@ -249,8 +250,8 @@ function TemplateCard({
       >
         <div className="flex w-full items-center justify-between gap-2">
           <FileText className="size-5 text-muted-foreground" />
-          <Badge variant="secondary" className="capitalize">
-            {template.category}
+          <Badge variant="secondary">
+            {t(`templates.category.${template.category}` as TranslationKey)}
           </Badge>
         </div>
         <span className="font-medium">{template.name}</span>

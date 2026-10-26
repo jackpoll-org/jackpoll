@@ -1,13 +1,20 @@
 import { describe, it, expect } from "vitest";
 import {
-  CURATED_TEMPLATES,
+  curatedTemplates,
   instantiateTemplateQuestions,
 } from "@/app/lib/survey/templates";
 
 describe("curated templates", () => {
+  it("localizes German templates with the same ids", () => {
+    const en = curatedTemplates("en");
+    const de = curatedTemplates("de");
+    expect(de.map((t) => t.id)).toEqual(en.map((t) => t.id));
+    expect(de[0].name).not.toBe(en[0].name);
+  });
+
   it("ships at least five templates with required fields", () => {
-    expect(CURATED_TEMPLATES.length).toBeGreaterThanOrEqual(5);
-    for (const t of CURATED_TEMPLATES) {
+    expect(curatedTemplates("en").length).toBeGreaterThanOrEqual(5);
+    for (const t of curatedTemplates("en")) {
       expect(t.id).toBeTruthy();
       expect(t.name).toBeTruthy();
       expect(t.questions.length).toBeGreaterThan(0);
@@ -15,7 +22,7 @@ describe("curated templates", () => {
   });
 
   it("instantiates with fresh, unique ids and sequential order", () => {
-    const template = CURATED_TEMPLATES[0];
+    const template = curatedTemplates("en")[0];
     const a = instantiateTemplateQuestions(template);
     const b = instantiateTemplateQuestions(template);
 
@@ -29,7 +36,7 @@ describe("curated templates", () => {
   });
 
   it("remaps quiz correct answers to the new option ids", () => {
-    const quiz = CURATED_TEMPLATES.find((t) => t.id === "quiz-round")!;
+    const quiz = curatedTemplates("en").find((t) => t.id === "quiz-round")!;
     const questions = instantiateTemplateQuestions(quiz);
     const mc = questions[0];
     // correct answer references one of the freshly generated option ids

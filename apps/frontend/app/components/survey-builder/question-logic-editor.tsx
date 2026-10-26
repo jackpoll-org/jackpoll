@@ -85,7 +85,7 @@ export function QuestionLogicEditor({
           value={condition.value || undefined}
           onValueChange={(v) => patchCondition(index, { value: v })}
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="min-w-40 flex-1">
             <SelectValue placeholder={t("builder.logic.valuePlaceholder")} />
           </SelectTrigger>
           <SelectContent>
@@ -100,7 +100,7 @@ export function QuestionLogicEditor({
     }
     return (
       <Input
-        className="w-40"
+        className="min-w-40 flex-1"
         placeholder={t("builder.logic.valuePlaceholder")}
         value={condition.value ?? ""}
         onChange={(e) => patchCondition(index, { value: e.target.value })}
@@ -134,7 +134,7 @@ export function QuestionLogicEditor({
             value={condition.questionId}
             onValueChange={(v) => patchCondition(index, { questionId: v })}
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="min-w-44 flex-1">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

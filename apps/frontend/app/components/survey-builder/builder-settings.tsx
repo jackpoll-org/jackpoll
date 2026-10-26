@@ -17,6 +17,7 @@ import { useBuilder } from "./builder-context";
 import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
 import { useTranslation } from "@/app/i18n/context";
 import { BrandingCard } from "./branding-card";
+import { OgPreviewCard } from "./og-preview-card";
 import { ProtectionCard } from "./protection-card";
 import { RetentionCard } from "./retention-card";
 import { RespondentPrivacyCard } from "./respondent-privacy-card";
@@ -382,6 +383,7 @@ export function BuilderSettings() {
     </Card>
 
     <BrandingCard />
+    <OgPreviewCard />
     <RespondentPrivacyCard />
     <NotificationsCard />
     <ProtectionCard />

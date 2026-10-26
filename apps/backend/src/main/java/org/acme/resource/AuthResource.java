@@ -140,11 +140,11 @@ public class AuthResource {
         @HeaderParam("Accept-Language") String acceptLanguage,
         @Context io.vertx.core.http.HttpServerRequest http
     ) {
-        // Native clients send X-Auth-Offline: true to get a long-lived offline
-        // refresh token (returned in the body) for biometric persistent login.
+        // Native clients send X-Auth-Offline: true to also receive the offline
+        // refresh token in the body for biometric persistent login.
         boolean offline = "true".equalsIgnoreCase(offlineHeader);
         enforceAuthRateLimit("login", forwardedFor, http, req.email());
-        var result = authService.login(req, offline, acceptLanguage);
+        var result = authService.login(req, acceptLanguage);
         if (!result.success()) {
             // Valid credentials but unverified email → 403 (a fresh code was sent),
             // so the client can route to the verification screen instead of showing
@@ -230,8 +230,7 @@ public class AuthResource {
         if (tokens.refreshToken() == null) {
             return Response.ok(result).build();
         }
-        long maxAge = tokens.refreshExpiresIn() > 0 ? tokens.refreshExpiresIn() : 1800;
-        return Response.ok(result).cookie(buildRefreshCookie(tokens.refreshToken(), maxAge)).build();
+        return Response.ok(result).cookie(buildRefreshCookie(tokens.refreshToken(), tokens.refreshExpiresIn())).build();
     }
 
     private NewCookie buildRefreshCookie(String value, long maxAgeSeconds) {

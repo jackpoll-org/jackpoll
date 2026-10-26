@@ -16,6 +16,7 @@ import org.acme.entity.QuestionOption;
 import org.acme.entity.Section;
 import org.acme.entity.Survey;
 import org.acme.entity.SurveySettings;
+import org.acme.entity.User;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -25,6 +26,9 @@ import jakarta.enterprise.context.ApplicationScoped;
  */
 @ApplicationScoped
 public class SurveyMapper {
+
+    private static final java.util.Set<String> OG_STYLES =
+        java.util.Set.of("classic", "bold", "minimal", "spotlight", "split");
 
     // ── Entity → DTO ──────────────────────────────────────────────
 
@@ -37,9 +41,19 @@ public class SurveyMapper {
      *                       for the public/embed payload so respondents can't see them.
      */
     public SurveyDto toDto(Survey s, boolean includeAnswers) {
+        return toDto(s, includeAnswers, true);
+    }
+
+    /** Dashboard rows never show the owner name, so they skip its per-survey lookup. */
+    public SurveyDto toListDto(Survey s) {
+        return toDto(s, true, false);
+    }
+
+    private SurveyDto toDto(Survey s, boolean includeAnswers, boolean resolveOwner) {
         return new SurveyDto(
             s.id,
             s.ownerId,
+            resolveOwner && s.settings != null && Boolean.TRUE.equals(s.settings.ogShowOwner) ? ownerName(s.ownerId) : null,
             s.title,
             s.description,
             s.status,
@@ -55,6 +69,11 @@ public class SurveyMapper {
             s.createdAt != null ? s.createdAt.toString() : null,
             s.updatedAt != null ? s.updatedAt.toString() : null
         );
+    }
+
+    private String ownerName(String ownerId) {
+        User owner = User.findById(ownerId);
+        return owner != null ? owner.name : null;
     }
 
     private SurveySettingsDto toSettingsDto(SurveySettings v) {
@@ -101,7 +120,12 @@ public class SurveyMapper {
             s.liveHideQuestionOnDevices,
             s.firstPageTitle,
             s.firstPageDescription,
-            s.colorPalette
+            s.colorPalette,
+            s.ogShowTitle,
+            s.ogShowDescription,
+            s.ogShowOwner,
+            s.ogShowQuestion,
+            s.ogStyle
         );
     }
 
@@ -147,7 +171,9 @@ public class SurveyMapper {
         s.title = req.title();
         s.description = req.description();
         s.status = req.status();
+        var previous = s.settings;
         s.settings = fromSettingsDto(req.settings());
+        keepPreviewSettings(previous, s.settings);
         s.sections = fromSectionDtos(req.sections());
         // Multilingual content (issue #37) — stored verbatim; ids stay stable.
         s.languages = req.languages() != null ? req.languages() : new ArrayList<>();
@@ -250,7 +276,22 @@ public class SurveyMapper {
         s.firstPageTitle = d.firstPageTitle();
         s.firstPageDescription = d.firstPageDescription();
         s.colorPalette = d.colorPalette();
+        s.ogShowTitle = d.ogShowTitle();
+        s.ogShowDescription = d.ogShowDescription();
+        s.ogShowOwner = d.ogShowOwner();
+        s.ogShowQuestion = d.ogShowQuestion();
+        s.ogStyle = d.ogStyle() != null && OG_STYLES.contains(d.ogStyle()) ? d.ogStyle() : null;
         return s;
+    }
+
+    // A client built before an option existed sends it as null; keep the stored choice.
+    private static void keepPreviewSettings(SurveySettings previous, SurveySettings next) {
+        if (previous == null) return;
+        if (next.ogShowTitle == null) next.ogShowTitle = previous.ogShowTitle;
+        if (next.ogShowDescription == null) next.ogShowDescription = previous.ogShowDescription;
+        if (next.ogShowOwner == null) next.ogShowOwner = previous.ogShowOwner;
+        if (next.ogShowQuestion == null) next.ogShowQuestion = previous.ogShowQuestion;
+        if (next.ogStyle == null) next.ogStyle = previous.ogStyle;
     }
 
     private List<Section> fromSectionDtos(List<SectionDto> dtos) {

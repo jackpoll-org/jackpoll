@@ -15,6 +15,7 @@ vi.mock("@/app/i18n/context", () => ({
 // only exercises the live-mode/quiz-mode toggles under test.
 vi.mock("../outcomes-editor", () => ({ OutcomesEditor: () => null }));
 vi.mock("../branding-card", () => ({ BrandingCard: () => null }));
+vi.mock("../og-preview-card", () => ({ OgPreviewCard: () => null }));
 vi.mock("../protection-card", () => ({ ProtectionCard: () => null }));
 vi.mock("../retention-card", () => ({ RetentionCard: () => null }));
 vi.mock("../respondent-privacy-card", () => ({ RespondentPrivacyCard: () => null }));

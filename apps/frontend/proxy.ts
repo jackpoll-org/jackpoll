@@ -1,30 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtExpiryMs } from "@/app/lib/auth/storage";
-
-/** Paths that do NOT require authentication. */
-const PUBLIC_PATHS = [
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
-  "/verify-email",
-  // Public account/data deletion — reachable without login (Play Store
-  // requirement + real self-service path when the user can't sign in).
-  "/delete-account",
-  "/delete-data",
-  // Public survey surfaces — respondents are anonymous (issues #7/#16/#26/#40/#15/#22).
-  "/embed", // iframe embed
-  "/s", // shareable public link
-  "/r", // resume a saved draft
-  "/e", // edit a submitted response
-  "/join", // access-code entry
-  "/collab", // passwordless collaborator link
-  // Legal pages must be reachable by anyone (GDPR #61/#62/#67).
-  "/privacy",
-  "/impressum",
-  "/terms",
-];
+import { isPublicPath } from "@/app/lib/auth/constants";
 
 /** Whether a JWT's `exp` has passed. Unreadable tokens count as not expired
  *  (the backend is the authority; this only steers redirects). */
@@ -62,7 +39,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Check if current path is public (no auth required)
-  const isPublicPath = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isPublic = isPublicPath(pathname);
   const isGuestOnly = GUEST_ONLY_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   // Read token from cookie (preferred) or Authorization header
@@ -80,7 +57,7 @@ export function proxy(request: NextRequest) {
   }
 
   // If user is NOT authenticated and tries to access a protected path, redirect to login
-  if (!token && !isPublicPath) {
+  if (!token && !isPublic) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);

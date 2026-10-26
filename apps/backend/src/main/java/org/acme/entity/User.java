@@ -15,7 +15,7 @@ import jakarta.persistence.Table;
 public class User extends PanacheEntityBase {
 
     @Id
-    @Column(length = 36)
+    @Column(length = 255)
     public String id;  // Keycloak user ID (sub claim)
 
     @Column(nullable = false, unique = true, length = 255)

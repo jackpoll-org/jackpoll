@@ -24,7 +24,7 @@ export function ThemeCustomizerPanel() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="icon-sm" variant="ghost" aria-label="Theme settings">
+        <Button size="icon-sm" variant="ghost" aria-label={t("theme.settings")}>
           <Palette />
         </Button>
       </DropdownMenuTrigger>

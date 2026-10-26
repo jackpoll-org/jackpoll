@@ -6,6 +6,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // Node 25+ ships a global localStorage that hides jsdom's.
+    execArgv: ["--no-experimental-webstorage"],
     include: ["app/**/*.{test,spec}.{ts,tsx}"],
     // Playwright E2E specs (e2e/**) run under Playwright, not Vitest.
     exclude: ["e2e/**", "node_modules/**"],

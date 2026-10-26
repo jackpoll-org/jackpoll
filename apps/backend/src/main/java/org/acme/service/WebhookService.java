@@ -27,6 +27,7 @@ import org.acme.entity.NotificationEventType;
 import org.acme.entity.Webhook;
 import org.acme.exception.ResourceNotFoundException;
 import org.acme.exception.SpamRejectedException;
+import org.acme.mail.MailCopy;
 import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.SurveyRepository;
 import org.acme.repository.UserRepository;
@@ -48,6 +49,8 @@ import jakarta.transaction.Transactional;
  */
 @ApplicationScoped
 public class WebhookService {
+
+    private static final MailCopy COPY = MailCopy.of("messages");
 
     private static final Logger LOG = Logger.getLogger(WebhookService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -249,8 +252,9 @@ public class WebhookService {
         var survey = surveys.findByIdOptional(hook.surveyId).orElse(null);
         if (survey == null) return;
         var type = NotificationEventType.WEBHOOK_FAILING;
-        String title = "Webhook failing";
-        String body = "Deliveries to " + hook.url + " on \"" + survey.title + "\" have failed repeatedly.";
+        String locale = users.localeOf(survey.ownerId);
+        String title = COPY.t(locale, "notify.webhook.title");
+        String body = COPY.t(locale, "notify.webhook.body", hook.url, survey.title);
         pushService.notifyUser(survey.ownerId, type, title, body);
         notificationRecordService.record(survey.ownerId, type, title, body,
             "/surveys/" + survey.id + "/webhooks");

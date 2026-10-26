@@ -23,6 +23,7 @@ import { getStoredToken, storedTokenExpired } from "@/app/lib/auth/storage";
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
+const MSG_READ_ONLY = 9;
 const FORBIDDEN = 4403;
 
 // Re-announce local presence on this cadence. The backend relay is stateless
@@ -116,6 +117,8 @@ export class CollabProvider {
   readonly doc = new Y.Doc();
   readonly awareness = new Awareness(this.doc);
   private ws: WebSocket | null = null;
+  readOnly = false;
+  openedAt: number | null = null;
   private closed = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -175,6 +178,7 @@ export class CollabProvider {
     ws.binaryType = "arraybuffer";
     this.ws = ws;
     ws.onopen = () => {
+      this.openedAt ??= Date.now();
       console.info("[collab] open");
       // Ask peers for the current document state…
       this.requestSync();
@@ -233,6 +237,10 @@ export class CollabProvider {
   private onMessage(data: Uint8Array) {
     const decoder = decoding.createDecoder(data);
     const type = decoding.readVarUint(decoder);
+    if (type === MSG_READ_ONLY) {
+      this.readOnly = !decoding.hasContent(decoder) || decoding.readVarUint(decoder) === 1;
+      return;
+    }
     if (type === MSG_SYNC) {
       const enc = encoding.createEncoder();
       encoding.writeVarUint(enc, MSG_SYNC);

@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
 import { usePublicSurvey } from "@/app/hooks/survey";
 import { Spinner } from "@/app/components/ui/spinner";
+import { useTranslation } from "@/app/i18n/context";
 
 /**
  * Public, chrome-free survey view for iframe embedding (issue #7). Renders a
@@ -11,6 +12,7 @@ import { Spinner } from "@/app/components/ui/spinner";
  */
 export default function EmbedPage() {
   const params = useParams<{ id: string }>();
+  const { t } = useTranslation();
   const { data: survey, isLoading, isError } = usePublicSurvey(params.id);
 
   if (isLoading) {
@@ -25,7 +27,7 @@ export default function EmbedPage() {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">
-          This survey is not available.
+          {t("embed.unavailable")}
         </p>
       </div>
     );

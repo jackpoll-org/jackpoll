@@ -33,6 +33,7 @@ import org.acme.entity.SurveyStatus;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.exception.QuotaExceededException;
 import org.acme.exception.ResourceNotFoundException;
+import org.acme.mail.MailCopy;
 import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.OptionRepository;
 import org.acme.repository.ResponseRepository;
@@ -48,6 +49,8 @@ import jakarta.transaction.Transactional;
 /** Persists survey responses and aggregates them into dashboard results. */
 @ApplicationScoped
 public class ResponseService {
+
+    private static final MailCopy COPY = MailCopy.of("messages");
 
     @Inject
     SurveyRepository surveyRepository;
@@ -254,14 +257,15 @@ public class ResponseService {
         // 2000 notifications per game) and the owner is watching live anyway.
         if (survey.settings == null || !survey.settings.liveMode) {
             // Native push to the owner's devices (mobile app) — opt-in, best-effort.
+            String newResponseBody = COPY.t(userRepository.localeOf(survey.ownerId), "notify.response.body");
             pushService.notifyUser(
                 survey.ownerId, NotificationEventType.NEW_RESPONSE,
-                survey.title, "You received a new response.");
+                survey.title, newResponseBody);
 
             // In-app notification (#89) — opt-in, best-effort.
             notificationRecordService.record(
                 survey.ownerId, NotificationEventType.NEW_RESPONSE,
-                survey.title, "You received a new response.",
+                survey.title, newResponseBody,
                 "/surveys/" + survey.id + "/results");
         }
 
@@ -418,8 +422,9 @@ public class ResponseService {
         survey.milestoneNotified = highestCrossed;
         final int milestone = highestCrossed;
 
-        String title = "Milestone reached";
-        String body = survey.title + " just hit " + milestone + " responses!";
+        String locale = userRepository.localeOf(survey.ownerId);
+        String title = COPY.t(locale, "notify.milestone.title");
+        String body = COPY.t(locale, "notify.milestone.body", survey.title, milestone);
         pushService.notifyUser(survey.ownerId, NotificationEventType.RESPONSE_MILESTONE, title, body);
         notificationRecordService.record(survey.ownerId, NotificationEventType.RESPONSE_MILESTONE,
             title, body, "/surveys/" + survey.id + "/results");

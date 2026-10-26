@@ -36,6 +36,7 @@ import type {
   Webhook,
   WebhookTestResult,
 } from "@/app/types/survey";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 /**
  * Error carrying the HTTP status plus optional structured metadata: `reason`
@@ -109,23 +110,23 @@ export async function request<T>(
   });
 
   // Logged-in caller hit an expired token → silent single-flight refresh +
-  // retry once (issue #35). Anonymous callers (public survey pages) skip this.
+  // retry once (issue #35). When the session can't be renewed the stale token
+  // is gone, so the retry goes out anonymously and public survey pages still
+  // load. Anonymous callers skip this.
   if (res.status === 401 && hadToken) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      res = await fetch(url, {
-        ...options,
-        headers: buildHeaders(),
-        credentials: "include",
-      });
-    }
+    await refreshAccessToken();
+    res = await fetch(url, {
+      ...options,
+      headers: buildHeaders(),
+      credentials: "include",
+    });
   }
 
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
     throw new ApiError(
-      body.error ?? body.message ?? `Request failed with status ${res.status}`,
+      localizeServerError(body.error ?? body.message ?? `Request failed with status ${res.status}`),
       res.status,
       body.reason,
       body.limit,
@@ -804,7 +805,7 @@ export async function uploadFileApi(file: File): Promise<UploadedFile> {
 
   const body = (await res.json().catch(() => ({}))) as ApiResponse<UploadedFile>;
   if (!res.ok || !body.success || !body.data) {
-    throw new Error(body.error ?? `Upload failed with status ${res.status}`);
+    throw new Error(localizeServerError(body.error ?? `Upload failed with status ${res.status}`));
   }
   return body.data;
 }

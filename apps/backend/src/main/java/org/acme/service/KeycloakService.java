@@ -37,6 +37,9 @@ public class KeycloakService {
     @ConfigProperty(name = "keycloak.client-secret")
     String clientSecret;
 
+    @ConfigProperty(name = "keycloak.offline-session-idle")
+    java.time.Duration offlineSessionIdle;
+
     @RestClient
     KeycloakTokenClient tokenClient;
 
@@ -133,6 +136,7 @@ public class KeycloakService {
             String kcId = keycloakUuid(adminToken, email.trim().toLowerCase());
             adminClient.resetPassword("Bearer " + adminToken, realm, kcId,
                 Map.of("type", "password", "value", newPassword, "temporary", false));
+            adminClient.logoutAllSessions("Bearer " + adminToken, realm, kcId);
             return ApiResponse.ok(null);
         } catch (Exception e) {
             return ApiResponse.error("Could not reset the password. Please try again.");
@@ -142,11 +146,11 @@ public class KeycloakService {
     /**
      * Exchange credentials for OIDC tokens via Keycloak.
      *
-     * @param offline when true, request the {@code offline_access} scope so the
-     *     returned refresh token is a long-lived offline token (native apps use
-     *     it for biometric persistent login). Web logins pass false.
+     * Always requests the {@code offline_access} scope: a regular refresh token
+     * dies with Keycloak's SSO session after 30 idle minutes, which signed out
+     * anyone who left a tab open. The offline session idles out after 30 days.
      */
-    public ApiResponse<AuthDtos.AuthResponseData> login(AuthDtos.LoginRequest req, boolean offline) {
+    public ApiResponse<AuthDtos.AuthResponseData> login(AuthDtos.LoginRequest req) {
         AuthDtos.AuthResponseData data;
         try {
             var email = req.email().trim().toLowerCase();
@@ -157,7 +161,7 @@ public class KeycloakService {
             // causing a spurious users_email_key conflict on first login after signup.
             var tokenResponse = tokenClient.tokenWithScope(
                 realm, "password", clientId, clientSecret, email, req.password(),
-                offline ? "openid offline_access" : "openid");
+                "openid offline_access");
 
             data = buildAuthResponse(tokenResponse, req.email(), "");
         } catch (Exception e) {
@@ -297,7 +301,8 @@ public class KeycloakService {
         var accessToken = tokenResponse.get("access_token");
         var expiresIn = Long.parseLong(tokenResponse.getOrDefault("expires_in", "300"));
         var refreshToken = tokenResponse.get("refresh_token");
-        var refreshExpiresIn = Long.parseLong(tokenResponse.getOrDefault("refresh_expires_in", "0"));
+        var reportedRefreshExpiry = Long.parseLong(tokenResponse.getOrDefault("refresh_expires_in", "0"));
+        var refreshExpiresIn = reportedRefreshExpiry > 0 ? reportedRefreshExpiry : offlineSessionIdle.toSeconds();
         var claims = decodeTokenClaims(accessToken);
 
         // Keycloak may not include 'sub' without openid scope; use preferred_username as fallback

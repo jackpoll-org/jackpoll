@@ -35,6 +35,11 @@ class FileContentValidatorTest {
         assertTrue(FileContentValidator.isSafeSvg("<svg><rect width=\"1\"/></svg>".getBytes()));
         assertFalse(FileContentValidator.isSafeSvg("<svg/onload=alert(1)>".getBytes()));
         assertFalse(FileContentValidator.isSafeSvg("<svg><a href=\"&#106;avascript:x\">a</a></svg>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<svg><a href=\"&#x6A;ava&#x09;script:x\">a</a></svg>".getBytes()));
+        assertTrue(FileContentValidator.isSafeSvg("<svg><text>Caf&#233;</text></svg>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<svg><a href=\"&#0000106;avascript:x\">a</a></svg>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<svg><a href=\"&#X6A;avascript:x\">a</a></svg>".getBytes()));
+        assertFalse(FileContentValidator.isSafeSvg("<svg xmlns:s=\"http://www.w3.org/2000/svg\"><s:script>1</s:script></svg>".getBytes()));
         assertFalse(FileContentValidator.isSafeSvg("<svg><foreignObject><p/></foreignObject></svg>".getBytes()));
         assertFalse(FileContentValidator.isSafeSvg("<!DOCTYPE s [<!ENTITY x \"y\">]><svg/>".getBytes()));
     }

@@ -14,6 +14,8 @@ export interface User {
 export interface AuthTokens {
   accessToken: string;
   expiresIn: number;
+  /** Seconds the session survives without activity. */
+  refreshExpiresIn?: number;
 }
 
 export interface AuthState {

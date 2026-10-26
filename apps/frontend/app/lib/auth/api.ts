@@ -17,6 +17,7 @@ import type {
   ResetPasswordRequest,
   User,
 } from "@/app/types/auth";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 // ── Generic fetch helper ──────────────────────────────────────────
 
@@ -71,7 +72,7 @@ async function request<T>(
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(body.error ?? body.message ?? `Request failed with status ${res.status}`);
+    throw new Error(localizeServerError(body.error ?? body.message ?? `Request failed with status ${res.status}`));
   }
 
   return body as ApiResponse<T>;
@@ -155,7 +156,7 @@ export async function downloadMyDataExport(): Promise<void> {
     credentials: "include",
   });
   if (!res.ok) {
-    throw new Error("Could not export your data. Please try again.");
+    throw new Error(localizeServerError("Could not export your data. Please try again."));
   }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

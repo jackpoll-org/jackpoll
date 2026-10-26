@@ -10,6 +10,7 @@ import { useAuthContext } from "@/app/components/auth/auth-provider";
 import { loadStoredName, makeGuestUser, storeName } from "@/app/lib/collab/identity";
 import { Spinner } from "@/app/components/ui/spinner";
 import type { Survey, UpdateSurveyRequest } from "@/app/types/survey";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 /**
  * Passwordless collaborative editing via a link slug (issue #22). Anyone with
@@ -41,7 +42,7 @@ export default function CollabPage() {
   async function save(req: UpdateSurveyRequest): Promise<Survey> {
     const res = await editCollabApi(params.slug, req);
     if (!res.success || !res.data) {
-      throw new Error(res.error ?? "Failed to save");
+      throw new Error(localizeServerError(res.error ?? "Failed to save"));
     }
     return res.data;
   }

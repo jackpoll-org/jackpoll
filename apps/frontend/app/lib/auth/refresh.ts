@@ -5,7 +5,7 @@
 // callers (single-flight), so concurrent 401s trigger exactly one refresh.
 
 import { Capacitor } from "@capacitor/core";
-import { API_BASE_URL } from "./constants";
+import { API_BASE_URL, isPublicPath } from "./constants";
 import { clearAuth, storeAuth } from "./storage";
 
 let inFlight: Promise<string | null> | null = null;
@@ -35,7 +35,7 @@ async function doRefresh(): Promise<string | null> {
     const token: string | undefined = body?.data?.tokens?.accessToken;
     if (!token) return onFailed();
 
-    storeAuth(token, body.data.user);
+    storeAuth(token, body.data.user, body.data.tokens.refreshExpiresIn);
     return token;
   } catch {
     return onFailed();
@@ -52,19 +52,11 @@ function onFailed(): null {
   if (Capacitor.isNativePlatform()) {
     return null;
   }
-  // Hard redirect (we're outside React here). Skip if already on an auth page
-  // to avoid loops, and preserve the intended destination.
-  if (typeof window !== "undefined") {
-    const path = window.location.pathname;
-    const onAuthPage =
-      path.startsWith("/login") ||
-      path.startsWith("/register") ||
-      path.startsWith("/forgot-password") ||
-      path.startsWith("/reset-password");
-    if (!onAuthPage) {
-      const redirect = encodeURIComponent(path + window.location.search);
-      window.location.assign(`/login?expired=1&redirect=${redirect}`);
-    }
+  // Hard redirect (we're outside React here). Public pages (auth screens,
+  // shared survey links) stay put: the visitor simply continues signed out.
+  if (typeof window !== "undefined" && !isPublicPath(window.location.pathname)) {
+    const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/login?expired=1&redirect=${redirect}`);
   }
   return null;
 }

@@ -244,7 +244,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
     );
   }
 
-  if (index == null || !question) {
+  if (index == null || !question || phase === "lobby") {
     return (
       <div className="flex min-h-[60svh] flex-col items-center justify-center gap-3 text-center">
         <Spinner className="size-6 text-muted-foreground" />

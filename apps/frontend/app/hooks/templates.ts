@@ -12,6 +12,7 @@ import type {
   CustomTemplateDto,
   SurveyTemplate,
 } from "@/app/lib/survey/templates/types";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 function toTemplate(dto: CustomTemplateDto): SurveyTemplate {
   return {
@@ -31,7 +32,7 @@ export function useCustomTemplates() {
     queryFn: async () => {
       const res = await listTemplatesApi();
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load templates");
+        throw new Error(localizeServerError(res.error ?? "Failed to load templates"));
       }
       return res.data.map(toTemplate);
     },
@@ -44,7 +45,7 @@ export function useCreateTemplate() {
     mutationFn: async (data: CreateTemplateInput) => {
       const res = await createTemplateApi(data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to save template");
+        throw new Error(localizeServerError(res.error ?? "Failed to save template"));
       }
       return res.data;
     },
@@ -60,7 +61,7 @@ export function useDeleteTemplate() {
     mutationFn: async (id: string) => {
       const res = await deleteTemplateApi(id);
       if (!res.success) {
-        throw new Error(res.error ?? "Failed to delete template");
+        throw new Error(localizeServerError(res.error ?? "Failed to delete template"));
       }
     },
     onSuccess: () => {

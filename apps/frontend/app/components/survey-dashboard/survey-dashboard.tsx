@@ -246,7 +246,7 @@ export function SurveyDashboard() {
           <span className="text-muted-foreground">{t("dashboard.tagFilter")}</span>
           <Badge variant="secondary" className="gap-1">
             {tag}
-            <button type="button" aria-label="Clear tag filter" onClick={() => setTag(null)}>
+            <button type="button" aria-label={t("dashboard.clearTag")} onClick={() => setTag(null)}>
               <X className="size-3" />
             </button>
           </Badge>

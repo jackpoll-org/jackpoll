@@ -72,6 +72,16 @@ describe("getSurveyApi", () => {
     expect(result.data?.id).toBe("s1");
   });
 
+  it("shows backend errors in German on a German page", async () => {
+    mockFetch(404, { success: false, error: "Survey not found: s1" });
+    document.documentElement.lang = "de";
+    try {
+      await expect(getSurveyApi("s1")).rejects.toThrow("Umfrage nicht gefunden.");
+    } finally {
+      document.documentElement.lang = "en";
+    }
+  });
+
   it("throws on 404", async () => {
     mockFetch(404, { success: false, error: "Survey not found: s1" });
     await expect(getSurveyApi("s1")).rejects.toThrow("not found");

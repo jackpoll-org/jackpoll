@@ -27,7 +27,7 @@ public class SurveyCollaborator extends PanacheEntityBase {
     @Column(name = "survey_id", nullable = false, length = 36)
     public String surveyId;
 
-    @Column(name = "user_id", nullable = false, length = 36)
+    @Column(name = "user_id", nullable = false, length = 255)
     public String userId;
 
     @Enumerated(EnumType.STRING)

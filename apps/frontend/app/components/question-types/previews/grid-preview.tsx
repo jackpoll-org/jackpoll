@@ -11,6 +11,7 @@ import {
 } from "@/app/components/ui/table";
 import type { Option } from "@/app/types/survey";
 import type { QuestionPreviewProps } from "../types";
+import { useTranslation } from "@/app/i18n/context";
 
 type GridValue = Record<string, string | string[]>;
 
@@ -21,13 +22,14 @@ export function GridPreview({
   onChange,
   disabled,
 }: QuestionPreviewProps) {
+  const { t } = useTranslation();
   const rows: Option[] = question.rows ?? [];
   const columns: Option[] = question.columns ?? [];
 
   if (rows.length === 0 || columns.length === 0) {
     return (
       <p className="text-sm text-muted-foreground italic">
-        Add at least one row and one column
+        {t("preview.grid.empty")}
       </p>
     );
   }

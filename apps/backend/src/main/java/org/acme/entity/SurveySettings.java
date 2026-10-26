@@ -1,5 +1,6 @@
 package org.acme.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
@@ -9,6 +10,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * in milestone 1.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+// The jsonb column is read by Hibernate's default ObjectMapper, which fails on
+// unknown fields: without this, rolling back the backend would make every
+// survey saved with a newer setting unreadable.
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SurveySettings {
 
     public boolean allowMultipleResponses;
@@ -99,6 +104,14 @@ public class SurveySettings {
 
     /** Custom chart color palette (CSS colors, in cycle order); null = theme default. */
     public java.util.List<String> colorPalette;
+
+    // Link preview image (#5); null = default: title, description and first
+    // choice question shown, owner name hidden, "classic" design.
+    public Boolean ogShowTitle;
+    public Boolean ogShowDescription;
+    public Boolean ogShowOwner;
+    public Boolean ogShowQuestion;
+    public String ogStyle;
 
     public static SurveySettings defaults() {
         var s = new SurveySettings();

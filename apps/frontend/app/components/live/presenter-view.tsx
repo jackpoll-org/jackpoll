@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/app/components/ui/button";
 import { QuestionResultCard } from "@/app/components/survey-results/question-result-card";
@@ -110,8 +110,9 @@ function PresenterInner({ survey }: { survey: Survey }) {
   const questions = useMemo(() => liveSlides(survey.questions), [survey.questions]);
   const [index, setIndex] = useState(0);
   const [startedAt, setStartedAt] = useState(() => Date.now());
-  // Quiz games open in a lobby; the host starts the first question from there.
+  // Every live run opens in a lobby (join QR + PIN); the host starts from there.
   const [started, setStarted] = useState(false);
+  const [resultsHidden, setResultsHidden] = useState(false);
   // Per-question flow for a Quiz game: read the options → reveal the correct
   // answer → show a quick standings screen → advance.
   const [stage, setStage] = useState<"asking" | "reveal" | "standings">("asking");
@@ -126,7 +127,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
   const roster = useLiveRoster(survey.id, game);
   useLiveResultsSocket(survey.id); // keep the shown result fresh in real time
   const live = useSetLiveState(survey.id);
-  const inLobby = game && !started;
+  const inLobby = !started;
 
   // A never-configured timer (null/undefined) defaults to a working timer
   // rather than silently disappearing; an explicit 0 (host opted out) stays 0.
@@ -190,7 +191,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
   });
   useEffect(() => {
     const phase =
-      game && !started
+      !started
         ? "lobby"
         : index >= questions.length
           ? "results"
@@ -247,7 +248,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
         </div>
         <LobbyView
           surveyId={survey.id}
-          players={roster}
+          players={game ? roster : undefined}
           starting={startSession.isPending}
           onStart={async () => {
             try {
@@ -394,6 +395,13 @@ function PresenterInner({ survey }: { survey: Survey }) {
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   {t("live.resultsHiddenUntilReveal")}
                 </div>
+              ) : !game && resultsHidden ? (
+                <div className="flex h-full flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
+                  <p>{t("live.resultsHidden")}</p>
+                  <p className="tabular-nums">
+                    {t("live.answeredCount", { count: String(result?.answered ?? 0) })}
+                  </p>
+                </div>
               ) : result && result.answered > 0 ? (
                 <QuestionResultCard
                   // Fresh card per question: its chart starts at that question's
@@ -433,6 +441,12 @@ function PresenterInner({ survey }: { survey: Survey }) {
           <ChevronLeft className="size-5" />
           {t("live.prev")}
         </Button>
+        {!game && !isResults && !info && (
+          <Button variant="ghost" size="lg" onClick={() => setResultsHidden((hidden) => !hidden)}>
+            {resultsHidden ? <Eye className="size-5" /> : <EyeOff className="size-5" />}
+            {resultsHidden ? t("live.showResultsOnScreen") : t("live.hideResults")}
+          </Button>
+        )}
         <Button size="lg" disabled={nextDisabled || countdownActive} onClick={handleNext}>
           {nextLabel}
           <ChevronRight className="size-5" />

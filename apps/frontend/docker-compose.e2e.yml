@@ -49,6 +49,13 @@ services:
       KC_HOSTNAME_STRICT: "false"
     volumes:
       - ./keycloak/survey-school-realm.json:/opt/keycloak/data/import/survey-school-realm.json:ro
+    # The image has no curl or wget; the management port serves /health/ready.
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,6 +90,7 @@ services:
       SURVEY_SPAM_SECRET: e2e-spam-secret
       EMAIL_CODE_SECRET: e2e-email-code-secret
       MAIL_UNSUBSCRIBE_SECRET: e2e-mail-secret
+      REDIS_URL: redis://redis:6379
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/q/health/ready"]
       interval: 10s
@@ -93,6 +101,6 @@ services:
       postgres:
         condition: service_healthy
       keycloak:
-        condition: service_started
+        condition: service_healthy
       minio:
         condition: service_healthy

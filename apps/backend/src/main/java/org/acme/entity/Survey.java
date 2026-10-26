@@ -30,7 +30,7 @@ public class Survey extends PanacheEntityBase {
     public String id;
 
     /** Keycloak user id (sub claim) of the owner. */
-    @Column(name = "owner_id", nullable = false, length = 36)
+    @Column(name = "owner_id", nullable = false, length = 255)
     public String ownerId;
 
     @Column(nullable = false, length = 255)

@@ -17,7 +17,7 @@ import jakarta.persistence.Table;
 public class NotificationPreference extends PanacheEntityBase {
 
     @Id
-    @Column(name = "user_id", length = 36)
+    @Column(name = "user_id", length = 255)
     public String userId;
 
     @Id

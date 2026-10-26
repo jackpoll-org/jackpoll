@@ -196,8 +196,8 @@ export function SurveyCard({ survey, onTagClick, view = "grid", shared = false }
           {t("dashboard.shared.badge")}
         </Badge>
       )}
-      <Badge variant={STATUS_VARIANT[survey.status]} className="shrink-0 capitalize">
-        {survey.status}
+      <Badge variant={STATUS_VARIANT[survey.status]} className="shrink-0">
+        {t(`dashboard.status.${survey.status}`)}
       </Badge>
     </span>
   );

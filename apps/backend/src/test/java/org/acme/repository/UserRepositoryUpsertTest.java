@@ -22,6 +22,9 @@ class UserRepositoryUpsertTest {
     @Inject
     UserRepository users;
 
+    @Inject
+    CollaboratorRepository collaborators;
+
     private static String email() {
         return "upsert-" + java.util.UUID.randomUUID() + "@example.test";
     }
@@ -85,5 +88,39 @@ class UserRepositoryUpsertTest {
             users.findByIdOptional(newId).orElseThrow());
         assertEquals(email, row.email);
         assertTrue(row.emailVerified);
+    }
+
+    @Test
+    void firstSignInKeepsWhatWasLinkedToTheRegisteredRow() {
+        var email = email();
+        var registeredId = java.util.UUID.randomUUID().toString();
+        var signInId = email;
+        var accepted = java.time.Instant.parse("2026-10-19T10:00:00Z");
+        var surveyId = java.util.UUID.randomUUID().toString();
+
+        QuarkusTransaction.requiringNew().run(() -> {
+            users.upsert(registeredId, email, "Ada", false, "de");
+            var user = users.findById(registeredId);
+            user.termsAcceptedAt = accepted;
+            user.termsVersion = "2026-10-19";
+            var invite = new org.acme.entity.SurveyCollaborator();
+            invite.id = java.util.UUID.randomUUID().toString();
+            invite.surveyId = surveyId;
+            invite.userId = registeredId;
+            invite.role = org.acme.entity.CollaboratorRole.EDITOR;
+            invite.status = org.acme.entity.CollaboratorStatus.PENDING;
+            collaborators.persist(invite);
+        });
+        QuarkusTransaction.requiringNew().run(() ->
+            users.upsert(signInId, email, "Ada", true, null));
+
+        var row = QuarkusTransaction.requiringNew().call(() -> users.findByIdOptional(signInId).orElseThrow());
+        assertEquals(accepted, row.termsAcceptedAt);
+        assertEquals("2026-10-19", row.termsVersion);
+        assertEquals("de", row.locale);
+        assertTrue(row.emailVerified);
+        assertTrue(QuarkusTransaction.requiringNew().call(() ->
+            collaborators.findBySurveyAndUser(surveyId, signInId).isPresent()), "invitation follows the user");
+        assertEquals(1L, (long) QuarkusTransaction.requiringNew().call(() -> users.count("email", email)));
     }
 }

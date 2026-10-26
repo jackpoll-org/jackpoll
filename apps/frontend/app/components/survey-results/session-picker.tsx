@@ -17,14 +17,15 @@ interface SessionPickerProps {
   /** The picked round's id, or null for all rounds. */
   value: string | null;
   onChange: (sessionId: string | null) => void;
+  quiz?: boolean;
 }
 
 /**
- * Results filter for live quizzes: every "start game" is its own round, and
- * the owner can look at one round (players, scores, answers) or all of them.
- * Hidden until the quiz has been played as a live game at least once.
+ * Results filter for live mode: every start from the lobby is its own round,
+ * and the owner can look at one round (players, scores, answers) or all of
+ * them. Hidden until the survey has been presented live at least once.
  */
-export function SessionPicker({ sessions, value, onChange }: SessionPickerProps) {
+export function SessionPicker({ sessions, value, onChange, quiz = false }: SessionPickerProps) {
   const { t, locale } = useTranslation();
   if (sessions.length === 0) return null;
 
@@ -40,7 +41,12 @@ export function SessionPicker({ sessions, value, onChange }: SessionPickerProps)
         <SelectItem value={ALL}>{t("results.session.all")}</SelectItem>
         {sessions.map((s) => (
           <SelectItem key={s.id} value={s.id}>
-            {t("results.session.option", { date: when(s.startedAt), players: String(s.players) })}
+            {quiz
+              ? t("results.session.option", { date: when(s.startedAt), players: String(s.players) })
+              : t("results.session.optionAnswers", {
+                  date: when(s.startedAt),
+                  answers: String(s.responses),
+                })}
           </SelectItem>
         ))}
       </SelectContent>

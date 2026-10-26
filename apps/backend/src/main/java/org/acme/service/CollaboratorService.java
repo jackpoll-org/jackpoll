@@ -13,6 +13,7 @@ import org.acme.entity.SurveyCollaborator;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.exception.RateLimitedException;
 import org.acme.exception.ResourceNotFoundException;
+import org.acme.mail.MailCopy;
 import org.acme.repository.CollaboratorRepository;
 import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.SurveyRepository;
@@ -25,6 +26,8 @@ import jakarta.transaction.Transactional;
 /** Manages survey collaborators (issue #8). Only the owner may add/remove. */
 @ApplicationScoped
 public class CollaboratorService {
+
+    private static final MailCopy COPY = MailCopy.of("messages");
 
     @Inject
     SurveyService surveyService;
@@ -97,12 +100,12 @@ public class CollaboratorService {
 
         // Notify the invitee (best-effort) so they can accept the invitation.
         var owner = users.findByIdOptional(ownerId).orElse(null);
-        var ownerName = owner != null && owner.name != null ? owner.name : "Someone";
-        String inviteBody = ownerName + " invited you to collaborate on \"" + survey.title + "\".";
-        pushService.notifyUser(user.id, NotificationEventType.COLLABORATOR_INVITED,
-            "Collaboration invite", inviteBody);
+        var ownerName = owner != null && owner.name != null ? owner.name : COPY.t(user.locale, "notify.someone");
+        String inviteTitle = COPY.t(user.locale, "notify.invite.title");
+        String inviteBody = COPY.t(user.locale, "notify.invite.body", ownerName, survey.title);
+        pushService.notifyUser(user.id, NotificationEventType.COLLABORATOR_INVITED, inviteTitle, inviteBody);
         notificationRecordService.record(user.id, NotificationEventType.COLLABORATOR_INVITED,
-            "Collaboration invite", inviteBody, "/surveys/" + surveyId);
+            inviteTitle, inviteBody, "/surveys/" + surveyId);
         if (notificationPrefs.isEnabled(user.id,
                 NotificationEventType.COLLABORATOR_INVITED.key(), NotificationChannel.EMAIL.key())) {
             emailService.sendCollaboratorInvite(user.email, survey.title, ownerName);
@@ -122,10 +125,11 @@ public class CollaboratorService {
     /** Notify the removed collaborator (called before their row is deleted). */
     private void notifyRemoved(String surveyId, String surveyTitle, String ownerId, String removedUserId) {
         var owner = users.findByIdOptional(ownerId).orElse(null);
-        var ownerName = owner != null && owner.name != null ? owner.name : "The owner";
         var type = NotificationEventType.COLLABORATOR_REMOVED;
-        String title = "Removed from " + surveyTitle;
-        String body = ownerName + " removed you as a collaborator on \"" + surveyTitle + "\".";
+        String locale = users.localeOf(removedUserId);
+        var ownerName = owner != null && owner.name != null ? owner.name : COPY.t(locale, "notify.theowner");
+        String title = COPY.t(locale, "notify.removed.title", surveyTitle);
+        String body = COPY.t(locale, "notify.removed.body", ownerName, surveyTitle);
         pushService.notifyUser(removedUserId, type, title, body);
         notificationRecordService.record(removedUserId, type, title, body, "/surveys");
         if (notificationPrefs.isEnabled(removedUserId, type.key(), NotificationChannel.EMAIL.key())) {
@@ -160,16 +164,14 @@ public class CollaboratorService {
             .orElseThrow(() -> new ResourceNotFoundException("No invitation for this survey."));
         invite.status = CollaboratorStatus.ACCEPTED;
         notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_ACCEPTED,
-            "Invite accepted", " accepted your invitation to collaborate on \"",
-            EmailService::sendCollaboratorAccepted);
+            "notify.accepted", EmailService::sendCollaboratorAccepted);
     }
 
     /** Decline (or remove yourself from) a collaboration. */
     @Transactional
     public void decline(String userId, String surveyId) {
         notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_DECLINED,
-            "Invite declined", " declined your invitation to collaborate on \"",
-            EmailService::sendCollaboratorDeclined);
+            "notify.declined", EmailService::sendCollaboratorDeclined);
         collaborators.deleteBySurveyAndUser(surveyId, userId);
     }
 
@@ -179,12 +181,14 @@ public class CollaboratorService {
 
     /** Notify the survey owner that {@code actingUserId} responded to their invite. */
     private void notifyOwnerOfResponse(String surveyId, String actingUserId,
-            NotificationEventType type, String pushTitle, String bodySuffix, CollabEmailSender sender) {
+            NotificationEventType type, String copyKey, CollabEmailSender sender) {
         var survey = surveys.findByIdOptional(surveyId).orElse(null);
         if (survey == null) return;
         var actingUser = users.findByIdOptional(actingUserId).orElse(null);
-        var actingName = actingUser != null && actingUser.name != null ? actingUser.name : "Someone";
-        String body = actingName + bodySuffix + survey.title + "\".";
+        String locale = users.localeOf(survey.ownerId);
+        var actingName = actingUser != null && actingUser.name != null ? actingUser.name : COPY.t(locale, "notify.someone");
+        String pushTitle = COPY.t(locale, copyKey + ".title");
+        String body = COPY.t(locale, copyKey + ".body", actingName, survey.title);
         pushService.notifyUser(survey.ownerId, type, pushTitle, body);
         notificationRecordService.record(survey.ownerId, type, pushTitle, body, "/surveys/" + surveyId);
         if (notificationPrefs.isEnabled(survey.ownerId, type.key(), NotificationChannel.EMAIL.key())) {

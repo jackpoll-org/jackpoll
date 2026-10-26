@@ -19,7 +19,7 @@ public class DeviceToken extends PanacheEntityBase {
     public String id;
 
     /** Keycloak user id (sub) that owns the device. */
-    @Column(name = "user_id", nullable = false, length = 36)
+    @Column(name = "user_id", nullable = false, length = 255)
     public String userId;
 
     /** The Web Push endpoint URL — unique across devices. (Column kept as

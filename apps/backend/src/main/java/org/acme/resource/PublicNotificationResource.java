@@ -1,14 +1,15 @@
 package org.acme.resource;
 
+import org.acme.mail.MailCopy;
 import org.acme.service.EmailService;
 
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
@@ -18,26 +19,26 @@ import jakarta.ws.rs.core.Response;
 @Path("/public/notifications")
 public class PublicNotificationResource {
 
+    private static final MailCopy COPY = MailCopy.of("messages");
+
     @Inject
     EmailService emailService;
 
     @GET
     @Path("/unsubscribe/{surveyId}/{token}")
     @PermitAll
-    @Produces(MediaType.TEXT_PLAIN)
+    @Produces("text/plain; charset=UTF-8")
     public Response unsubscribe(
         @PathParam("surveyId") String surveyId,
-        @PathParam("token") String token
+        @PathParam("token") String token,
+        @HeaderParam("Accept-Language") String acceptLanguage
     ) {
         boolean ok = emailService.unsubscribe(surveyId, token);
         if (!ok) {
             return Response.status(Response.Status.BAD_REQUEST)
-                .entity("This unsubscribe link is invalid or has expired.")
+                .entity(COPY.t(acceptLanguage, "unsubscribe.invalid"))
                 .build();
         }
-        return Response.ok(
-            "You have been unsubscribed. You will no longer receive notifications "
-            + "for this survey. You can re-enable them anytime in the survey settings.")
-            .build();
+        return Response.ok(COPY.t(acceptLanguage, "unsubscribe.done")).build();
     }
 }

@@ -152,4 +152,12 @@ class CollabSocketTest {
         assertFalse(CollabSocket.isReadOnlyMessage(new byte[] {0, 2, 3}));
         assertFalse(CollabSocket.isReadOnlyMessage(new byte[0]));
     }
+
+    @Test
+    void onlyYjsMessagesAreRelayed() {
+        assertFalse(CollabSocket.mayRelay(new byte[] {CollabSocket.MSG_READ_ONLY, 1}, true));
+        assertTrue(CollabSocket.mayRelay(new byte[] {0, 2, 3}, true));
+        assertFalse(CollabSocket.mayRelay(new byte[] {0, 2, 3}, false));
+        assertTrue(CollabSocket.mayRelay(new byte[] {1, 5}, false));
+    }
 }

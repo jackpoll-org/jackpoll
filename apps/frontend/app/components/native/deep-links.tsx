@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 
+const LAUNCH_URL_KEY = "handled_launch_url";
+
 /**
  * Map an incoming deep-link URL to the in-app path to navigate to, or null when
  * it can't be parsed or points at the app root (nothing to route). Keeps query
@@ -46,6 +48,15 @@ export function DeepLinks() {
       void handle.then((h) => {
         if (cancelled) void h.remove();
         else remove = () => void h.remove();
+      });
+      // A cold start from a link never fires appUrlOpen: the WebView boots the
+      // instance root, which would land on /login. The launch URL stays set
+      // for the whole process, so route it only once per session.
+      void App.getLaunchUrl().then((launch) => {
+        const path = launch && deepLinkPath(launch.url);
+        if (cancelled || !path || sessionStorage.getItem(LAUNCH_URL_KEY) === launch.url) return;
+        sessionStorage.setItem(LAUNCH_URL_KEY, launch.url);
+        router.replace(path);
       });
     });
 

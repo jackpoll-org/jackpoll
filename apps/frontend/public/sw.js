@@ -11,7 +11,7 @@
  *     cache fallback, so a loaded survey can be filled offline (Phase 2).
  * Owner/dashboard and any non-GET request always go to the network.
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGES_CACHE = `pages-${VERSION}`;
 const DATA_CACHE = `survey-data-${VERSION}`;

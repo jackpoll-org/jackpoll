@@ -19,6 +19,7 @@ import {
   type LivePhase,
   type LiveState,
 } from "@/app/lib/live/messages";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 /** How often to poll the resync fallback while subscribed (see useLivePresence). */
 const LIVE_STATE_POLL_MS = 6_000;
@@ -121,7 +122,7 @@ export function useSetLiveState(surveyId: string) {
   return useMutation({
     mutationFn: async (args: { index: number; phase?: LivePhase }) => {
       const res = await setLiveStateApi(surveyId, args.index, args.phase ?? "question");
-      if (!res.success) throw new Error(res.error ?? "Failed to update live state");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to update live state"));
     },
   });
 }
@@ -176,7 +177,7 @@ export function useLiveLeaderboard(surveyId: string, limit: number) {
     queryFn: async () => {
       const res = await getLiveLeaderboardApi(surveyId, limit);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load leaderboard");
+        throw new Error(localizeServerError(res.error ?? "Failed to load leaderboard"));
       }
       return res.data;
     },
@@ -191,7 +192,7 @@ export function useStartLiveSession(surveyId: string) {
     mutationFn: async () => {
       const res = await startLiveSessionApi(surveyId);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to start the session");
+        throw new Error(localizeServerError(res.error ?? "Failed to start the session"));
       }
       return res.data;
     },
@@ -209,7 +210,7 @@ export function useLiveSessions(surveyId: string | undefined, enabled: boolean) 
     queryFn: async () => {
       const res = await listLiveSessionsApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load sessions");
+        throw new Error(localizeServerError(res.error ?? "Failed to load sessions"));
       }
       return res.data;
     },

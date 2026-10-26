@@ -78,7 +78,7 @@ export function NavUser() {
       <SidebarMenu>
         <SidebarMenuItem>
           <Button asChild className="w-full">
-            <Link href="/login">Sign in</Link>
+            <Link href="/login">{t("auth.signIn")}</Link>
           </Button>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -133,7 +133,7 @@ export function NavUser() {
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => router.push("/profile")}>
                 <UserCircle2Icon />
-                Profile
+                {t("auth.profile")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/settings")}>
                 <SettingsIcon />
@@ -147,7 +147,7 @@ export function NavUser() {
               className="text-destructive focus:text-destructive"
             >
               {logout.isPending ? <Spinner className="size-4" /> : <LogOutIcon />}
-              Sign out
+              {t("auth.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

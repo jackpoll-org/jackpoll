@@ -81,6 +81,7 @@ import type {
   UpdateShareLinkRequest,
   UpdateSurveyRequest,
 } from "@/app/types/survey";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 // ── useSurveys (list) ─────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ export function useSurveys(page = 0, limit = DEFAULT_PAGE_SIZE) {
     queryFn: async () => {
       const res = await listSurveysApi(page, limit);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load surveys");
+        throw new Error(localizeServerError(res.error ?? "Failed to load surveys"));
       }
       return { surveys: res.data, meta: res.meta };
     },
@@ -105,7 +106,7 @@ export function useSurvey(id: string | undefined) {
     queryFn: async () => {
       const res = await getSurveyApi(id!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load survey");
+        throw new Error(localizeServerError(res.error ?? "Failed to load survey"));
       }
       return res.data;
     },
@@ -122,7 +123,7 @@ export function useCreateSurvey() {
     mutationFn: async (data: CreateSurveyRequest): Promise<Survey> => {
       const res = await createSurveyApi(data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to create survey");
+        throw new Error(localizeServerError(res.error ?? "Failed to create survey"));
       }
       return res.data;
     },
@@ -141,7 +142,7 @@ export function useUpdateSurvey(id: string) {
     mutationFn: async (data: UpdateSurveyRequest): Promise<Survey> => {
       const res = await updateSurveyApi(id, data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to save survey");
+        throw new Error(localizeServerError(res.error ?? "Failed to save survey"));
       }
       return res.data;
     },
@@ -161,7 +162,7 @@ export function useDeleteSurvey() {
     mutationFn: async (id: string): Promise<void> => {
       const res = await deleteSurveyApi(id);
       if (!res.success) {
-        throw new Error(res.error ?? "Failed to delete survey");
+        throw new Error(localizeServerError(res.error ?? "Failed to delete survey"));
       }
     },
     onSuccess: () => {
@@ -185,7 +186,7 @@ export function useOrganizeSurvey() {
         folderId: vars.folderId,
       });
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to organize survey");
+        throw new Error(localizeServerError(res.error ?? "Failed to organize survey"));
       }
       return res.data;
     },
@@ -205,7 +206,7 @@ export function useReorderSurveys() {
   return useMutation({
     mutationFn: async (vars: { folderId: string | null; orderedIds: string[] }) => {
       const res = await reorderSurveysApi(vars.folderId, vars.orderedIds);
-      if (!res.success) throw new Error(res.error ?? "Failed to reorder surveys");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to reorder surveys"));
     },
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: surveyKeys.lists() });
@@ -235,7 +236,7 @@ export function useFolders() {
     queryFn: async () => {
       const res = await listFoldersApi();
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load folders");
+        throw new Error(localizeServerError(res.error ?? "Failed to load folders"));
       }
       return res.data;
     },
@@ -248,7 +249,7 @@ export function useCreateFolder() {
     mutationFn: async (name: string) => {
       const res = await createFolderApi(name);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to create folder");
+        throw new Error(localizeServerError(res.error ?? "Failed to create folder"));
       }
       return res.data;
     },
@@ -262,7 +263,7 @@ export function useRenameFolder() {
     mutationFn: async (vars: { id: string; name: string }) => {
       const res = await renameFolderApi(vars.id, vars.name);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to rename folder");
+        throw new Error(localizeServerError(res.error ?? "Failed to rename folder"));
       }
       return res.data;
     },
@@ -275,7 +276,7 @@ export function useDeleteFolder() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await deleteFolderApi(id);
-      if (!res.success) throw new Error(res.error ?? "Failed to delete folder");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to delete folder"));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: foldersKey });
@@ -292,7 +293,7 @@ export function useNotificationPrefs() {
     queryFn: async () => {
       const res = await getNotificationPrefsApi();
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load notification preferences");
+        throw new Error(localizeServerError(res.error ?? "Failed to load notification preferences"));
       }
       return res.data;
     },
@@ -305,7 +306,7 @@ export function useUpdateNotificationPrefs() {
     mutationFn: async (prefs: NotificationPreferences) => {
       const res = await updateNotificationPrefsApi(prefs);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to save notification preferences");
+        throw new Error(localizeServerError(res.error ?? "Failed to save notification preferences"));
       }
       return res.data;
     },
@@ -323,7 +324,7 @@ export function useNotifications(page = 0, limit = 20, enabled = true) {
     queryFn: async () => {
       const res = await listNotificationsApi(page, limit);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load notifications");
+        throw new Error(localizeServerError(res.error ?? "Failed to load notifications"));
       }
       return { items: res.data, total: res.meta?.total ?? res.data.length };
     },
@@ -337,7 +338,7 @@ export function useUnreadNotificationCount(enabled = true) {
     queryFn: async () => {
       const res = await getUnreadNotificationCountApi();
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load unread count");
+        throw new Error(localizeServerError(res.error ?? "Failed to load unread count"));
       }
       return res.data.count;
     },
@@ -351,7 +352,7 @@ export function useMarkNotificationRead() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await markNotificationReadApi(id);
-      if (!res.success) throw new Error(res.error ?? "Failed to mark notification read");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to mark notification read"));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
@@ -364,7 +365,7 @@ export function useMarkAllNotificationsRead() {
   return useMutation({
     mutationFn: async () => {
       const res = await markAllNotificationsReadApi();
-      if (!res.success) throw new Error(res.error ?? "Failed to mark all notifications read");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to mark all notifications read"));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
@@ -384,7 +385,7 @@ export function useDuplicateSurvey() {
         description: source.description,
       });
       if (!createRes.success || !createRes.data) {
-        throw new Error(createRes.error ?? "Failed to duplicate survey");
+        throw new Error(localizeServerError(createRes.error ?? "Failed to duplicate survey"));
       }
       const created = createRes.data;
 
@@ -396,7 +397,7 @@ export function useDuplicateSurvey() {
         questions: cloneQuestions(source.questions),
       });
       if (!updateRes.success || !updateRes.data) {
-        throw new Error(updateRes.error ?? "Failed to duplicate survey");
+        throw new Error(localizeServerError(updateRes.error ?? "Failed to duplicate survey"));
       }
       return updateRes.data;
     },
@@ -414,7 +415,7 @@ export function useCollaborators(surveyId: string | undefined) {
     queryFn: async () => {
       const res = await listCollaboratorsApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load collaborators");
+        throw new Error(localizeServerError(res.error ?? "Failed to load collaborators"));
       }
       return res.data;
     },
@@ -428,7 +429,7 @@ export function useAddCollaborator(surveyId: string) {
     mutationFn: async (data: AddCollaboratorRequest) => {
       const res = await addCollaboratorApi(surveyId, data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to add collaborator");
+        throw new Error(localizeServerError(res.error ?? "Failed to add collaborator"));
       }
       return res.data;
     },
@@ -444,7 +445,7 @@ export function useRemoveCollaborator(surveyId: string) {
     mutationFn: async (userId: string) => {
       const res = await removeCollaboratorApi(surveyId, userId);
       if (!res.success) {
-        throw new Error(res.error ?? "Failed to remove collaborator");
+        throw new Error(localizeServerError(res.error ?? "Failed to remove collaborator"));
       }
     },
     onSuccess: () => {
@@ -461,7 +462,7 @@ export function useInvitations() {
     queryFn: async () => {
       const res = await listInvitationsApi();
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load invitations");
+        throw new Error(localizeServerError(res.error ?? "Failed to load invitations"));
       }
       return res.data;
     },
@@ -473,7 +474,7 @@ export function useAcceptInvitation() {
   return useMutation({
     mutationFn: async (surveyId: string) => {
       const res = await acceptInvitationApi(surveyId);
-      if (!res.success) throw new Error(res.error ?? "Failed to accept invitation");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to accept invitation"));
     },
     onSuccess: () => {
       // The survey now shows up in "Shared with me".
@@ -488,7 +489,7 @@ export function useDeclineInvitation() {
   return useMutation({
     mutationFn: async (surveyId: string) => {
       const res = await declineInvitationApi(surveyId);
-      if (!res.success) throw new Error(res.error ?? "Failed to decline invitation");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to decline invitation"));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: surveyKeys.invitations() });
@@ -504,7 +505,7 @@ export function useShareLink(surveyId: string | undefined, enabled = true) {
     queryFn: async () => {
       const res = await getShareLinkApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load share link");
+        throw new Error(localizeServerError(res.error ?? "Failed to load share link"));
       }
       return res.data;
     },
@@ -518,7 +519,7 @@ export function useRotateShareLink(surveyId: string) {
     mutationFn: async () => {
       const res = await rotateShareLinkApi(surveyId);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to rotate link");
+        throw new Error(localizeServerError(res.error ?? "Failed to rotate link"));
       }
       return res.data;
     },
@@ -534,7 +535,7 @@ export function useUpdateShareLink(surveyId: string) {
     mutationFn: async (data: UpdateShareLinkRequest) => {
       const res = await updateShareLinkApi(surveyId, data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to update link");
+        throw new Error(localizeServerError(res.error ?? "Failed to update link"));
       }
       return res.data;
     },
@@ -550,7 +551,7 @@ export function usePublicLink(slug: string | undefined) {
     queryFn: async () => {
       const res = await resolveLinkApi(slug!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "This link is not available.");
+        throw new Error(localizeServerError(res.error ?? "This link is not available."));
       }
       return res.data;
     },
@@ -567,7 +568,7 @@ export function useAccessCode(surveyId: string | undefined, enabled = true) {
     queryFn: async () => {
       const res = await getAccessCodeApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load access code");
+        throw new Error(localizeServerError(res.error ?? "Failed to load access code"));
       }
       return res.data;
     },
@@ -581,7 +582,7 @@ export function useRotateAccessCode(surveyId: string) {
     mutationFn: async () => {
       const res = await rotateAccessCodeApi(surveyId);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to rotate code");
+        throw new Error(localizeServerError(res.error ?? "Failed to rotate code"));
       }
       return res.data;
     },
@@ -597,7 +598,7 @@ export function useUpdateAccessCode(surveyId: string) {
     mutationFn: async (requireCode: boolean) => {
       const res = await updateAccessCodeApi(surveyId, requireCode);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to update code");
+        throw new Error(localizeServerError(res.error ?? "Failed to update code"));
       }
       return res.data;
     },
@@ -612,7 +613,7 @@ export function useResolveAccessCode() {
     mutationFn: async (code: string) => {
       const res = await resolveAccessCodeApi(code);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Code not found.");
+        throw new Error(localizeServerError(res.error ?? "Code not found."));
       }
       return res.data;
     },
@@ -627,7 +628,7 @@ export function useCollabLink(surveyId: string | undefined, enabled = true) {
     queryFn: async () => {
       const res = await getCollabLinkApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load collab link");
+        throw new Error(localizeServerError(res.error ?? "Failed to load collab link"));
       }
       return res.data;
     },
@@ -640,7 +641,7 @@ export function useRotateCollabLink(surveyId: string) {
   return useMutation({
     mutationFn: async () => {
       const res = await rotateCollabLinkApi(surveyId);
-      if (!res.success || !res.data) throw new Error(res.error ?? "Failed to rotate");
+      if (!res.success || !res.data) throw new Error(localizeServerError(res.error ?? "Failed to rotate"));
       return res.data;
     },
     onSuccess: (data) =>
@@ -662,7 +663,7 @@ export function useUpdateCollabLink(surveyId: string) {
   return useMutation({
     mutationFn: async (expiresAt: string | null) => {
       const res = await updateCollabLinkApi(surveyId, expiresAt);
-      if (!res.success || !res.data) throw new Error(res.error ?? "Failed to update");
+      if (!res.success || !res.data) throw new Error(localizeServerError(res.error ?? "Failed to update"));
       return res.data;
     },
     onSuccess: (data) =>
@@ -676,7 +677,7 @@ export function usePublicCollab(slug: string | undefined) {
     queryFn: async () => {
       const res = await resolveCollabApi(slug!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "This link is not available.");
+        throw new Error(localizeServerError(res.error ?? "This link is not available."));
       }
       return res.data;
     },
@@ -693,7 +694,7 @@ export function usePublicSurvey(id: string | undefined) {
     queryFn: async () => {
       const res = await getPublicSurveyApi(id!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Survey not available");
+        throw new Error(localizeServerError(res.error ?? "Survey not available"));
       }
       return res.data;
     },
@@ -709,7 +710,7 @@ export function useSubmitResponse(surveyId: string) {
     mutationFn: async (data: SubmitResponseRequest) => {
       const res = await submitResponseApi(surveyId, data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to submit response");
+        throw new Error(localizeServerError(res.error ?? "Failed to submit response"));
       }
       return res.data;
     },
@@ -727,7 +728,7 @@ export function useResponseForEdit(token: string | undefined) {
     queryFn: async () => {
       const res = await getResponseForEditApi(token!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "This edit link is not available.");
+        throw new Error(localizeServerError(res.error ?? "This edit link is not available."));
       }
       return res.data;
     },
@@ -741,7 +742,7 @@ export function useEditResponse(token: string) {
     mutationFn: async (data: SubmitResponseRequest) => {
       const res = await editResponseApi(token, data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to update response");
+        throw new Error(localizeServerError(res.error ?? "Failed to update response"));
       }
       return res.data;
     },
@@ -755,7 +756,7 @@ export function useSaveDraft(surveyId: string) {
     mutationFn: async (data: SaveDraftRequest) => {
       const res = await saveDraftApi(surveyId, data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to save draft");
+        throw new Error(localizeServerError(res.error ?? "Failed to save draft"));
       }
       return res.data;
     },
@@ -768,7 +769,7 @@ export function useDraft(token: string | undefined) {
     queryFn: async () => {
       const res = await getDraftApi(token!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Draft not available");
+        throw new Error(localizeServerError(res.error ?? "Draft not available"));
       }
       return res.data;
     },
@@ -797,7 +798,7 @@ export function useBeginToken(surveyId: string | undefined, enabled: boolean) {
     queryFn: async () => {
       const res = await getBeginTokenApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to start");
+        throw new Error(localizeServerError(res.error ?? "Failed to start"));
       }
       // Never return undefined — TanStack Query rejects it. null = no token.
       return res.data.beginToken ?? null;
@@ -822,7 +823,7 @@ export function useSurveyResults(
     queryFn: async () => {
       const res = await getResultsApi(surveyId!, includePreview, sessionId);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load results");
+        throw new Error(localizeServerError(res.error ?? "Failed to load results"));
       }
       return res.data;
     },
@@ -837,7 +838,7 @@ export function useDeletePreviewResponses(surveyId: string) {
   return useMutation({
     mutationFn: async () => {
       const res = await deletePreviewResponsesApi(surveyId);
-      if (!res.success) throw new Error(res.error ?? "Failed to delete preview data");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to delete preview data"));
       return res.data ?? 0;
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),
@@ -850,7 +851,7 @@ export function useLiveResults(surveyId: string | undefined, enabled: boolean) {
     queryFn: async () => {
       const res = await getLiveResultsApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Live results unavailable");
+        throw new Error(localizeServerError(res.error ?? "Live results unavailable"));
       }
       return res.data;
     },
@@ -875,7 +876,7 @@ export function useDeleteResponse(surveyId: string) {
   return useMutation({
     mutationFn: async (responseId: string) => {
       const res = await deleteResponseApi(surveyId, responseId);
-      if (!res.success) throw new Error(res.error ?? "Failed to delete response");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to delete response"));
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),
   });
@@ -887,7 +888,7 @@ export function useGradeResponse(surveyId: string) {
   return useMutation({
     mutationFn: async ({ responseId, grades }: { responseId: string; grades: GradeInput[] }) => {
       const res = await gradeResponseApi(surveyId, responseId, grades);
-      if (!res.success || !res.data) throw new Error(res.error ?? "Failed to save grade");
+      if (!res.success || !res.data) throw new Error(localizeServerError(res.error ?? "Failed to save grade"));
       return res.data;
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),
@@ -899,7 +900,7 @@ export function useClearResponses(surveyId: string) {
   return useMutation({
     mutationFn: async () => {
       const res = await clearResponsesApi(surveyId);
-      if (!res.success) throw new Error(res.error ?? "Failed to clear responses");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to clear responses"));
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),
   });
@@ -911,7 +912,7 @@ export function useSurveyAnalytics(surveyId: string | undefined) {
     queryFn: async () => {
       const res = await getAnalyticsApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load analytics");
+        throw new Error(localizeServerError(res.error ?? "Failed to load analytics"));
       }
       return res.data;
     },
@@ -929,7 +930,7 @@ export function useResponses(
     queryFn: async () => {
       const res = await listResponsesApi(surveyId!, sessionId);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load responses");
+        throw new Error(localizeServerError(res.error ?? "Failed to load responses"));
       }
       return res.data;
     },
@@ -945,7 +946,7 @@ export function useWebhooks(surveyId: string | undefined) {
     queryFn: async () => {
       const res = await listWebhooksApi(surveyId!);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to load webhooks");
+        throw new Error(localizeServerError(res.error ?? "Failed to load webhooks"));
       }
       return res.data;
     },
@@ -959,7 +960,7 @@ export function useCreateWebhook(surveyId: string) {
     mutationFn: async (data: CreateWebhookRequest) => {
       const res = await createWebhookApi(surveyId, data);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to create webhook");
+        throw new Error(localizeServerError(res.error ?? "Failed to create webhook"));
       }
       return res.data;
     },
@@ -973,7 +974,7 @@ export function useDeleteWebhook(surveyId: string) {
   return useMutation({
     mutationFn: async (webhookId: string) => {
       const res = await deleteWebhookApi(surveyId, webhookId);
-      if (!res.success) throw new Error(res.error ?? "Failed to delete webhook");
+      if (!res.success) throw new Error(localizeServerError(res.error ?? "Failed to delete webhook"));
     },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: surveyKeys.webhooks(surveyId) }),
@@ -986,7 +987,7 @@ export function useTestWebhook(surveyId: string) {
     mutationFn: async (webhookId: string) => {
       const res = await testWebhookApi(surveyId, webhookId);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to send test");
+        throw new Error(localizeServerError(res.error ?? "Failed to send test"));
       }
       return res.data;
     },

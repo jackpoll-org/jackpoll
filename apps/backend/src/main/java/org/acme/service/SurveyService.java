@@ -49,7 +49,7 @@ public class SurveyService {
         var accessible = accessibleSurveys(userId);
         var from = Math.min(page * limit, accessible.size());
         var to = Math.min(from + limit, accessible.size());
-        return accessible.subList(from, to).stream().map(mapper::toDto).toList();
+        return accessible.subList(from, to).stream().map(mapper::toListDto).toList();
     }
 
     public long count(String userId) {
@@ -111,7 +111,11 @@ public class SurveyService {
         if (req.status() == SurveyStatus.PUBLISHED) {
             ensurePublishable(req);
         }
+        var showOwner = survey.settings != null ? survey.settings.ogShowOwner : null;
         mapper.applyUpdate(survey, req);
+        if (!isOwner(userId, survey)) {
+            survey.settings.ogShowOwner = showOwner;
+        }
         repository.persist(survey);
         return mapper.toDto(survey);
     }

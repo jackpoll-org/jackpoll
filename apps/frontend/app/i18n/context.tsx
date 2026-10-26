@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -18,6 +17,7 @@ import {
   type TranslationKey,
 } from "./translations";
 import { setCookie } from "@/app/lib/cookies";
+import { I18nContext, interpolate, type I18nContextValue, type TranslateFn, type TranslateParams } from "./i18n-context";
 
 export const LOCALE_COOKIE = "locale";
 
@@ -29,33 +29,8 @@ function setLocaleCookie(value: Locale) {
   setCookie(LOCALE_COOKIE, value);
 }
 
-/** Replace {placeholder} tokens in a string with provided params. */
-function interpolate(
-  template: string,
-  params?: Record<string, string | number>,
-): string {
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
-    key in params ? String(params[key]) : match,
-  );
-}
+export type { TranslateParams, TranslateFn } from "./i18n-context";
 
-export type TranslateParams = Record<string, string | number>;
-export type TranslateFn = (key: TranslationKey, params?: TranslateParams) => string;
-
-interface I18nContextValue {
-  locale: Locale;
-  setLocale: (locale: Locale) => void;
-  t: TranslateFn;
-  /** Pick the `_one` / `_other` plural variant of a key by count. */
-  tPlural: (
-    base: string,
-    count: number,
-    params?: TranslateParams,
-  ) => string;
-}
-
-const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 export function I18nProvider({
   children,
@@ -124,3 +99,4 @@ export function useTranslation(): I18nContextValue {
   }
   return ctx;
 }
+

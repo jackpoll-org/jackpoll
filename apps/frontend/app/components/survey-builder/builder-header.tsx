@@ -114,11 +114,11 @@ export function BuilderHeader({
                   {t("builder.results")}
                 </Link>
               </Button>
-              {isQuizGame(survey.settings) && (
+              {survey.settings.liveMode && (
                 <Button asChild>
                   <Link href={`/surveys/${survey.id}/present`}>
                     <Play className="size-4" />
-                    {t("builder.startGame")}
+                    {isQuizGame(survey.settings) ? t("builder.startGame") : t("live.present")}
                   </Link>
                 </Button>
               )}

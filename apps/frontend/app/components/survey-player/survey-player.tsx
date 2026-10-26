@@ -784,7 +784,7 @@ export function SurveyPlayer({
       {analytics && !isEditing && (
         <div aria-hidden className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
           <label>
-            Leave this field empty
+            {t("player.honeypot")}
             <input
               type="text"
               tabIndex={-1}

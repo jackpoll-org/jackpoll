@@ -34,7 +34,7 @@ export function AddQuestionButton() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="w-full">
           <Plus className="size-4" />
-          Add question
+          {t("builder.addQuestion")}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">

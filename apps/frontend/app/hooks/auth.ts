@@ -42,6 +42,7 @@ import type {
   ResetPasswordRequest,
   VerifyEmailRequest,
 } from "@/app/types/auth";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 // ── useHasToken (reactive) ────────────────────────────────────────
 
@@ -79,7 +80,7 @@ export function useCurrentUser() {
     queryFn: async () => {
       const res = await getCurrentUserApi();
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Not authenticated");
+        throw new Error(localizeServerError(res.error ?? "Not authenticated"));
       }
       return res.data.user;
     },
@@ -99,7 +100,7 @@ export function useUpdateProfile() {
     mutationFn: async (name: string) => {
       const res = await updateProfileApi(name);
       if (!res.success || !res.data) {
-        throw new Error(res.error ?? "Failed to update profile");
+        throw new Error(localizeServerError(res.error ?? "Failed to update profile"));
       }
       return res.data.user;
     },
@@ -114,7 +115,7 @@ export function useChangePassword() {
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
       const res = await changePasswordApi(data.currentPassword, data.newPassword);
       if (!res.success) {
-        throw new Error(res.error ?? "Failed to change password");
+        throw new Error(localizeServerError(res.error ?? "Failed to change password"));
       }
       return res;
     },
@@ -127,7 +128,7 @@ export function useDeleteAccount() {
     mutationFn: async (password: string) => {
       const res = await deleteAccountApi(password);
       if (!res.success) {
-        throw new Error(res.error ?? "Failed to delete account");
+        throw new Error(localizeServerError(res.error ?? "Failed to delete account"));
       }
       return res;
     },
@@ -196,7 +197,7 @@ export function useLogin() {
     mutationFn: (data: LoginRequest) => loginApi(data, biometricSupported()),
     onSuccess: (res) => {
       if (res.success && res.data) {
-        persistAuth(res.data.tokens.accessToken, res.data.user);
+        persistAuth(res.data.tokens.accessToken, res.data.user, res.data.tokens.refreshExpiresIn);
         if (res.data.offlineToken) {
           void storeOfflineToken(res.data.offlineToken);
         }

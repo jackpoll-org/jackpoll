@@ -267,6 +267,17 @@ describe("CollabProvider auth", () => {
     p.destroy();
   });
 
+  it("becomes read-only when the server says so", () => {
+    const p = new CollabProvider("s1", { name: "A", color: "#000" });
+    const ws = MockWebSocket.instances[0];
+    ws.open();
+    ws.deliver(new Uint8Array([9, 1]));
+    expect(p.readOnly).toBe(true);
+    ws.deliver(new Uint8Array([9, 0]));
+    expect(p.readOnly).toBe(false);
+    p.destroy();
+  });
+
   it("does not connect without a stored token", () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     const p = new CollabProvider("s1", { name: "A", color: "#000" });

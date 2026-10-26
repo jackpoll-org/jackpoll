@@ -18,7 +18,7 @@ public class Notification extends PanacheEntityBase {
     @Column(length = 36)
     public String id;
 
-    @Column(name = "user_id", nullable = false, length = 36)
+    @Column(name = "user_id", nullable = false, length = 255)
     public String userId;
 
     @Column(name = "event_type", nullable = false, length = 40)

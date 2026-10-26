@@ -143,16 +143,22 @@ export function BuilderProvider({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPresence(provider.presence());
 
-    // After a short sync settle: seed the doc if we're first, else adopt it.
-    const seedTimer = setTimeout(() => {
+    // After a short sync settle once connected: seed the doc if we're first, else adopt it.
+    let seedTimer: ReturnType<typeof setTimeout>;
+    const settle = () => {
+      if (provider.openedAt === null || Date.now() - provider.openedAt < 800) {
+        seedTimer = setTimeout(settle, 200);
+        return;
+      }
       if (!docHasContent(doc)) {
-        applyContentToDoc(doc, toCollabContent(surveyRef.current));
+        if (!provider.readOnly) applyContentToDoc(doc, toCollabContent(surveyRef.current));
       } else if (!readyRef.current) {
         dispatch({ type: "applyRemote", content: docToContent(doc) });
       }
       readyRef.current = true;
       setReady(true);
-    }, 800);
+    };
+    seedTimer = setTimeout(settle, 800);
 
     return () => {
       clearTimeout(seedTimer);
@@ -168,7 +174,7 @@ export function BuilderProvider({
   // Local → doc: push edits once ready (setIfChanged makes echoes a no-op).
   useEffect(() => {
     const provider = providerRef.current;
-    if (!provider || !readyRef.current) return;
+    if (!provider || !readyRef.current || provider.readOnly) return;
     applyContentToDoc(provider.doc, toCollabContent(state.survey));
   }, [state.survey]);
 

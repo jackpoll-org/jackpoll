@@ -95,8 +95,8 @@ public class AuthService {
 
     @Transactional
     public ApiResponse<AuthDtos.AuthResponseData> login(
-        AuthDtos.LoginRequest req, boolean offline, String acceptLanguage) {
-        var result = keycloakService.login(req, offline);
+        AuthDtos.LoginRequest req, String acceptLanguage) {
+        var result = keycloakService.login(req);
         if (result.success()) {
             // Refresh the mail language on every sign-in: a user who switches
             // their browser (or moves country) should not keep getting mail in

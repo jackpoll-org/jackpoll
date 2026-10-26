@@ -6,6 +6,7 @@ import org.acme.entity.NotificationChannel;
 import org.acme.entity.NotificationEventType;
 import org.acme.entity.Survey;
 import org.acme.entity.SurveyStatus;
+import org.acme.mail.MailCopy;
 import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.ResponseRepository;
 import org.acme.repository.SurveyRepository;
@@ -24,6 +25,8 @@ import jakarta.transaction.Transactional;
  */
 @ApplicationScoped
 public class SurveyAutoCloseService {
+
+    private static final MailCopy COPY = MailCopy.of("messages");
 
     @Inject
     SurveyRepository surveys;
@@ -76,8 +79,9 @@ public class SurveyAutoCloseService {
 
     private void notifyAutoClosed(Survey survey) {
         var type = NotificationEventType.SURVEY_AUTO_CLOSED;
-        String title = "Survey closed";
-        String body = "\"" + survey.title + "\" has automatically closed.";
+        String locale = users.localeOf(survey.ownerId);
+        String title = COPY.t(locale, "notify.autoclose.title");
+        String body = COPY.t(locale, "notify.autoclose.body", survey.title);
         pushService.notifyUser(survey.ownerId, type, title, body);
         notificationRecordService.record(survey.ownerId, type, title, body,
             "/surveys/" + survey.id + "/results");

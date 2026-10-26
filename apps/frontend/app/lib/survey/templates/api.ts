@@ -2,6 +2,7 @@ import { API_BASE_URL, AUTH_STORAGE_KEY } from "@/app/lib/auth/constants";
 import { SURVEY_ENDPOINTS } from "@/app/lib/survey/constants";
 import type { ApiResponse } from "@/app/types/auth";
 import type { CreateTemplateInput, CustomTemplateDto } from "./types";
+import { localizeServerError } from "@/app/i18n/server-errors";
 
 async function request<T>(
   endpoint: string,
@@ -22,7 +23,7 @@ async function request<T>(
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(body.error ?? `Request failed with status ${res.status}`);
+    throw new Error(localizeServerError(body.error ?? `Request failed with status ${res.status}`));
   }
   return body as ApiResponse<T>;
 }

@@ -186,6 +186,12 @@ export interface SurveySettings {
   liveHideQuestionOnDevices?: boolean;
   /** Custom chart color palette (CSS colors, in cycle order); unset = theme default. */
   colorPalette?: string[] | null;
+  ogShowTitle?: boolean;
+  ogShowDescription?: boolean;
+  ogShowOwner?: boolean;
+  ogShowQuestion?: boolean;
+  /** Link preview design; unset = "classic". */
+  ogStyle?: "classic" | "bold" | "minimal" | "spotlight" | "split";
 }
 
 /** A score-based outcome / result page shown after a quiz submit (issue #83). */
@@ -249,6 +255,7 @@ export interface AppNotification {
 export interface Survey {
   id: string;
   ownerId: string;
+  ownerName?: string | null;
   title: string;
   description?: string;
   status: SurveyStatus;

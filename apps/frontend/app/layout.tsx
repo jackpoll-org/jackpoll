@@ -4,7 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { ActiveThemeProvider } from "@/app/components/active-theme";
 import { AuthProvider } from "@/app/components/auth/auth-provider";
 import { I18nProvider } from "@/app/i18n/context";
-import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/app/i18n/translations";
+import { serverLocale, serverT } from "@/app/i18n/server";
 import { Toaster } from "@/app/components/ui/sonner";
 import { PwaRegister } from "@/app/components/pwa-register";
 import { DeepLinks } from "@/app/components/native/deep-links";
@@ -26,7 +26,6 @@ const geistMono = Geist_Mono({
 
 const metadata: Metadata = {
   title: { default: "Jackpoll", template: "%s · Jackpoll" },
-  description: "Create and manage surveys with ease",
   applicationName: "Jackpoll",
   openGraph: { siteName: "Jackpoll", type: "website" },
   manifest: "/manifest.webmanifest",
@@ -51,7 +50,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const h = await headers();
   const host = (h.get("x-forwarded-host") ?? h.get("host"))?.split(",")[0].trim();
   const proto = (h.get("x-forwarded-proto") ?? "http").split(",")[0].trim();
-  return { ...metadata, metadataBase: host ? URL.parse(`${proto}://${host}`) : null };
+  const t = await serverT();
+  return {
+    ...metadata,
+    description: t("meta.description"),
+    metadataBase: host ? URL.parse(`${proto}://${host}`) : null,
+  };
 }
 
 export const viewport: Viewport = {
@@ -89,12 +93,7 @@ export default async function RootLayout({
     bodyAttributes["data-hide-brand"] = "";
   }
 
-  const cookieLocale = cookieStore.get("locale")?.value;
-  const initialLocale: Locale = (LOCALES as readonly string[]).includes(
-    cookieLocale ?? "",
-  )
-    ? (cookieLocale as Locale)
-    : DEFAULT_LOCALE;
+  const initialLocale = await serverLocale();
 
   return (
     <html
