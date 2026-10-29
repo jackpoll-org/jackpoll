@@ -178,6 +178,7 @@ export interface SurveySettings {
   requireConsent?: boolean;
   /** Require each respondent to enter their name (stored + shown in results). */
   requireRespondentName?: boolean;
+  requireRespondentToken?: boolean;
   /** Presenter-paced live mode: host drives the questions one at a time (#). */
   liveMode?: boolean;
   /** Live quiz per-question countdown in seconds (faster = more points, #). */
@@ -376,6 +377,13 @@ export interface UpdateShareLinkRequest {
 
 // ── Access code (issue #15) ────────────────────────────────────────
 
+export interface RespondentToken {
+  id: string;
+  token: string;
+  usedAt?: string | null;
+  createdAt: string;
+}
+
 export interface AccessCode {
   code: string;
   requireCode: boolean;
@@ -411,6 +419,7 @@ export interface SubmitResponseRequest {
   preview?: boolean;
   /** Respondent's name when the survey requires it (#). */
   respondentName?: string;
+  respondentToken?: string;
   /** UI language the form was answered in, so the emailed receipt matches it. */
   locale?: string;
 }
@@ -447,6 +456,7 @@ export interface SurveyResponseDto {
   editedAt?: string | null;
   /** Respondent's name when the survey required it (#); null otherwise. */
   respondentName?: string | null;
+  respondentToken?: string | null;
   /** Live quiz session the answer was given in; null outside live mode. */
   sessionId?: string | null;
   /** True while manually graded answers still await points (public #6). */

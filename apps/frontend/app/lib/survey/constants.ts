@@ -24,6 +24,7 @@ export const surveyKeys = {
   shareLink: (id: string) => [...surveyKeys.all, "share-link", id] as const,
   publicLink: (slug: string) => [...surveyKeys.all, "public-link", slug] as const,
   accessCode: (id: string) => [...surveyKeys.all, "access-code", id] as const,
+  respondentTokens: (id: string) => [...surveyKeys.all, "respondent-tokens", id] as const,
   collabLink: (id: string) => [...surveyKeys.all, "collab-link", id] as const,
   publicCollab: (slug: string) => [...surveyKeys.all, "public-collab", slug] as const,
 };
@@ -91,6 +92,9 @@ export const SURVEY_ENDPOINTS = {
   accessCode: (id: string) => `/surveys/${id}/access-code`,
   accessCodeRotate: (id: string) => `/surveys/${id}/access-code/rotate`,
   publicAccessCode: "/public/access-code",
+  respondentTokens: (id: string) => `/surveys/${id}/respondent-tokens`,
+  respondentTokensGenerate: (id: string) => `/surveys/${id}/respondent-tokens/generate`,
+  respondentToken: (id: string, tokenId: string) => `/surveys/${id}/respondent-tokens/${tokenId}`,
   templates: "/templates",
   template: (id: string) => `/templates/${id}`,
   notificationPreferences: "/notification-preferences",

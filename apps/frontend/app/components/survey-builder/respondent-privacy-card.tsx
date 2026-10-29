@@ -5,6 +5,7 @@ import { Label } from "@/app/components/ui/label";
 import { Switch } from "@/app/components/ui/switch";
 import { Textarea } from "@/app/components/ui/textarea";
 import { useBuilder } from "./builder-context";
+import { RespondentTokensCard } from "./respondent-tokens-card";
 import { useTranslation } from "@/app/i18n/context";
 
 /**
@@ -69,6 +70,29 @@ export function RespondentPrivacyCard() {
             onCheckedChange={(c) => updateSettings({ requireRespondentName: c })}
           />
         </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="grid gap-0.5">
+            <Label htmlFor="require-token" className="font-normal">
+              {t("builder.privacy.requireToken")}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t("builder.privacy.requireTokenHelp")}
+            </p>
+          </div>
+          <Switch
+            id="require-token"
+            checked={settings.requireRespondentToken ?? false}
+            onCheckedChange={(c) => updateSettings({ requireRespondentToken: c })}
+          />
+        </div>
+
+        {settings.requireRespondentToken && (
+          <RespondentTokensCard
+            surveyId={survey.id}
+            isPublished={survey.status === "published"}
+          />
+        )}
       </CardContent>
     </Card>
   );

@@ -120,6 +120,7 @@ public final class SurveyDtos {
         boolean requireConsent,
         // Require + collect the respondent's name (#)
         boolean requireRespondentName,
+        boolean requireRespondentToken,
         // Presenter-paced live mode (#)
         boolean liveMode,
         Integer liveQuestionSeconds,

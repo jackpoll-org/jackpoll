@@ -26,6 +26,7 @@ import { prefersReducedMotion } from "@/app/lib/survey/a11y";
 import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import type { Question, Survey } from "@/app/types/survey";
 import { useTranslation } from "@/app/i18n/context";
+import { localizeServerError } from "@/app/i18n/server-errors";
 import { AltchaWidget } from "@/app/components/survey-player/altcha-widget";
 import { isInfoSlide, liveSlides } from "@/app/lib/live/slides";
 
@@ -63,11 +64,18 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   const [streak, setStreak] = useState(0);
   // When the current question was revealed (for the timer + time-to-answer).
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  // A name is collected once, before anything else (also for late joiners): quiz
-  // mode needs it for the leaderboard, and a survey may require it (#15).
+  // A name and/or token is collected once, before anything else (also for late
+  // joiners): quiz mode needs the name for the leaderboard, and a survey may
+  // require either (#15, #16).
   const asksName = isQuiz || !!survey.settings.requireRespondentName;
+  const asksToken = !!survey.settings.requireRespondentToken;
   const [name, setName] = useState("");
-  const [joined, setJoined] = useState(!asksName);
+  const [token, setToken] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : (new URLSearchParams(window.location.search).get("token")?.trim() ?? ""),
+  );
+  const [joined, setJoined] = useState(!asksName && !asksToken);
   const submit = useSubmitResponse(survey.id);
   const joinLive = useJoinLive(survey.id);
   // Begin token satisfies a survey's minimum-submit-time check (not single-use).
@@ -168,6 +176,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
       const res = await submit.mutateAsync({
         answers: [{ questionId: question.id, value: answer }],
         respondentName: asksName && name.trim() ? name.trim() : undefined,
+        respondentToken: asksToken ? token.trim() : undefined,
         durationMs: elapsedSince(startedAt),
         beginToken: beginToken ?? undefined,
         captcha: requireCaptcha && captcha ? await validCaptcha(survey.id, captcha) : undefined,
@@ -178,37 +187,54 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
       setStreak((prevStreak) => (gained > 0 ? prevStreak + 1 : 0));
       setAnsweredIndex(index);
     } catch (err) {
+      if (asksToken && err instanceof Error && err.message === localizeServerError("This token is not valid.")) {
+        setJoined(false);
+      }
       toast.error(err instanceof Error ? err.message : t("live.sendFailed"));
     }
   }
 
-  // Ask for the name before the first question.
+  // Ask for the name and/or token before the first question.
   if (!joined) {
+    const ready = (!asksName || !!name.trim()) && (!asksToken || !!token.trim());
     return (
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-medium">{t("live.enterName")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="live-name">{t("player.yourName")}</Label>
-            <Input
-              id="live-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("player.yourNamePlaceholder")}
-              autoComplete="name"
-              autoFocus
-            />
-          </div>
+          {asksName && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="live-name">{t("player.yourName")}</Label>
+              <Input
+                id="live-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("player.yourNamePlaceholder")}
+                autoComplete="name"
+                autoFocus
+              />
+            </div>
+          )}
+          {asksToken && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="live-token">{t("player.token")}</Label>
+              <Input
+                id="live-token"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder={t("player.tokenPlaceholder")}
+                autoComplete="off"
+              />
+            </div>
+          )}
           {captchaGate}
           <Button
-            disabled={!name.trim()}
+            disabled={!ready}
             onClick={() => {
-              const n = name.trim();
-              if (!n) return;
+              if (!ready) return;
               setJoined(true);
-              joinLive.mutate(n);
+              if (name.trim()) joinLive.mutate(name.trim());
             }}
           >
             {t("live.join")}

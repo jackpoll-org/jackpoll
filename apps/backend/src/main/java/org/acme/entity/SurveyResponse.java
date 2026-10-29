@@ -72,6 +72,9 @@ public class SurveyResponse extends PanacheEntityBase {
     @Column(name = "respondent_name", length = 200)
     public String respondentName;
 
+    @Column(name = "respondent_token", length = 128)
+    public String respondentToken;
+
     /** The live quiz session ({@link LiveSession}) this answer was given in;
      *  null outside live mode and for answers from before sessions existed. */
     @Column(name = "session_id", length = 36)

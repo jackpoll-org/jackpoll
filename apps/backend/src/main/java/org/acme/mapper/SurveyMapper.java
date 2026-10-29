@@ -115,6 +115,7 @@ public class SurveyMapper {
             s.privacyNotice,
             s.requireConsent,
             s.requireRespondentName,
+            s.requireRespondentToken,
             s.liveMode,
             s.liveQuestionSeconds,
             s.liveHideQuestionOnDevices,
@@ -270,6 +271,7 @@ public class SurveyMapper {
         s.privacyNotice = d.privacyNotice();
         s.requireConsent = d.requireConsent();
         s.requireRespondentName = d.requireRespondentName();
+        s.requireRespondentToken = d.requireRespondentToken();
         s.liveMode = d.liveMode();
         s.liveQuestionSeconds = d.liveQuestionSeconds();
         s.liveHideQuestionOnDevices = d.liveHideQuestionOnDevices();

@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import type {
   Option,
   Question,
+  RespondentToken,
   Survey,
   SurveyResponseDto,
   UploadedFile,
@@ -64,10 +65,12 @@ export function buildResponsesCsv(
   responses: SurveyResponseDto[],
 ): string {
   const questions = survey.questions.filter((q) => isAnswerable(q.type));
+  const withToken = responses.some((r) => r.respondentToken);
   const header = [
     "Response ID",
     "Submitted at",
     "Duration (s)",
+    ...(withToken ? ["Token"] : []),
     ...questions.map((q) => q.title || "Untitled question"),
   ];
 
@@ -77,12 +80,29 @@ export function buildResponsesCsv(
       response.id,
       response.submittedAt,
       response.durationMs != null ? (response.durationMs / 1000).toFixed(1) : "",
+      ...(withToken ? [response.respondentToken ?? ""] : []),
       ...questions.map((q) => formatAnswer(q, byQuestion.get(q.id))),
     ];
   });
 
   return [header, ...rows]
     .map((row) => row.map((cell) => csvCell(String(cell))).join(","))
+    .join("\n");
+}
+
+export function parseTokenList(text: string): string[] {
+  return [...new Set(text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))];
+}
+
+export function buildTokensCsv(
+  tokens: RespondentToken[],
+  linkFor: (token: string) => string,
+): string {
+  return [
+    ["token", "link", "used"],
+    ...tokens.map((t) => [t.token, linkFor(t.token), t.usedAt ? "yes" : "no"]),
+  ]
+    .map((row) => row.map(csvCell).join(","))
     .join("\n");
 }
 

@@ -106,6 +106,12 @@ public class ResponseService {
     @Inject
     PdfService pdfService;
 
+    @Inject
+    RespondentTokenService respondentTokens;
+
+    @Inject
+    org.acme.repository.RespondentTokenRepository respondentTokenRepository;
+
     /** Response-count thresholds that trigger a milestone notification (#89). */
     private static final int[] MILESTONE_THRESHOLDS =
         { 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000 };
@@ -150,7 +156,7 @@ public class ResponseService {
         if (honeypotTripped) {
             return new ResponseDto(
                 UUID.randomUUID().toString(), Instant.now().toString(),
-                req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null, null);
+                req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null, null, null);
         }
 
         // One-response-per-browser guard (issue #31).
@@ -207,6 +213,11 @@ public class ResponseService {
                 response.answers.add(answer);
                 values.put(a.questionId(), a.value());
             }
+        }
+
+        if (!response.preview && survey.settings != null && survey.settings.requireRespondentToken) {
+            response.respondentToken = respondentTokens.redeem(
+                survey, response.sessionId, req.respondentToken(), values.keySet(), clientIp);
         }
 
         // Quiz scoring happens server-side (issue #10).
@@ -655,6 +666,7 @@ public class ResponseService {
         // and drop the now-empty live quiz sessions.
         optionRepository.resetUsedForSurvey(surveyId);
         liveSessionRepository.deleteBySurvey(surveyId);
+        respondentTokenRepository.releaseAll(surveyId);
         return responses.size();
     }
 
@@ -705,6 +717,7 @@ public class ResponseService {
                 r.clientId = null;
                 r.editToken = null;
                 r.respondentName = null;
+                r.respondentToken = null;
                 r.answers.removeIf(a -> identifying.contains(a.questionId));
             }
         } else {
@@ -1026,6 +1039,7 @@ public class ResponseService {
             r.editToken,
             r.editedAt != null ? r.editedAt.toString() : null,
             r.respondentName,
+            r.respondentToken,
             r.sessionId,
             Boolean.TRUE.equals(r.gradingPending) ? Boolean.TRUE : null);
     }

@@ -92,6 +92,7 @@ public class SurveySettings {
     public boolean requireConsent;
     /** Require respondents to enter their name first; stored with the response. */
     public boolean requireRespondentName;
+    public boolean requireRespondentToken;
     /** Presenter-paced live mode: a host drives everyone through the questions
      *  one at a time; participants answer only the presented question (#). */
     public boolean liveMode;

@@ -198,6 +198,9 @@ export function ResponsesPanel({
                 {survey.settings.requireRespondentName && (
                   <TableHead>{t("results.responses.colName")}</TableHead>
                 )}
+                {survey.settings.requireRespondentToken && (
+                  <TableHead>{t("results.responses.colToken")}</TableHead>
+                )}
                 <TableHead>{t("results.responses.colDuration")}</TableHead>
                 {survey.settings.isQuiz && <TableHead>{t("results.responses.colScore")}</TableHead>}
                 <TableHead className="text-right">{t("results.responses.colActions")}</TableHead>
@@ -209,6 +212,9 @@ export function ResponsesPanel({
                   <TableCell>{new Date(r.submittedAt).toLocaleString()}</TableCell>
                   {survey.settings.requireRespondentName && (
                     <TableCell className="font-medium">{r.respondentName || "—"}</TableCell>
+                  )}
+                  {survey.settings.requireRespondentToken && (
+                    <TableCell className="font-mono">{r.respondentToken || "—"}</TableCell>
                   )}
                   <TableCell>
                     {r.durationMs != null ? `${Math.round(r.durationMs / 1000)}s` : "—"}

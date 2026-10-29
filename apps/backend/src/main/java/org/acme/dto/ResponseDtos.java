@@ -57,6 +57,7 @@ public final class ResponseDtos {
         Boolean preview,
         /** Respondent's name when the survey requires it (#). */
         @Size(max = 255) String respondentName,
+        @Size(max = 128) String respondentToken,
         /** Language the form was answered in, so the emailed receipt matches it.
          *  Null falls back to the survey owner's language. */
         @Size(max = 16) String locale
@@ -76,6 +77,7 @@ public final class ResponseDtos {
         String editedAt,
         // Respondent's name when the survey required it (#); null otherwise.
         String respondentName,
+        String respondentToken,
         // Live quiz session the answer was given in; null outside live mode.
         String sessionId,
         // True while manually graded answers still await points (public #6).

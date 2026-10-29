@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { buildResponsesCsv, formatAnswer, labelMap } from "@/app/lib/survey/export";
+import {
+  buildResponsesCsv,
+  buildTokensCsv,
+  formatAnswer,
+  labelMap,
+  parseTokenList,
+} from "@/app/lib/survey/export";
 import type { Question, Survey, SurveyResponseDto } from "@/app/types/survey";
 
 function question(overrides: Partial<Question>): Question {
@@ -118,5 +124,39 @@ describe("buildResponsesCsv", () => {
       { id: "r1", submittedAt: "2026-06-11T10:00:00Z", answers: [{ questionId: "q1", value: "Ada" }] },
     ]);
     expect(csv.split("\n")[0]).toBe("Response ID,Submitted at,Duration (s),Name");
+  });
+
+  it("adds a token column when responses carry respondent tokens", () => {
+    const csv = buildResponsesCsv(survey, [
+      { id: "r1", submittedAt: "2026-06-11T10:00:00Z", respondentToken: "T-1", answers: [] },
+      { id: "r2", submittedAt: "2026-06-11T11:00:00Z", answers: [] },
+    ]);
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("Response ID,Submitted at,Duration (s),Token,Name");
+    expect(lines[1]).toBe("r1,2026-06-11T10:00:00Z,,T-1,");
+    expect(lines[2]).toBe("r2,2026-06-11T11:00:00Z,,,");
+  });
+});
+
+describe("parseTokenList", () => {
+  it("takes one trimmed token per line, skipping blanks and duplicates", () => {
+    expect(parseTokenList(" alice \r\n\nbob\nalice\n")).toEqual(["alice", "bob"]);
+  });
+});
+
+describe("buildTokensCsv", () => {
+  it("lists each token with its prefilled link and whether it was used", () => {
+    const csv = buildTokensCsv(
+      [
+        { id: "1", token: "A,B", createdAt: "x", usedAt: "2026-06-11T10:00:00Z" },
+        { id: "2", token: "C", createdAt: "x" },
+      ],
+      (token) => `https://app.test/s/abc?token=${encodeURIComponent(token)}`,
+    );
+    expect(csv.split("\n")).toEqual([
+      "token,link,used",
+      '"A,B",https://app.test/s/abc?token=A%2CB,yes',
+      "C,https://app.test/s/abc?token=C,no",
+    ]);
   });
 });

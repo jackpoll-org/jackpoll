@@ -45,6 +45,7 @@ class SurveyServiceTest {
 
     private SurveyRepository repository;
     private CollaboratorRepository collaborators;
+    private org.acme.repository.RespondentTokenRepository respondentTokens;
     private SurveyService service;
 
     @BeforeEach
@@ -54,6 +55,8 @@ class SurveyServiceTest {
         service = new SurveyService();
         service.repository = repository;
         service.collaborators = collaborators;
+        respondentTokens = mock(org.acme.repository.RespondentTokenRepository.class);
+        service.respondentTokens = respondentTokens;
         service.mapper = new SurveyMapper();
         // default: no collaborator rows
         when(collaborators.findBySurveyAndUser(anyString(), anyString())).thenReturn(Optional.empty());
@@ -173,6 +176,7 @@ class SurveyServiceTest {
         service.delete(OWNER, "s1");
 
         verify(collaborators).delete(eq("surveyId"), eq("s1"));
+        verify(respondentTokens).delete(eq("surveyId"), eq("s1"));
         verify(repository).delete(survey);
     }
 

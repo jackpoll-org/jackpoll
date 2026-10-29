@@ -9,6 +9,7 @@ import { SURVEY_ENDPOINTS } from "./constants";
 import type { ApiResponse } from "@/app/types/auth";
 import type {
   AccessCode,
+  RespondentToken,
   AddCollaboratorRequest,
   AppNotification,
   CollabLink,
@@ -212,6 +213,44 @@ export async function updateAccessCodeApi(
     method: "PUT",
     body: JSON.stringify({ requireCode }),
   });
+}
+
+export async function listRespondentTokensApi(
+  surveyId: string,
+): Promise<ApiResponse<RespondentToken[]>> {
+  return request<RespondentToken[]>(SURVEY_ENDPOINTS.respondentTokens(surveyId));
+}
+
+export async function generateRespondentTokensApi(
+  surveyId: string,
+  count: number,
+): Promise<ApiResponse<RespondentToken[]>> {
+  return request<RespondentToken[]>(SURVEY_ENDPOINTS.respondentTokensGenerate(surveyId), {
+    method: "POST",
+    body: JSON.stringify({ count }),
+  });
+}
+
+export async function addRespondentTokensApi(
+  surveyId: string,
+  tokens: string[],
+): Promise<ApiResponse<RespondentToken[]>> {
+  return request<RespondentToken[]>(SURVEY_ENDPOINTS.respondentTokens(surveyId), {
+    method: "POST",
+    body: JSON.stringify({ tokens }),
+  });
+}
+
+export async function deleteRespondentTokenApi(
+  surveyId: string,
+  tokenId?: string,
+): Promise<ApiResponse<null>> {
+  return request<null>(
+    tokenId
+      ? SURVEY_ENDPOINTS.respondentToken(surveyId, tokenId)
+      : SURVEY_ENDPOINTS.respondentTokens(surveyId),
+    { method: "DELETE" },
+  );
 }
 
 /** Resolve an entered access code to its survey. */

@@ -88,6 +88,20 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
         return count("surveyId = ?1 and clientId = ?2", surveyId, clientId) > 0;
     }
 
+    public boolean tokenAnswered(
+            String surveyId, String sessionId, String token, java.util.Collection<String> questionIds) {
+        if (questionIds.isEmpty()) return false;
+        return getEntityManager().createQuery(
+                "select count(a) from ResponseAnswer a where a.response.surveyId = ?1"
+                    + " and a.response.sessionId = ?2 and a.response.respondentToken = ?3"
+                    + " and a.questionId in ?4", Long.class)
+            .setParameter(1, surveyId)
+            .setParameter(2, sessionId)
+            .setParameter(3, token)
+            .setParameter(4, questionIds)
+            .getSingleResult() > 0;
+    }
+
     /** Count responses submitted at/after an instant — for digests (#24). */
     public long countBySurveySince(String surveyId, Instant since) {
         return count("surveyId = ?1 and submittedAt >= ?2", surveyId, since);

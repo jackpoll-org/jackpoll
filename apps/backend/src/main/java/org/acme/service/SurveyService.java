@@ -43,6 +43,9 @@ public class SurveyService {
     @Inject
     SurveyMapper mapper;
 
+    @Inject
+    org.acme.repository.RespondentTokenRepository respondentTokens;
+
     // ── Listing (owned + collaborated) ────────────────────────────
 
     public List<SurveyDto> list(String userId, int page, int limit) {
@@ -194,6 +197,7 @@ public class SurveyService {
     public void delete(String ownerId, String id) {
         var survey = findOwnedOrThrow(ownerId, id);
         collaborators.delete("surveyId", id);
+        respondentTokens.delete("surveyId", id);
         repository.delete(survey);
     }
 

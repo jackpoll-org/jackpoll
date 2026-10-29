@@ -182,6 +182,13 @@ export function SurveyPlayer({
   // Require + collect the respondent's name when the owner enabled it (#).
   const requireName = !isEditing && !!survey.settings.requireRespondentName;
   const [respondentName, setRespondentName] = useState("");
+  const requireToken = !isEditing && !!survey.settings.requireRespondentToken;
+  const [urlToken] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : (new URLSearchParams(window.location.search).get("token")?.trim() ?? ""),
+  );
+  const [respondentToken, setRespondentToken] = useState(urlToken);
 
   // Restore a local autosave once on mount, unless resuming a server draft.
   useEffect(() => {
@@ -391,7 +398,7 @@ export function SurveyPlayer({
 
   /** Wordcloud answers are sent live per word, so they never join the batch. */
   function isInstant(question: Question): boolean {
-    return analytics && !isEditing && question.type === "wordcloud";
+    return analytics && !isEditing && !requireToken && question.type === "wordcloud";
   }
 
   /** Move focus + screen-reader announcement to the first errored question (#45). */
@@ -452,6 +459,11 @@ export function SurveyPlayer({
       return;
     }
 
+    if (requireToken && !preview && !respondentToken.trim()) {
+      toast.error(t("player.tokenRequired"));
+      return;
+    }
+
     const answerInputs: AnswerInput[] = visible.flatMap((q) => {
       const value = answers[q.id];
       return value !== undefined && value !== null && value !== ""
@@ -472,6 +484,7 @@ export function SurveyPlayer({
         offerReceipt && receiptEmail.trim() ? receiptEmail.trim() : undefined,
       preview: preview || undefined,
       respondentName: requireName ? respondentName.trim() : undefined,
+      respondentToken: requireToken ? respondentToken.trim() || undefined : undefined,
       // The receipt is written in the language the form was answered in — the
       // respondent has no account we could look one up from.
       locale,
@@ -661,6 +674,24 @@ export function SurveyPlayer({
             placeholder={t("player.yourNamePlaceholder")}
             autoComplete="name"
             required
+          />
+        </div>
+      )}
+
+      {requireToken && currentPageIndex === 0 && (
+        <div className="grid gap-1.5">
+          <Label htmlFor="respondent-token">
+            {t("player.token")}
+            <span aria-hidden className="ml-1 text-destructive">*</span>
+          </Label>
+          <Input
+            id="respondent-token"
+            value={respondentToken}
+            onChange={(e) => setRespondentToken(e.target.value)}
+            placeholder={t("player.tokenPlaceholder")}
+            readOnly={!!urlToken}
+            autoComplete="off"
+            required={!preview}
           />
         </div>
       )}
