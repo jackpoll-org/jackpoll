@@ -32,7 +32,7 @@ public class BrandedMailer {
     @Inject
     Mailer mailer;
 
-    @ConfigProperty(name = "survey.mail.subject-prefix", defaultValue = "[Survey School]")
+    @ConfigProperty(name = "survey.mail.subject-prefix", defaultValue = "[Jackpoll]")
     String subjectPrefix;
 
     @ConfigProperty(name = "survey.mail.app-url", defaultValue = "http://localhost:3000")

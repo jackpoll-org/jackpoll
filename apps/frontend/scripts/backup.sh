@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backup the Survey School stateful services (#50): Postgres + MinIO.
+# Backup the Jackpoll stateful services (#50): Postgres + MinIO.
 #
 # Run on the swarm manager (where postgres/minio are pinned). Writes timestamped
 # archives to $BACKUP_DIR (default ./backups). Schedule via cron, e.g.:

@@ -162,7 +162,7 @@ export async function downloadMyDataExport(): Promise<void> {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "survey-school-data.json";
+  link.download = "jackpoll-data.json";
   link.click();
   URL.revokeObjectURL(url);
 }

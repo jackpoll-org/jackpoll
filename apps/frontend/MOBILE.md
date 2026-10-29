@@ -1,4 +1,4 @@
-# Survey School — Mobile apps (iOS + Android)
+# Jackpoll — Mobile apps (iOS + Android)
 
 The native apps wrap the **live web deployment** with [Capacitor](https://capacitorjs.com)
 in `server.url` mode: one SSR build, one source of truth. Offline is handled by

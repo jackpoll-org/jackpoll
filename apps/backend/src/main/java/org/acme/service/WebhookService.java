@@ -141,7 +141,7 @@ public class WebhookService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("event", "ping");
         payload.put("surveyId", surveyId);
-        payload.put("message", "This is a test event from Survey School.");
+        payload.put("message", "This is a test event from Jackpoll.");
         payload.put("timestamp", Instant.now().toString());
 
         var outcome = deliverOnce(hook.url, hook.secret, "ping", toJson(payload));
@@ -209,7 +209,7 @@ public class WebhookService {
             var request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .header("Content-Type", "application/json")
-                .header("User-Agent", "SurveySchool-Webhook/1")
+                .header("User-Agent", "Jackpoll-Webhook/1")
                 .header("X-Survey-Event", event)
                 .header("X-Survey-Timestamp", timestamp)
                 .header("X-Survey-Signature", signature)

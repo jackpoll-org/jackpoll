@@ -1,6 +1,6 @@
-# Project: Survey School Backend (survey-backend)
+# Project: Jackpoll Backend (survey-backend)
 
-The backend for the Survey School application — a Google Forms-like survey/quiz builder.
+The backend for the Jackpoll application — a Google Forms-like survey/quiz builder.
 
 ## Tech Stack
 

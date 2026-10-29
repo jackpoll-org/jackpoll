@@ -53,7 +53,7 @@ public class GdprResource {
     public Response export() {
         var data = gdprService.export(userId());
         return Response.ok(data)
-            .header("Content-Disposition", "attachment; filename=\"survey-school-data.json\"")
+            .header("Content-Disposition", "attachment; filename=\"jackpoll-data.json\"")
             .build();
     }
 
