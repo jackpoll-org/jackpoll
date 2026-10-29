@@ -240,8 +240,16 @@ def cmd_beta_add(args: argparse.Namespace) -> None:
     build = asc.build(args.train, args.build, wait=args.wait)
     number = build["attributes"]["version"]
     group = asc.beta_group(args.group)
-    asc.call("POST", f"/v1/betaGroups/{group['id']}/relationships/builds",
-             {"data": [{"type": "builds", "id": build["id"]}]})
+    for attempt in range(1, 6):
+        try:
+            asc.call("POST", f"/v1/betaGroups/{group['id']}/relationships/builds",
+                     {"data": [{"type": "builds", "id": build["id"]}]})
+            break
+        except AscError as err:
+            if " → 404" not in str(err) or attempt == 5:
+                raise
+            print(f"… build {number} is VALID but not attachable yet, retrying")
+            time.sleep(POLL_SECONDS)
     print(f"build {args.train} ({number}) → {args.group}")
 
     # Adding the build to an external group is not the same as submitting it.
