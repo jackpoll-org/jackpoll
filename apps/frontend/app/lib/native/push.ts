@@ -26,7 +26,7 @@ export type PushOutcome =
   | "REGISTERING"
   | "NEEDS_PICKER"
   | "NEEDS_DISTRIBUTOR"
-  // iOS: the system notification permission was denied (or dismissed).
+  // The system notification permission was denied (or dismissed).
   | "NEEDS_PERMISSION"
   | "UNSUPPORTED";
 
@@ -47,7 +47,7 @@ interface EndpointEvent {
 }
 
 interface UnifiedPushPlugin {
-  register(options?: { vapid?: string }): Promise<{ outcome: PushOutcome }>;
+  register(options?: { vapid?: string; askPermission?: boolean }): Promise<{ outcome: PushOutcome }>;
   unregister(): Promise<void>;
   getStatus(): Promise<PushStatus>;
   listDistributors(): Promise<{ distributors: string }>;
@@ -124,7 +124,7 @@ export async function registerPush(): Promise<PushOutcome> {
   if (!unifiedPushSupported()) return "UNSUPPORTED";
   await bindEndpointListener();
   const vapid = await fetchVapidKey();
-  const { outcome } = await UnifiedPush.register({ vapid });
+  const { outcome } = await UnifiedPush.register({ vapid, askPermission: true });
   return outcome;
 }
 

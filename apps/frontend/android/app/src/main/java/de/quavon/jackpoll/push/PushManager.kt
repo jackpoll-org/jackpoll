@@ -3,6 +3,7 @@ package de.quavon.jackpoll.push
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import org.json.JSONObject
 import org.unifiedpush.android.connector.UnifiedPush
 
@@ -109,7 +110,7 @@ object PushManager {
         val p = prefs(ctx)
         val endpoint = p.getString("endpoint", null)
         return JSONObject().apply {
-            put("registered", endpoint != null)
+            put("registered", endpoint != null && NotificationManagerCompat.from(ctx).areNotificationsEnabled())
             put("distributor", UnifiedPush.getAckDistributor(ctx) ?: JSONObject.NULL)
             put("hasEmbeddedFallback", PushFlavor.hasEmbeddedFallback)
             put("installedDistributors", distributors(ctx).joinToString(","))

@@ -97,7 +97,7 @@ export const en = {
   "push.setup.noDistributor":
     "No push distributor is installed. Install one (e.g. ntfy or NextPush) to receive notifications —",
   "push.setup.needsPermission":
-    "Notifications are turned off for Jackpoll. Allow them in Settings → Notifications → Jackpoll, then try again.",
+    "Notifications are turned off for Jackpoll. Allow them for Jackpoll in your device's notification settings, then try again.",
   "push.setup.enable": "Enable push",
   "push.setup.reregister": "Re-register",
   "push.setup.disable": "Turn off",
@@ -1358,7 +1358,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "push.setup.noDistributor":
     "Kein Push-Distributor installiert. Installiere einen (z. B. ntfy oder NextPush), um Benachrichtigungen zu erhalten —",
   "push.setup.needsPermission":
-    "Benachrichtigungen sind für Jackpoll deaktiviert. Erlaube sie unter Einstellungen → Mitteilungen → Jackpoll und versuche es erneut.",
+    "Benachrichtigungen sind für Jackpoll deaktiviert. Erlaube sie für Jackpoll in den Benachrichtigungseinstellungen deines Geräts und versuche es erneut.",
   "push.setup.enable": "Push aktivieren",
   "push.setup.reregister": "Neu registrieren",
   "push.setup.disable": "Deaktivieren",

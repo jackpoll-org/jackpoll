@@ -1,0 +1,1 @@
+• Push notifications now ask for permission on Android 13 and later when you turn them on

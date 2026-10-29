@@ -76,11 +76,10 @@ export function PushSettingsCard() {
     try {
       if (Capacitor.isNativePlatform()) {
         const outcome = await registerPush();
-        if (
-          outcome === "NEEDS_DISTRIBUTOR" ||
-          outcome === "NEEDS_PERMISSION" ||
-          outcome === "UNSUPPORTED"
-        ) {
+        if (outcome === "NEEDS_PERMISSION") {
+          setState("default");
+          toast.error(t("push.setup.needsPermission"));
+        } else if (outcome === "NEEDS_DISTRIBUTOR" || outcome === "UNSUPPORTED") {
           setState("default");
           toast.error(t("settings.push.denied"));
         } else {

@@ -55,7 +55,7 @@ export function PushSetup() {
     try {
       const outcome = await registerPush();
       if (outcome === "NEEDS_DISTRIBUTOR") setNeedsDistributor(true);
-      // iOS: the system prompt was denied — only Settings can undo that.
+      // The system prompt was denied — only the system settings can undo that.
       if (outcome === "NEEDS_PERMISSION") setNeedsPermission(true);
       if (outcome === "NEEDS_PICKER") await refresh(); // show the picker below
       // endpoint arrives async via the listener → poll status shortly after.
@@ -118,7 +118,7 @@ export function PushSetup() {
         </div>
       )}
 
-      {/* iOS: notifications denied in the system settings. */}
+      {/* Notifications denied in the system settings. */}
       {needsPermission && (
         <p className="text-sm text-muted-foreground">{t("push.setup.needsPermission")}</p>
       )}

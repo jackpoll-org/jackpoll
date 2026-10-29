@@ -1,0 +1,1 @@
+• Push-Benachrichtigungen fragen ab Android 13 beim Einschalten nach der Erlaubnis

@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import de.quavon.jackpoll.R
 import org.json.JSONObject
 import org.unifiedpush.android.connector.FailedReason
@@ -70,6 +71,10 @@ class UnifiedPushReceiver : MessagingReceiver() {
     }
 
     private fun notify(context: Context, title: String, body: String) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            Log.w(TAG, "notifications are disabled for this app, dropping push message")
+            return
+        }
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
