@@ -32,7 +32,7 @@ public class PublicAccessResource {
     @Inject
     RateLimiterService rateLimiter;
 
-    @ConfigProperty(name = "survey.access-code.rate-limit.max", defaultValue = "60")
+    @ConfigProperty(name = "survey.access-code.rate-limit.max", defaultValue = "600")
     int rateLimitMax;
 
     @ConfigProperty(name = "survey.access-code.rate-limit.window-seconds", defaultValue = "60")
