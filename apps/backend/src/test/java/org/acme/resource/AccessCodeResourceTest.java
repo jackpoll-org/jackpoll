@@ -17,6 +17,7 @@ import org.acme.entity.SurveyStatus;
 import org.acme.repository.AccessCodeRepository;
 import org.acme.repository.ResponseDraftRepository;
 import org.acme.repository.SurveyRepository;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
@@ -25,6 +26,9 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 class AccessCodeResourceTest {
+
+    @ConfigProperty(name = "survey.access-code.rate-limit.max", defaultValue = "600")
+    int accessCodeRateLimit;
 
     private static final String SURVEYS = "/api/v1/surveys";
     private static final String ENTER = "/api/v1/public/access-code";
@@ -181,7 +185,7 @@ class AccessCodeResourceTest {
     @Test
     void resolve_isRateLimitedPerIp() {
         int lastStatus = 0;
-        for (int i = 0; i < 62; i++) {
+        for (int i = 0; i < accessCodeRateLimit + 2; i++) {
             lastStatus = given().contentType(ContentType.JSON).body("{\"code\":\"ZZZZZZZZ\"}")
                 .header("X-Forwarded-For", "198.51.100.77")
                 .when().post(ENTER).then().extract().statusCode();
