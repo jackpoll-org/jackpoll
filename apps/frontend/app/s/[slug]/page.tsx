@@ -6,7 +6,6 @@ import { ApiError } from "@/app/lib/survey/api";
 import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
 import { usePublicLink } from "@/app/hooks/survey";
 import { Spinner } from "@/app/components/ui/spinner";
-import { LanguageSwitcher } from "@/app/components/common/language-switcher";
 import { RespondentThemeToggle } from "@/app/components/survey-player/respondent-theme-toggle";
 import { surveyBackgroundStyle } from "@/app/components/survey-player/branding-frame";
 import { useTranslation } from "@/app/i18n/context";
@@ -51,7 +50,6 @@ export default function ShareLinkPage() {
       <div className="mx-auto w-full max-w-2xl">
         <div className="mb-4 flex justify-end gap-1">
           <RespondentThemeToggle />
-          <LanguageSwitcher withIcon />
         </div>
         <SurveyPlayer survey={survey} analytics />
       </div>

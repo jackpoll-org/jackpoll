@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
-import { LanguageSwitcher } from "@/app/components/common/language-switcher";
 import { useResponseForEdit, usePublicSurvey } from "@/app/hooks/survey";
 import { Spinner } from "@/app/components/ui/spinner";
 import { useTranslation } from "@/app/i18n/context";
@@ -66,7 +65,6 @@ export default function EditResponsePage() {
       <div className="mx-auto w-full max-w-2xl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">{t("edit.editing")}</p>
-          <LanguageSwitcher withIcon />
         </div>
         <SurveyPlayer
           survey={survey}

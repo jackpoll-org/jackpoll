@@ -63,9 +63,11 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   const [streak, setStreak] = useState(0);
   // When the current question was revealed (for the timer + time-to-answer).
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  // Quiz mode collects a name once so scores can be attributed on the leaderboard.
+  // A name is collected once, before anything else (also for late joiners): quiz
+  // mode needs it for the leaderboard, and a survey may require it (#15).
+  const asksName = isQuiz || !!survey.settings.requireRespondentName;
   const [name, setName] = useState("");
-  const [joined, setJoined] = useState(!isQuiz);
+  const [joined, setJoined] = useState(!asksName);
   const submit = useSubmitResponse(survey.id);
   const joinLive = useJoinLive(survey.id);
   // Begin token satisfies a survey's minimum-submit-time check (not single-use).
@@ -165,7 +167,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
     try {
       const res = await submit.mutateAsync({
         answers: [{ questionId: question.id, value: answer }],
-        respondentName: isQuiz && name.trim() ? name.trim() : undefined,
+        respondentName: asksName && name.trim() ? name.trim() : undefined,
         durationMs: elapsedSince(startedAt),
         beginToken: beginToken ?? undefined,
         captcha: requireCaptcha && captcha ? await validCaptcha(survey.id, captcha) : undefined,
@@ -180,7 +182,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
     }
   }
 
-  // Quiz: ask for a name before the game starts.
+  // Ask for the name before the first question.
   if (!joined) {
     return (
       <Card>
