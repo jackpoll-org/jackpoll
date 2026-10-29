@@ -358,7 +358,7 @@ jobs:
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: mobile-b${{ needs.ios.outputs.build }}
+          TAG: mobile-${{ needs.ios.outputs.version }}-b${{ needs.ios.outputs.build }}
           VERSION: ${{ needs.ios.outputs.version }}
           BUILD: ${{ needs.ios.outputs.build }}
           VC: ${{ needs.android.outputs.versioncode }}

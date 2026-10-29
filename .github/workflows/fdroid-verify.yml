@@ -8,8 +8,8 @@
 # same toolchain, same paths, same result. The fdroid scanner runs as part of
 # that build, so a Google/non-free dependency fails here first.
 #
-# Runs on every `v*` tag. sync-oss creates the tag when versionName in
-# apps/frontend/android/app/build.gradle changes.
+# Started by hand on a `v*` tag. A manual sync-oss run creates the tag when
+# versionName in apps/frontend/android/app/build.gradle changes.
 #
 # SETUP: the same ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD /
 # ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD secrets as mobile-release.yml.
