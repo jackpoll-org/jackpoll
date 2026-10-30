@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Build (Maven, JDK 21) ───────────────────────────────────────────
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 # Prime the dependency cache first for faster rebuilds.
 COPY pom.xml .
