@@ -43,7 +43,7 @@ public class ApiKeyResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response create(@Valid @NotNull CreateApiKeyRequest req) {
         return Response.status(Response.Status.CREATED)
-            .entity(ApiResponse.ok(apiKeys.create(userId(), req.name(), req.readResponses())))
+            .entity(ApiResponse.ok(apiKeys.create(userId(), req.name(), req.readResponses(), req.expiresInDays())))
             .build();
     }
 

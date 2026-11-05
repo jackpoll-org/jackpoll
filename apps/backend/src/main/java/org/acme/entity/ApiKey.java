@@ -36,4 +36,7 @@ public class ApiKey extends PanacheEntityBase {
 
     @Column(name = "last_used_at")
     public Instant lastUsedAt;
+
+    @Column(name = "expires_at")
+    public Instant expiresAt;
 }

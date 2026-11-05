@@ -370,10 +370,11 @@ export async function listApiKeysApi(): Promise<ApiResponse<ApiKey[]>> {
 export async function createApiKeyApi(
   name: string,
   readResponses: boolean,
+  expiresInDays: number | null,
 ): Promise<ApiResponse<CreatedApiKey>> {
   return request<CreatedApiKey>(SURVEY_ENDPOINTS.apiKeys, {
     method: "POST",
-    body: JSON.stringify({ name, readResponses }),
+    body: JSON.stringify({ name, readResponses, expiresInDays }),
   });
 }
 

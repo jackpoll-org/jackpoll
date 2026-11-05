@@ -26,12 +26,22 @@ import {
 } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 import { Switch } from "@/app/components/ui/switch";
 import { useApiKeys, useCreateApiKey, useDeleteApiKey } from "@/app/hooks/survey";
 import { useTranslation } from "@/app/i18n/context";
 import type { ApiKey } from "@/app/types/api-key";
 
 const MAX_NAME_LENGTH = 100;
+const NEVER = "never";
+const EXPIRY_OPTIONS = ["7", "30", "90", "365", NEVER] as const;
+const DEFAULT_EXPIRY = "30";
 
 export function ApiKeysCard() {
   const { t } = useTranslation();
@@ -39,6 +49,7 @@ export function ApiKeysCard() {
   const create = useCreateApiKey();
   const [name, setName] = useState("");
   const [readResponses, setReadResponses] = useState(false);
+  const [expiry, setExpiry] = useState<string>(DEFAULT_EXPIRY);
   const [secret, setSecret] = useState<string | null>(null);
   const apiBase = typeof window === "undefined" ? "/api" : `${window.location.origin}/api`;
 
@@ -46,12 +57,13 @@ export function ApiKeysCard() {
     e.preventDefault();
     if (!name.trim()) return;
     create.mutate(
-      { name: name.trim(), readResponses },
+      { name: name.trim(), readResponses, expiresInDays: expiry === NEVER ? null : Number(expiry) },
       {
         onSuccess: (created) => {
           setSecret(created.secret);
           setName("");
           setReadResponses(false);
+          setExpiry(DEFAULT_EXPIRY);
         },
         onError: (err) => toast.error(err instanceof Error ? err.message : t("settings.apiKeys.createFailed")),
       },
@@ -114,6 +126,23 @@ export function ApiKeysCard() {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
+          <div className="grid gap-1">
+            <Label htmlFor="api-key-expiry">{t("settings.apiKeys.expiry")}</Label>
+            <Select value={expiry} onValueChange={setExpiry}>
+              <SelectTrigger id="api-key-expiry" className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXPIRY_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option === NEVER
+                      ? t("settings.apiKeys.expiryNever")
+                      : t("settings.apiKeys.expiryDays", { days: option })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-2">
             <Switch id="api-key-responses" checked={readResponses} onCheckedChange={setReadResponses} />
             <Label htmlFor="api-key-responses" className="font-normal">
@@ -140,6 +169,8 @@ export function ApiKeysCard() {
 function ApiKeyRow({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation();
   const remove = useDeleteApiKey();
+  const [now] = useState(() => Date.now());
+  const expired = apiKey.expiresAt != null && new Date(apiKey.expiresAt).getTime() <= now;
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
@@ -147,6 +178,7 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKey }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate text-sm font-medium">{apiKey.name}</span>
           <code className="font-mono text-xs text-muted-foreground">{apiKey.prefix}…</code>
+          {expired && <Badge variant="destructive">{t("settings.apiKeys.expired")}</Badge>}
           {apiKey.scopes.map((scope) => (
             <Badge key={scope} variant="secondary">
               {t(scope === "responses" ? "settings.apiKeys.scopeResponses" : "settings.apiKeys.scopeSurveys")}
@@ -159,6 +191,12 @@ function ApiKeyRow({ apiKey }: { apiKey: ApiKey }) {
           {apiKey.lastUsedAt
             ? t("settings.apiKeys.lastUsed", { date: new Date(apiKey.lastUsedAt).toLocaleString() })
             : t("settings.apiKeys.neverUsed")}
+          {" · "}
+          {apiKey.expiresAt
+            ? t(expired ? "settings.apiKeys.expiredOn" : "settings.apiKeys.expiresOn", {
+                date: new Date(apiKey.expiresAt).toLocaleDateString(),
+              })
+            : t("settings.apiKeys.noExpiry")}
         </p>
       </div>
       <AlertDialog>

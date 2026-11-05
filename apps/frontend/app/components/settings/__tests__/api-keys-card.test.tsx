@@ -56,11 +56,28 @@ describe("ApiKeysCard", () => {
     fireEvent.click(screen.getByRole("switch"));
     fireEvent.click(screen.getByRole("button", { name: "settings.apiKeys.create" }));
 
-    expect(createMutate).toHaveBeenCalledWith({ name: "Claude", readResponses: true }, expect.anything());
+    expect(createMutate).toHaveBeenCalledWith(
+      { name: "Claude", readResponses: true, expiresInDays: 30 },
+      expect.anything(),
+    );
     expect(screen.getByText("jp_secret-value")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "settings.apiKeys.done" }));
     expect(screen.queryByText("jp_secret-value")).toBeNull();
+  });
+
+  it("shows when a key expires and marks expired keys", () => {
+    keys = [
+      { ...key, id: "k2", name: "Soon", expiresAt: "2999-01-01T00:00:00Z" },
+      { ...key, id: "k3", name: "Old", expiresAt: "2020-01-01T00:00:00Z" },
+      { ...key, id: "k4", name: "Forever", expiresAt: null },
+    ];
+    render(<ApiKeysCard />);
+
+    expect(screen.getByText(/settings.apiKeys.expiresOn/)).toBeTruthy();
+    expect(screen.getByText(/settings.apiKeys.expiredOn/)).toBeTruthy();
+    expect(screen.getByText(/settings.apiKeys.noExpiry/)).toBeTruthy();
+    expect(screen.getAllByText("settings.apiKeys.expired")).toHaveLength(1);
   });
 
   it("does not create a key without a name", () => {

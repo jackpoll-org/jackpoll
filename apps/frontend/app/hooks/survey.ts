@@ -254,8 +254,16 @@ export function useApiKeys() {
 export function useCreateApiKey() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ name, readResponses }: { name: string; readResponses: boolean }) => {
-      const res = await createApiKeyApi(name, readResponses);
+    mutationFn: async ({
+      name,
+      readResponses,
+      expiresInDays,
+    }: {
+      name: string;
+      readResponses: boolean;
+      expiresInDays: number | null;
+    }) => {
+      const res = await createApiKeyApi(name, readResponses, expiresInDays);
       if (!res.success || !res.data) {
         throw new Error(localizeServerError(res.error ?? "Failed to create API key"));
       }

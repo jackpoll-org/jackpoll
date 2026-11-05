@@ -4,13 +4,13 @@ Scripts and AI agents (Claude Code, Codex, Cursor, …) can create and edit surv
 
 ## 1. Create an API key
 
-Open **Settings → API keys**, give the key a name and create it. Copy the key (`jp_…`) right away; it is shown only once.
+Open **Settings → API keys**, give the key a name, choose when it expires (7, 30, 90 or 365 days, or never) and create it. Copy the key (`jp_…`) right away; it is shown only once. An expired key stops working immediately and is deleted automatically.
 
 Every key can **manage surveys**: create, edit, publish and delete them, organize folders and manage share links. Turn on **"Also allow reading responses"** only if the agent needs response data, since responses contain personal data. Response access is read-only.
 
 Without response access, a key can't touch your collected data indirectly either: it can't turn on public live results or student result pages, change data retention, or delete a survey that already has responses.
 
-A key acts as you: it sees exactly the surveys you own or collaborate on. It can't manage API keys, your account, collaborators or webhooks. Keys don't expire and keep working after a password change or "sign out everywhere", so revoke a key under **Settings → API keys** whenever you no longer need it. Each key is limited to 300 requests per minute.
+A key acts as you: it sees exactly the surveys you own or collaborate on. It can't manage API keys, your account, collaborators or webhooks. Keys keep working until they expire or you revoke them, also after a password change or "sign out everywhere", so revoke a key under **Settings → API keys** whenever you no longer need it. Each key is limited to 300 requests per minute.
 
 ## 2. Call the API
 

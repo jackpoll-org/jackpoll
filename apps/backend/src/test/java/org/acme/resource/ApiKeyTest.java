@@ -11,6 +11,7 @@ import static org.hamcrest.Matchers.startsWith;
 import java.time.Instant;
 
 import org.acme.entity.User;
+import org.acme.repository.ApiKeyRepository;
 import org.acme.repository.UserRepository;
 import org.acme.service.ApiKeyService;
 import org.junit.jupiter.api.Test;
@@ -32,13 +33,16 @@ class ApiKeyTest {
     @Inject
     UserRepository users;
 
+    @Inject
+    ApiKeyRepository keyRepository;
+
     private String keyFor(String userId, boolean readResponses) {
         return createKey(userId, readResponses).secret();
     }
 
     private org.acme.dto.ApiKeyDtos.CreatedApiKeyDto createKey(String userId, boolean readResponses) {
         ensureUser(userId);
-        return apiKeys.create(userId, "Agent", readResponses);
+        return apiKeys.create(userId, "Agent", readResponses, null);
     }
 
     @Transactional
@@ -52,6 +56,11 @@ class ApiKeyTest {
         user.createdAt = Instant.now();
         user.updatedAt = Instant.now();
         users.persist(user);
+    }
+
+    @Transactional
+    void expire(String keyId) {
+        keyRepository.findById(keyId).expiresAt = Instant.now().minusSeconds(1);
     }
 
     @Transactional
@@ -187,6 +196,40 @@ class ApiKeyTest {
         given().auth().oauth2(fullKey).contentType(ContentType.JSON).body(body.formatted(",\"showLiveResults\":true"))
             .when().put(API + "/surveys/" + id).then().statusCode(200);
         given().auth().oauth2(fullKey).when().delete(API + "/surveys/" + id).then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "key-expiry-owner")
+    void ownerChoosesAnExpiry() {
+        given().contentType(ContentType.JSON).body("{\"name\":\"Short\",\"expiresInDays\":7}")
+            .when().post(API + "/me/api-keys")
+            .then().statusCode(201)
+            .body("data.apiKey.expiresAt", org.hamcrest.Matchers.notNullValue());
+        given().contentType(ContentType.JSON).body("{\"name\":\"Forever\"}")
+            .when().post(API + "/me/api-keys")
+            .then().statusCode(201)
+            .body("data.apiKey.expiresAt", nullValue());
+        given().contentType(ContentType.JSON).body("{\"name\":\"Bad\",\"expiresInDays\":0}")
+            .when().post(API + "/me/api-keys").then().statusCode(422);
+        given().contentType(ContentType.JSON).body("{\"name\":\"Bad\",\"expiresInDays\":366}")
+            .when().post(API + "/me/api-keys").then().statusCode(422);
+    }
+
+    @Test
+    void expiredKeysStopWorkingAndAreDeleted() {
+        ensureUser("agent-expiring");
+        var created = apiKeys.create("agent-expiring", "Temp", false, 30);
+        var keeper = apiKeys.create("agent-expiring", "Keeper", false, null);
+        given().auth().oauth2(created.secret()).when().get(API + "/surveys").then().statusCode(200);
+
+        expire(created.apiKey().id());
+        given().auth().oauth2(created.secret()).when().get(API + "/surveys").then().statusCode(401);
+        given().auth().oauth2(keeper.secret()).when().get(API + "/surveys").then().statusCode(200);
+
+        apiKeys.deleteExpired();
+        org.junit.jupiter.api.Assertions.assertEquals(
+            java.util.List.of("Keeper"),
+            apiKeys.list("agent-expiring").stream().map(k -> k.name()).toList());
     }
 
     @Test

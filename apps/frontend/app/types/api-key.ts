@@ -7,6 +7,7 @@ export interface ApiKey {
   scopes: ApiKeyScope[];
   createdAt: string;
   lastUsedAt?: string | null;
+  expiresAt?: string | null;
 }
 
 export interface CreatedApiKey {
