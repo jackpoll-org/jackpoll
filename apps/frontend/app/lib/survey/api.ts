@@ -27,6 +27,8 @@ import type {
   SurveyAnalytics,
   SurveyResponseDto,
   GradeInput,
+  ReviewInput,
+  StudentResult,
   LiveSession,
   LeaderboardEntry,
   SurveyResults,
@@ -727,6 +729,37 @@ export async function gradeResponseApi(
   return request<SurveyResponseDto>(`${SURVEY_ENDPOINTS.response(surveyId, responseId)}/grades`, {
     method: "PUT",
     body: JSON.stringify({ grades }),
+  });
+}
+
+export async function reviewResponseApi(
+  surveyId: string,
+  responseId: string,
+  review: ReviewInput,
+): Promise<ApiResponse<SurveyResponseDto>> {
+  return request<SurveyResponseDto>(`${SURVEY_ENDPOINTS.response(surveyId, responseId)}/review`, {
+    method: "PUT",
+    body: JSON.stringify(review),
+  });
+}
+
+export async function hasRespondedApi(
+  surveyId: string,
+  clientId: string,
+): Promise<ApiResponse<{ responded: boolean }>> {
+  return request<{ responded: boolean }>(SURVEY_ENDPOINTS.responded(surveyId), {
+    method: "POST",
+    body: JSON.stringify({ clientId }),
+  });
+}
+
+export async function getStudentResultApi(
+  surveyId: string,
+  code: string,
+): Promise<ApiResponse<StudentResult>> {
+  return request<StudentResult>(SURVEY_ENDPOINTS.studentResult(surveyId), {
+    method: "POST",
+    body: JSON.stringify({ code }),
   });
 }
 

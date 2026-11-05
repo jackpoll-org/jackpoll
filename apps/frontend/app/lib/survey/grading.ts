@@ -14,9 +14,17 @@ export function maxPointsFor(question: Question): number {
  */
 export function isManuallyGraded(question: Question): boolean {
   if (question.type === "long-answer") return true;
-  if ((question.correctAnswers?.length ?? 0) > 0) return false;
+  if (isAutoScored(question)) return false;
   const optedIn = question.settings?.manualGrading === true;
   return optedIn && (question.type === "short-answer" || question.type === "file-upload");
+}
+
+export function isAutoScored(question: Question): boolean {
+  return (question.correctAnswers?.length ?? 0) > 0;
+}
+
+export function isGradable(question: Question, liveMode: boolean): boolean {
+  return isManuallyGraded(question) || (!liveMode && isAutoScored(question));
 }
 
 /** Whether an answer value counts as "given" (blank text / empty list = not answered). */
@@ -34,4 +42,8 @@ export function nextPendingIndex(responses: SurveyResponseDto[], from: number): 
     if (responses[i]?.gradingPending) return i;
   }
   return -1;
+}
+
+export function formatResultCode(code: string): string {
+  return code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
 }

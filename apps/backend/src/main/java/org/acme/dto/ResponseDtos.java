@@ -8,6 +8,8 @@ import org.acme.entity.QuestionType;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -27,7 +29,8 @@ public final class ResponseDtos {
         @Size(max = 128) String questionId,
         Object value,
         // Teacher-awarded points (public #6); output only, ignored on submit.
-        Integer awardedPoints
+        Integer awardedPoints,
+        Integer autoPoints
     ) {}
 
     /** Points for one manually graded answer; null clears the grade. */
@@ -35,6 +38,19 @@ public final class ResponseDtos {
 
     /** Grades to set on one response (public #6). */
     public record GradeRequest(@NotNull @Size(max = 500) List<@Valid @NotNull GradeDto> grades) {}
+
+    public record ReviewRequest(
+        @Min(-1000) @Max(1000) Integer bonusPoints,
+        @Size(max = 5000) String feedback
+    ) {}
+
+    public record RespondedRequest(@NotNull @Size(max = 256) String clientId) {}
+
+    public record RespondedDto(boolean responded) {}
+
+    public record ResultLookupRequest(@NotNull @Size(max = 32) String code) {}
+
+    public record StudentResultDto(SurveyDtos.SurveyDto survey, ResponseDto response) {}
 
     // Bounds on this anonymous, public write path: without them a single request
     // could carry an unbounded answer list / oversized fields up to the 10 MB body
@@ -79,7 +95,11 @@ public final class ResponseDtos {
         // Live quiz session the answer was given in; null outside live mode.
         String sessionId,
         // True while manually graded answers still await points (public #6).
-        Boolean gradingPending
+        Boolean gradingPending,
+        Integer bonusPoints,
+        String feedback,
+        String grade,
+        String resultCode
     ) {}
 
     /** The data needed to re-open a response for editing (issue #40). */

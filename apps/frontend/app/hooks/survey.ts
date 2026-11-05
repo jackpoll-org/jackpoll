@@ -22,6 +22,9 @@ import {
   markAllNotificationsReadApi,
   deleteResponseApi,
   gradeResponseApi,
+  reviewResponseApi,
+  hasRespondedApi,
+  getStudentResultApi,
   deleteSurveyApi,
   editResponseApi,
   getResponseForEditApi,
@@ -74,6 +77,7 @@ import type {
   CreateSurveyRequest,
   CreateWebhookRequest,
   GradeInput,
+  ReviewInput,
   NotificationPreferences,
   SaveDraftRequest,
   SubmitResponseRequest,
@@ -891,6 +895,40 @@ export function useGradeResponse(surveyId: string) {
       return res.data;
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),
+  });
+}
+
+export function useReviewResponse(surveyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ responseId, review }: { responseId: string; review: ReviewInput }) => {
+      const res = await reviewResponseApi(surveyId, responseId, review);
+      if (!res.success || !res.data) throw new Error(res.error ?? "Failed to save review");
+      return res.data;
+    },
+    onSuccess: () => invalidateResponseData(queryClient, surveyId),
+  });
+}
+
+export function useHasResponded(surveyId: string, clientId: string | null) {
+  return useQuery({
+    queryKey: [...surveyKeys.public(surveyId), "responded", clientId],
+    queryFn: async () => {
+      const res = await hasRespondedApi(surveyId, clientId!);
+      return res.success && res.data?.responded === true;
+    },
+    enabled: !!clientId,
+    staleTime: Infinity,
+  });
+}
+
+export function useStudentResult(surveyId: string) {
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const res = await getStudentResultApi(surveyId, code);
+      if (!res.success || !res.data) throw new Error(res.error ?? "Result not found");
+      return res.data;
+    },
   });
 }
 

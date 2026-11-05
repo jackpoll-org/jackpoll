@@ -186,6 +186,14 @@ export interface SurveySettings {
   liveHideQuestionOnDevices?: boolean;
   /** Custom chart color palette (CSS colors, in cycle order); unset = theme default. */
   colorPalette?: string[] | null;
+  gradingScale?: GradeStep[] | null;
+  studentResults?: boolean;
+  resultsReleased?: boolean;
+}
+
+export interface GradeStep {
+  label: string;
+  minScore?: number | null;
 }
 
 /** A score-based outcome / result page shown after a quiz submit (issue #83). */
@@ -382,6 +390,7 @@ export interface AnswerInput {
   value: unknown;
   /** Teacher-awarded points on a manually graded answer (public #6); read-only. */
   awardedPoints?: number | null;
+  autoPoints?: number | null;
 }
 
 /** Points for one manually graded answer; null clears the grade (public #6). */
@@ -444,6 +453,20 @@ export interface SurveyResponseDto {
   sessionId?: string | null;
   /** True while manually graded answers still await points (public #6). */
   gradingPending?: boolean | null;
+  bonusPoints?: number | null;
+  feedback?: string | null;
+  grade?: string | null;
+  resultCode?: string | null;
+}
+
+export interface ReviewInput {
+  bonusPoints: number | null;
+  feedback: string | null;
+}
+
+export interface StudentResult {
+  survey: Survey;
+  response: SurveyResponseDto;
 }
 
 /** One player's running total on the live quiz leaderboard. */

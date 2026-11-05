@@ -6,6 +6,7 @@ import java.time.LocalDate;
 
 import org.acme.dto.ApiResponse;
 import org.acme.dto.ResponseDtos.GradeRequest;
+import org.acme.dto.ResponseDtos.ReviewRequest;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
 import org.acme.service.AccessCodeService;
@@ -103,6 +104,19 @@ public class ResponseResource {
         @Valid @NotNull GradeRequest req
     ) {
         ResponseDto dto = responseService.grade(ownerId(), id, responseId, req.grades());
+        return Response.ok(ApiResponse.ok(dto)).build();
+    }
+
+    @PUT
+    @Path("/{id}/responses/{responseId}/review")
+    @Authenticated
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response review(
+        @PathParam("id") String id,
+        @PathParam("responseId") String responseId,
+        @Valid @NotNull ReviewRequest req
+    ) {
+        ResponseDto dto = responseService.review(ownerId(), id, responseId, req.bonusPoints(), req.feedback());
         return Response.ok(ApiResponse.ok(dto)).build();
     }
 

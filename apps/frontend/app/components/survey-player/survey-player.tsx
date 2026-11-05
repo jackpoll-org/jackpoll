@@ -17,7 +17,7 @@ import {
 import { Spinner } from "@/app/components/ui/spinner";
 import { Badge } from "@/app/components/ui/badge";
 import { getQuestionTypeDefinition } from "@/app/components/question-types/registry";
-import { useSubmitResponse } from "@/app/hooks/survey";
+import { useHasResponded, useSubmitResponse } from "@/app/hooks/survey";
 import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import { isQuestionVisible } from "@/app/lib/survey/logic";
 import { buildPages } from "@/app/lib/survey/pagination";
@@ -40,6 +40,7 @@ import {
 import { accessTokenFor, altchaChallengeUrl } from "@/app/lib/survey/api";
 import { validCaptcha } from "@/app/lib/survey/captcha";
 import { getClientId } from "@/app/lib/survey/client-id";
+import { formatResultCode } from "@/app/lib/survey/grading";
 import {
   answersToInputs,
   clearLocalDraft,
@@ -169,6 +170,9 @@ export function SurveyPlayer({
   const [captcha, setCaptcha] = useState<string | null>(null);
   const beginToken = useBeginToken(survey.id, analytics).data;
   const requireCaptcha = analytics && survey.settings.requireCaptcha;
+  const oncePerBrowser = analytics && !preview && !isEditing && survey.settings.onePerBrowser;
+  const [onceClientId] = useState(() => (oncePerBrowser ? getClientId() || null : null));
+  const alreadyResponded = useHasResponded(survey.id, onceClientId).data;
 
   // Optional respondent receipt (issue #24).
   const offerReceipt = analytics && !!survey.settings.respondentReceipts;
@@ -292,6 +296,7 @@ export function SurveyPlayer({
         answers={answers}
         isEditing={isEditing}
         queued={queuedOffline}
+        allowAnother={!isEditing && !oncePerBrowser}
         onReset={() => {
           setSubmitted(false);
           setResult(null);
@@ -302,6 +307,20 @@ export function SurveyPlayer({
           clearLocalDraft(survey.id);
         }}
       />
+    );
+  }
+
+  if (alreadyResponded) {
+    return (
+      <div className="mx-auto grid max-w-xl gap-4" style={brandingStyle(survey)}>
+        <Card className="text-center">
+          <CardContent className="flex flex-col items-center gap-3 py-12">
+            <CheckCircle2 className="size-12 text-primary" />
+            <p className="text-lg font-medium">{t("player.alreadyResponded")}</p>
+          </CardContent>
+        </Card>
+        <PoweredBy survey={survey} />
+      </div>
     );
   }
 
@@ -879,6 +898,7 @@ function ConfirmationScreen({
   answers,
   isEditing,
   queued,
+  allowAnother,
   onReset,
 }: {
   survey: Survey;
@@ -886,6 +906,7 @@ function ConfirmationScreen({
   answers: Record<string, AnswerValue>;
   isEditing: boolean;
   queued: boolean;
+  allowAnother: boolean;
   onReset: () => void;
 }) {
   const { t } = useTranslation();
@@ -958,6 +979,18 @@ function ConfirmationScreen({
                   {result!.passed ? t("player.passed") : t("player.failed")}
                 </Badge>
               )}
+              {result!.gradingPending && (
+                <p className="text-sm text-muted-foreground">{t("player.gradingPending")}</p>
+              )}
+            </div>
+          )}
+
+          {result?.resultCode && (
+            <div className="flex flex-col items-center gap-2 rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">{t("player.resultCodeHint")}</p>
+              <p className="font-mono text-3xl font-bold tracking-widest">
+                {formatResultCode(result.resultCode)}
+              </p>
             </div>
           )}
 
@@ -983,7 +1016,7 @@ function ConfirmationScreen({
                 </a>
               </Button>
             )}
-            {!isEditing && (
+            {allowAnother && (
               <Button variant="outline" onClick={onReset}>
                 {t("player.submitAnother")}
               </Button>

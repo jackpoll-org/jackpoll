@@ -63,6 +63,15 @@ public class SurveyResponse extends PanacheEntityBase {
     @Column(name = "grading_pending")
     public Boolean gradingPending;
 
+    @Column(name = "bonus_points")
+    public Integer bonusPoints;
+
+    @Column(name = "feedback", columnDefinition = "TEXT")
+    public String feedback;
+
+    @Column(name = "result_code", length = 16)
+    public String resultCode;
+
     /** A test submission from the builder preview — excluded from results,
      *  consumes no quota, sends no notifications, auto-purged after 5 min (#). */
     @Column(nullable = false)

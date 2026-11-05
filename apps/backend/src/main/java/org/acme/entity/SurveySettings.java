@@ -100,6 +100,10 @@ public class SurveySettings {
     /** Custom chart color palette (CSS colors, in cycle order); null = theme default. */
     public java.util.List<String> colorPalette;
 
+    public java.util.List<GradeStep> gradingScale;
+    public boolean studentResults;
+    public boolean resultsReleased;
+
     public static SurveySettings defaults() {
         var s = new SurveySettings();
         s.allowMultipleResponses = false;
