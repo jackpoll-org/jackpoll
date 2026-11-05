@@ -14,6 +14,7 @@ import { AppearanceCard } from "./appearance-card";
 import { PushSettingsCard } from "./push-settings-card";
 import { NotificationsLinkCard } from "./notification-prefs-card";
 import { SurveysCard } from "./surveys-card";
+import { ApiKeysCard } from "./api-keys-card";
 import { DeviceCard } from "./device-card";
 import { getInstanceConfigApi } from "@/app/lib/survey/api";
 import { useTranslation } from "@/app/i18n/context";
@@ -56,6 +57,7 @@ export function SettingsPage() {
         <PushSettingsCard />
         <NotificationsLinkCard />
         <SurveysCard />
+        <ApiKeysCard />
         <DeviceCard />
 
         {debugEnabled && (

@@ -59,6 +59,7 @@ public class GdprService {
     @Inject TemplateRepository templates;
     @Inject NotificationPreferenceRepository notificationPrefs;
     @Inject NotificationRepository notifications;
+    @Inject ApiKeyService apiKeys;
 
     // ── Export (Art. 15 / 20) ─────────────────────────────────────
 
@@ -155,6 +156,7 @@ public class GdprService {
         templates.delete("ownerId", userId);
         notificationPrefs.deleteAllForUser(userId); // account-level channel overrides (#89)
         notifications.deleteAllForUser(userId); // in-app notification history (#89)
+        apiKeys.deleteAllForUser(userId);
     }
 
     /** Permanently delete the user and all of their data (best-effort, atomic). */

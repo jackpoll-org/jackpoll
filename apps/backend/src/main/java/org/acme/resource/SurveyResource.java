@@ -34,6 +34,9 @@ public class SurveyResource {
     @Inject
     SecurityIdentity identity;
 
+    @Inject
+    org.acme.security.ApiKeyGuard apiKeyGuard;
+
     private String ownerId() {
         return identity.getPrincipal().getName();
     }
@@ -66,6 +69,7 @@ public class SurveyResource {
     @PUT
     @Path("/{id}")
     public Response update(@PathParam("id") String id, @Valid UpdateSurveyRequest req) {
+        apiKeyGuard.checkUpdate(ownerId(), id, req.settings());
         return Response.ok(ApiResponse.ok(surveyService.update(ownerId(), id, req))).build();
     }
 
@@ -90,6 +94,7 @@ public class SurveyResource {
     @DELETE
     @Path("/{id}")
     public Response delete(@PathParam("id") String id) {
+        apiKeyGuard.checkDelete(ownerId(), id);
         surveyService.delete(ownerId(), id);
         return Response.ok(ApiResponse.ok(null)).build();
     }

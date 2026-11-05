@@ -31,6 +31,7 @@ export const surveyKeys = {
 
 /** Query key for the user's folders (issue #33). */
 export const foldersKey = ["folders"] as const;
+export const apiKeysKey = ["api-keys"] as const;
 
 /** Query key for account-level notification preferences (issue #89). */
 export const notificationPrefsKey = ["notification-preferences"] as const;
@@ -52,6 +53,8 @@ export const SURVEY_ENDPOINTS = {
   organize: (id: string) => `/surveys/${id}/organize`,
   reorder: "/surveys/reorder",
   folders: "/folders",
+  apiKeys: "/me/api-keys",
+  apiKey: (id: string) => `/me/api-keys/${id}`,
   folder: (id: string) => `/folders/${id}`,
   responseEdit: (token: string) => `/public/responses/${token}`,
   publicDetail: (id: string) => `/public/surveys/${id}`,

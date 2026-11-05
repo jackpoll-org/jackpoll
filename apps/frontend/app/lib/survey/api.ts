@@ -39,6 +39,7 @@ import type {
   Webhook,
   WebhookTestResult,
 } from "@/app/types/survey";
+import type { ApiKey, CreatedApiKey } from "@/app/types/api-key";
 import { localizeServerError } from "@/app/i18n/server-errors";
 
 /**
@@ -360,6 +361,24 @@ export async function reorderSurveysApi(
     method: "PUT",
     body: JSON.stringify({ folderId, orderedIds }),
   });
+}
+
+export async function listApiKeysApi(): Promise<ApiResponse<ApiKey[]>> {
+  return request<ApiKey[]>(SURVEY_ENDPOINTS.apiKeys);
+}
+
+export async function createApiKeyApi(
+  name: string,
+  readResponses: boolean,
+): Promise<ApiResponse<CreatedApiKey>> {
+  return request<CreatedApiKey>(SURVEY_ENDPOINTS.apiKeys, {
+    method: "POST",
+    body: JSON.stringify({ name, readResponses }),
+  });
+}
+
+export async function deleteApiKeyApi(id: string): Promise<ApiResponse<null>> {
+  return request<null>(SURVEY_ENDPOINTS.apiKey(id), { method: "DELETE" });
 }
 
 export async function listFoldersApi(): Promise<ApiResponse<Folder[]>> {

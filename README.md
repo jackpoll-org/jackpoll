@@ -78,6 +78,10 @@ CI publishes production images to GHCR under the org:
 
 These are what the [self-host stacks](https://github.com/jackpoll-org/jackpoll-selfhost) pull.
 
+## API
+
+Scripts and AI agents can manage surveys with a personal API key. See [docs/api.md](docs/api.md).
+
 ## License
 
 MIT.

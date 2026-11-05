@@ -31,6 +31,9 @@ import {
   getBeginTokenApi,
   getDraftApi,
   listFoldersApi,
+  listApiKeysApi,
+  createApiKeyApi,
+  deleteApiKeyApi,
   organizeSurveyApi,
   getAccessCodeApi,
   getAnalyticsApi,
@@ -67,6 +70,7 @@ import {
   RESULTS_POLL_INTERVAL_MS,
   NOTIFICATIONS_POLL_INTERVAL_MS,
   foldersKey,
+  apiKeysKey,
   notificationPrefsKey,
   notificationsKeys,
   surveyKeys,
@@ -231,6 +235,46 @@ export function useReorderSurveys() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: surveyKeys.lists() });
     },
+  });
+}
+
+export function useApiKeys() {
+  return useQuery({
+    queryKey: apiKeysKey,
+    queryFn: async () => {
+      const res = await listApiKeysApi();
+      if (!res.success || !res.data) {
+        throw new Error(localizeServerError(res.error ?? "Failed to load API keys"));
+      }
+      return res.data;
+    },
+  });
+}
+
+export function useCreateApiKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ name, readResponses }: { name: string; readResponses: boolean }) => {
+      const res = await createApiKeyApi(name, readResponses);
+      if (!res.success || !res.data) {
+        throw new Error(localizeServerError(res.error ?? "Failed to create API key"));
+      }
+      return res.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: apiKeysKey }),
+  });
+}
+
+export function useDeleteApiKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await deleteApiKeyApi(id);
+      if (!res.success) {
+        throw new Error(localizeServerError(res.error ?? "Failed to delete API key"));
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: apiKeysKey }),
   });
 }
 
