@@ -15,7 +15,7 @@ vi.mock("@/app/i18n/context", () => ({
 }));
 vi.mock("@/app/hooks/survey", () => ({
   useApiKeys: () => ({ data: keys }),
-  useCreateApiKey: () => ({ mutate: createMutate, isPending: false }),
+  useCreateApiKey: () => ({ mutate: createMutate, reset: vi.fn(), isPending: false }),
   useDeleteApiKey: () => ({ mutate: deleteMutate }),
 }));
 
