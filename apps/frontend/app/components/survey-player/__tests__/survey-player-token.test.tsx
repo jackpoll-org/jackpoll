@@ -17,6 +17,7 @@ vi.mock("@/app/hooks/survey", () => ({
   useSaveDraft: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteDraft: () => ({ mutateAsync: vi.fn(async () => undefined) }),
   useBeginToken: () => ({ data: undefined }),
+  useHasResponded: () => ({ data: undefined }),
 }));
 
 import { SurveyPlayer } from "../survey-player";
@@ -63,6 +64,23 @@ describe("SurveyPlayer respondent token", () => {
     const input = screen.getByLabelText(/player.token/);
     expect(input).toHaveValue("FromLink");
     expect(input).toHaveAttribute("readonly");
+  });
+
+  it("offers no second response after submitting with a token", async () => {
+    render(<SurveyPlayer survey={survey({ requireRespondentToken: true })} />);
+
+    fireEvent.change(screen.getByLabelText(/player.token/), { target: { value: "T-1" } });
+    await submit();
+
+    expect(screen.queryByRole("button", { name: "player.submitAnother" })).toBeNull();
+  });
+
+  it("offers another response on an open survey", async () => {
+    render(<SurveyPlayer survey={survey({})} />);
+
+    await submit();
+
+    expect(screen.getByRole("button", { name: "player.submitAnother" })).toBeTruthy();
   });
 
   it("asks for no token when the survey does not require one", () => {

@@ -103,4 +103,39 @@ test.describe("survey player", () => {
     );
     expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
   });
+
+  test("a participant who already answered sees a notice instead of the form", async ({ page }) => {
+    await mockPublicSurvey(page, {
+      ...MOCK_SURVEY,
+      settings: { ...MOCK_SURVEY.settings, onePerBrowser: true },
+    });
+    await page.route("**/responded", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, data: { responded: true } }),
+      }),
+    );
+    await page.goto(EMBED);
+
+    await expect(page.getByText("You have already taken part. Thank you!")).toBeVisible();
+    await expect(page.getByRole("textbox")).toHaveCount(0);
+  });
+
+  test("a once-only survey hides the restart button after submitting", async ({ page }) => {
+    const ctx = await mockPublicSurvey(page, {
+      ...MOCK_SURVEY,
+      settings: { ...MOCK_SURVEY.settings, onePerBrowser: true },
+    });
+    await page.goto(EMBED);
+
+    await page.getByRole("textbox").first().fill("Ada Lovelace");
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByText("A friend").click();
+    await page.getByRole("button", { name: "Submit", exact: true }).click();
+
+    await expect(page.getByText("Thanks — your response was recorded!")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit another response" })).toHaveCount(0);
+    expect(ctx.submitted[0].clientId).toBeTruthy();
+  });
 });

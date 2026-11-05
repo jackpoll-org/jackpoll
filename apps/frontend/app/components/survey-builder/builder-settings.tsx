@@ -6,6 +6,7 @@ import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Switch } from "@/app/components/ui/switch";
 import { OutcomesEditor } from "./outcomes-editor";
+import { GradingSettings } from "./grading-settings";
 import {
   Select,
   SelectContent,
@@ -305,6 +306,11 @@ export function BuilderSettings() {
           <OutcomesEditor
             outcomes={settings.outcomes ?? []}
             onChange={(o) => updateSettings({ outcomes: o })}
+          />
+          <GradingSettings
+            surveyId={survey.id}
+            settings={settings}
+            onChange={updateSettings}
           />
           </>
         )}

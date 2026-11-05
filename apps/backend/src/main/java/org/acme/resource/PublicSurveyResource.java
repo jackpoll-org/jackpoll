@@ -3,23 +3,33 @@ package org.acme.resource;
 import org.acme.dto.AnalyticsDtos.TrackRequest;
 import org.acme.dto.ApiResponse;
 import org.acme.dto.DraftDtos.SaveDraftRequest;
+import org.acme.dto.ResponseDtos.RespondedDto;
+import org.acme.dto.ResponseDtos.RespondedRequest;
+import org.acme.dto.ResponseDtos.ResultLookupRequest;
 import org.acme.dto.SpamDtos.BeginResponse;
+import org.acme.exception.RateLimitedException;
 import org.acme.service.AccessCodeService;
 import org.acme.service.AnalyticsService;
 import org.acme.service.DraftService;
+import org.acme.service.RateLimiterService;
 import org.acme.service.ResponseService;
 import org.acme.service.SpamProtectionService;
 import org.acme.service.SurveyService;
 
+import io.vertx.core.http.HttpServerRequest;
+
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -45,6 +55,11 @@ public class PublicSurveyResource {
 
     @Inject
     AccessCodeService accessCodes;
+
+    @Inject
+    RateLimiterService rateLimiter;
+
+    private static final int RESULT_LOOKUPS_PER_MINUTE = 10;
 
     @GET
     @Path("/{id}")
@@ -90,6 +105,32 @@ public class PublicSurveyResource {
         accessCodes.requireAccess(id);
         return Response.ok(
             ApiResponse.ok(new BeginResponse(spamProtection.issueBeginToken(id)))).build();
+    }
+
+    @POST
+    @Path("/{id}/responded")
+    @PermitAll
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response responded(@PathParam("id") String id, @Valid @NotNull RespondedRequest req) {
+        return Response.ok(ApiResponse.ok(
+            new RespondedDto(responseService.hasResponded(id, req.clientId())))).build();
+    }
+
+    @POST
+    @Path("/{id}/result")
+    @PermitAll
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response result(
+        @PathParam("id") String id,
+        @Valid @NotNull ResultLookupRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context HttpServerRequest http
+    ) {
+        var ip = ClientIp.of(forwardedFor, http);
+        if (!rateLimiter.allow("result-code|" + (ip == null ? "unknown" : ip), RESULT_LOOKUPS_PER_MINUTE, 60)) {
+            throw new RateLimitedException("Too many attempts. Please wait a moment and try again.");
+        }
+        return Response.ok(ApiResponse.ok(responseService.studentResult(id, req.code()))).build();
     }
 
     /** Spam protection (issue #31): Altcha proof-of-work challenge for the widget. */

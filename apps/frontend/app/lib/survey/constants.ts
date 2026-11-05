@@ -62,6 +62,8 @@ export const SURVEY_ENDPOINTS = {
   draft: (token: string) => `/public/drafts/${token}`,
   begin: (id: string) => `/public/surveys/${id}/begin`,
   altcha: (id: string) => `/public/surveys/${id}/altcha`,
+  responded: (id: string) => `/public/surveys/${id}/responded`,
+  studentResult: (id: string) => `/public/surveys/${id}/result`,
   responses: (id: string) => `/surveys/${id}/responses`,
   response: (id: string, responseId: string) =>
     `/surveys/${id}/responses/${responseId}`,

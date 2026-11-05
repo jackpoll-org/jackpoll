@@ -64,6 +64,7 @@ const PUBLIC_PATHS = [
   "/r", // resume a saved draft
   "/e", // edit a submitted response
   "/join", // access-code entry
+  "/results", // student result lookup by personal code
   "/collab", // passwordless collaborator link
   // Legal pages must be reachable by anyone (GDPR #61/#62/#67).
   "/privacy",

@@ -18,6 +18,7 @@ import org.acme.dto.ResponseDtos.QuestionResultDto;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.ResponseEditView;
 import org.acme.dto.ResponseDtos.RowResultDto;
+import org.acme.dto.ResponseDtos.StudentResultDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
 import org.acme.dto.ResponseDtos.SurveyResultsDto;
 import org.acme.entity.NotificationChannel;
@@ -69,6 +70,9 @@ public class ResponseService {
 
     @Inject
     SpamProtectionService spamProtection;
+
+    @Inject
+    org.acme.mapper.SurveyMapper surveyMapper;
 
     @Inject
     EmailService emailService;
@@ -156,7 +160,8 @@ public class ResponseService {
         if (honeypotTripped) {
             return new ResponseDto(
                 UUID.randomUUID().toString(), Instant.now().toString(),
-                req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null, null, null);
+                req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null, null, null,
+                null, null, null, null);
         }
 
         // One-response-per-browser guard (issue #31).
@@ -246,8 +251,13 @@ public class ResponseService {
             response.editToken = randomEditToken();
         }
 
+        if (!response.preview && survey.settings != null && survey.settings.isQuiz
+            && survey.settings.studentResults && !survey.settings.liveMode) {
+            response.resultCode = newResultCode(surveyId);
+        }
+
         responseRepository.persist(response);
-        var dto = toDto(response);
+        var dto = toDto(response, survey, resultsReleased(survey), true);
 
         // Preview/test submissions are owner-internal: no emails, webhooks, push,
         // or live-results broadcast — and they're filtered out of results below.
@@ -462,7 +472,9 @@ public class ResponseService {
     /** Re-open a response for editing via its private token. */
     public ResponseEditView getForEdit(String editToken) {
         var response = findEditableOrThrow(editToken);
-        return new ResponseEditView(response.surveyId, toDto(response));
+        var survey = surveyRepository.findByIdOptional(response.surveyId)
+            .orElseThrow(() -> new ResourceNotFoundException("Survey not found"));
+        return new ResponseEditView(response.surveyId, toDto(response, survey, resultsReleased(survey), true));
     }
 
     /** Replace a response's answers in place (no new row → no double-counting). */
@@ -514,7 +526,7 @@ public class ResponseService {
         reserveQuotasOrThrow(survey, response.answers);
 
         response.editedAt = Instant.now();
-        return toDto(response);
+        return toDto(response, survey, resultsReleased(survey), true);
     }
 
     private SurveyResponse findEditableOrThrow(String editToken) {
@@ -542,13 +554,13 @@ public class ResponseService {
     public List<ResponseDto> list(
         String ownerId, String surveyId, String from, String to, boolean includePreview,
         String sessionId) {
-        requireOwnedSurvey(ownerId, surveyId);
+        var survey = requireOwnedSurvey(ownerId, surveyId);
         var fromInstant = parseInstant(from);
         var toInstant = parseInstant(to);
         return responseRepository.findBySurvey(surveyId, includePreview, sessionId).stream()
             .filter(r -> fromInstant == null || !r.submittedAt.isBefore(fromInstant))
             .filter(r -> toInstant == null || !r.submittedAt.isAfter(toInstant))
-            .map(this::toDto)
+            .map(r -> toDto(r, survey, true, true))
             .toList();
     }
 
@@ -571,12 +583,8 @@ public class ResponseService {
     @Transactional
     public ResponseDto grade(String userId, String surveyId, String responseId, List<GradeDto> grades) {
         var survey = surveyService.requireEditable(userId, surveyId);
-        if (survey.settings == null || !survey.settings.isQuiz) {
-            throw badRequest("Grading is only available for quizzes.");
-        }
-        var response = responseRepository.findByIdOptional(responseId)
-            .filter(r -> r.surveyId.equals(surveyId))
-            .orElseThrow(() -> new ResourceNotFoundException("Response not found: " + responseId));
+        var response = requireGradableResponse(survey, responseId);
+        boolean overridable = !survey.settings.liveMode;
 
         var questions = new HashMap<String, Question>();
         for (var q : survey.questions) questions.put(q.id, q);
@@ -586,7 +594,7 @@ public class ResponseService {
         var now = Instant.now();
         for (var g : grades) {
             var q = questions.get(g.questionId());
-            if (q == null || !QuizScoring.isManuallyGraded(q)) {
+            if (q == null || !(QuizScoring.isManuallyGraded(q) || overridable && QuizScoring.isScorable(q))) {
                 throw badRequest("This question can't be graded manually.");
             }
             var answer = answers.get(g.questionId());
@@ -601,7 +609,60 @@ public class ResponseService {
             answer.gradedAt = g.points() != null ? now : null;
         }
         applyManualGrades(survey, response);
-        return toDto(response);
+        return toDto(response, survey, true, true);
+    }
+
+    @Transactional
+    public ResponseDto review(String userId, String surveyId, String responseId, Integer bonusPoints, String feedback) {
+        var survey = surveyService.requireEditable(userId, surveyId);
+        var response = requireGradableResponse(survey, responseId);
+        response.bonusPoints = bonusPoints != null && bonusPoints != 0 ? bonusPoints : null;
+        response.feedback = feedback != null && !feedback.isBlank() ? feedback.strip() : null;
+        applyManualGrades(survey, response);
+        return toDto(response, survey, true, true);
+    }
+
+    private SurveyResponse requireGradableResponse(Survey survey, String responseId) {
+        if (survey.settings == null || !survey.settings.isQuiz) {
+            throw badRequest("Grading is only available for quizzes.");
+        }
+        return responseRepository.findByIdOptional(responseId)
+            .filter(r -> r.surveyId.equals(survey.id))
+            .orElseThrow(() -> new ResourceNotFoundException("Response not found: " + responseId));
+    }
+
+    public boolean hasResponded(String surveyId, String clientId) {
+        var survey = surveyRepository.findByIdOptional(surveyId).orElse(null);
+        if (survey == null || survey.settings == null || !survey.settings.onePerBrowser) return false;
+        var hashed = spamProtection.hashClientId(clientId);
+        return hashed != null && responseRepository.existsByClientId(surveyId, hashed);
+    }
+
+    public StudentResultDto studentResult(String surveyId, String code) {
+        var survey = surveyRepository.findByIdOptional(surveyId)
+            .filter(ResponseService::resultsReleased)
+            .orElseThrow(() -> new ResourceNotFoundException("Results are not available."));
+        var normalized = code.toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]", "");
+        var response = responseRepository.findByResultCode(surveyId, normalized)
+            .orElseThrow(() -> new ResourceNotFoundException("No result found for this code."));
+        return new StudentResultDto(surveyMapper.toDto(survey, false), toDto(response, survey, true, false));
+    }
+
+    private static boolean resultsReleased(Survey survey) {
+        return survey.settings != null && survey.settings.isQuiz
+            && survey.settings.studentResults && survey.settings.resultsReleased;
+    }
+
+    private String newResultCode(String surveyId) {
+        while (true) {
+            var code = new StringBuilder(RESULT_CODE_LENGTH);
+            for (int i = 0; i < RESULT_CODE_LENGTH; i++) {
+                code.append(RESULT_CODE_ALPHABET.charAt(EDIT_RANDOM.nextInt(RESULT_CODE_ALPHABET.length())));
+            }
+            if (responseRepository.findByResultCode(surveyId, code.toString()).isEmpty()) {
+                return code.toString();
+            }
+        }
     }
 
     /**
@@ -612,9 +673,22 @@ public class ResponseService {
     private static void applyManualGrades(Survey survey, SurveyResponse response) {
         var answers = new HashMap<String, ResponseAnswer>();
         for (var a : response.answers) answers.put(a.questionId, a);
-        int awarded = 0;
+        boolean live = survey.settings != null && survey.settings.liveMode;
+        int awarded = response.bonusPoints != null ? response.bonusPoints : 0;
+        if (live) {
+            awarded += response.autoScore != null ? response.autoScore : 0;
+        } else {
+            response.maxScore = QuizScoring.maxScore(survey);
+        }
         boolean pending = false;
         for (var q : survey.questions) {
+            if (QuizScoring.isScorable(q)) {
+                var answer = answers.get(q.id);
+                if (!live && answer != null) {
+                    awarded += answer.awardedPoints != null ? answer.awardedPoints : autoPoints(q, answer.value);
+                }
+                continue;
+            }
             if (!QuizScoring.isManuallyGraded(q)) continue;
             var answer = answers.get(q.id);
             if (answer == null || isBlankAnswer(answer.value)) continue; // unanswered = 0
@@ -624,7 +698,7 @@ public class ResponseService {
                 awarded += answer.awardedPoints;
             }
         }
-        response.score = (response.autoScore != null ? response.autoScore : 0) + awarded;
+        response.score = awarded;
         response.gradingPending = pending;
         var passingScore = survey.settings != null ? survey.settings.passingScore : null;
         response.passed = pending || passingScore == null ? null : response.score >= passingScore;
@@ -718,6 +792,8 @@ public class ResponseService {
                 r.editToken = null;
                 r.respondentName = null;
                 r.respondentToken = null;
+                r.feedback = null;
+                r.resultCode = null;
                 r.answers.removeIf(a -> identifying.contains(a.questionId));
             }
         } else {
@@ -1024,9 +1100,34 @@ public class ResponseService {
         return surveyService.requireReadable(userId, surveyId);
     }
 
-    private ResponseDto toDto(SurveyResponse r) {
+    private static int autoPoints(Question q, Object value) {
+        return QuizScoring.isCorrect(q, value) ? QuizScoring.pointsFor(q) : 0;
+    }
+
+    private static String gradeFor(Survey survey, SurveyResponse r) {
+        var scale = survey.settings != null ? survey.settings.gradingScale : null;
+        if (scale == null || r.score == null || Boolean.TRUE.equals(r.gradingPending)) return null;
+        org.acme.entity.GradeStep best = null;
+        for (var step : scale) {
+            if (step.label == null || step.label.isBlank() || step.minScore == null) continue;
+            if (step.minScore <= r.score && (best == null || step.minScore > best.minScore)) best = step;
+        }
+        return best != null ? best.label : null;
+    }
+
+    private ResponseDto toDto(SurveyResponse r, Survey survey, boolean reveal, boolean includeEditToken) {
+        var questions = new HashMap<String, Question>();
+        if (reveal && survey.settings != null && survey.settings.isQuiz) {
+            for (var q : survey.questions) {
+                if (QuizScoring.isScorable(q)) questions.put(q.id, q);
+            }
+        }
         var answers = r.answers.stream()
-            .map(a -> new AnswerDto(a.questionId, a.value, a.awardedPoints))
+            .map(a -> {
+                var q = questions.get(a.questionId);
+                return new AnswerDto(a.questionId, a.value, reveal ? a.awardedPoints : null,
+                    q != null ? autoPoints(q, a.value) : null);
+            })
             .toList();
         return new ResponseDto(
             r.id,
@@ -1036,12 +1137,16 @@ public class ResponseService {
             r.maxScore,
             r.passed,
             answers,
-            r.editToken,
+            includeEditToken ? r.editToken : null,
             r.editedAt != null ? r.editedAt.toString() : null,
             r.respondentName,
-            r.respondentToken,
+            includeEditToken ? r.respondentToken : null,
             r.sessionId,
-            Boolean.TRUE.equals(r.gradingPending) ? Boolean.TRUE : null);
+            Boolean.TRUE.equals(r.gradingPending) ? Boolean.TRUE : null,
+            reveal ? r.bonusPoints : null,
+            reveal ? r.feedback : null,
+            reveal ? gradeFor(survey, r) : null,
+            r.resultCode);
     }
 
     // ── Server-side answer validation (issue #55) ─────────────────
@@ -1161,6 +1266,8 @@ public class ResponseService {
     }
 
     private static final java.security.SecureRandom EDIT_RANDOM = new java.security.SecureRandom();
+    private static final String RESULT_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    private static final int RESULT_CODE_LENGTH = 8;
 
     private static String randomEditToken() {
         byte[] bytes = new byte[32];

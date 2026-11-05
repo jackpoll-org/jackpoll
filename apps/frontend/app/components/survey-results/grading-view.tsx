@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -24,11 +25,14 @@ import { isAnswerable } from "@/app/lib/survey/content-block";
 import { formatAnswer } from "@/app/lib/survey/export";
 import {
   hasAnswer,
+  isAutoScored,
+  isGradable,
   isManuallyGraded,
   maxPointsFor,
   nextPendingIndex,
 } from "@/app/lib/survey/grading";
 import type { Question, SurveyResponseDto, UploadedFile } from "@/app/types/survey";
+import { ReviewCard } from "./grading-review-card";
 
 interface GradingViewProps {
   surveyId: string;
@@ -105,6 +109,8 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
     .filter((q) => isAnswerable(q.type))
     .toSorted((a, b) => a.order - b.order);
   const pendingIndex = nextPendingIndex(ordered, index);
+  const isQuiz = survey.data.settings.isQuiz;
+  const liveMode = survey.data.settings.liveMode === true;
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8">
@@ -113,7 +119,7 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold tracking-tight">
-              {response.respondentName || t("grading.anonymous")}
+              {response.respondentName || response.respondentToken || t("grading.anonymous")}
             </h1>
             <p className="text-sm text-muted-foreground">
               {t("grading.position", {
@@ -148,6 +154,12 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
         </div>
       </div>
 
+      {!isQuiz && (
+        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          {t("grading.quizModeOff")}
+        </p>
+      )}
+
       {questions.map((q) => (
         <AnswerCard
           // Remount per submission so points inputs start from that response.
@@ -155,8 +167,22 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
           surveyId={surveyId}
           question={q}
           response={response}
+          gradable={isQuiz && isGradable(q, liveMode)}
         />
       ))}
+
+      {isQuiz && (
+        <ReviewCard
+          key={response.id}
+          surveyId={surveyId}
+          response={response}
+          onNext={pendingIndex >= 0 && pendingIndex !== index
+            ? () => goTo(pendingIndex)
+            : index < ordered.length - 1
+              ? () => goTo(index + 1)
+              : undefined}
+        />
+      )}
     </div>
   );
 }
@@ -181,6 +207,7 @@ function ScoreSummary({ response }: { response: SurveyResponseDto }) {
       <span className="text-2xl font-semibold tabular-nums">
         {response.score}/{response.maxScore}
       </span>
+      {response.grade && <Badge variant="outline">{response.grade}</Badge>}
       {response.gradingPending ? (
         <Badge variant="secondary">{t("grading.pending")}</Badge>
       ) : (
@@ -198,16 +225,18 @@ function AnswerCard({
   surveyId,
   question,
   response,
+  gradable,
 }: {
   surveyId: string;
   question: Question;
   response: SurveyResponseDto;
+  gradable: boolean;
 }) {
   const { t } = useTranslation();
   const answer = response.answers.find((a) => a.questionId === question.id);
   const answered = hasAnswer(answer?.value);
   const manual = isManuallyGraded(question);
-  const autoScored = (question.correctAnswers?.length ?? 0) > 0;
+  const autoScored = isAutoScored(question);
 
   return (
     <Card>
@@ -215,21 +244,24 @@ function AnswerCard({
         <CardTitle className="min-w-0 text-base font-medium">
           {question.title || t("results.untitledQuestion")}
         </CardTitle>
-        {manual && answered && (
+        {gradable && answered && (
           <PointsInput
             surveyId={surveyId}
             responseId={response.id}
             questionId={question.id}
             max={maxPointsFor(question)}
             initial={answer?.awardedPoints ?? null}
+            autoPoints={autoScored ? (answer?.autoPoints ?? 0) : null}
           />
         )}
-        {manual && !answered && (
+        {gradable && !answered && (
           <span className="text-xs text-muted-foreground">
             {t("grading.unansweredPoints", { max: String(maxPointsFor(question)) })}
           </span>
         )}
-        {!manual && autoScored && <Badge variant="outline">{t("grading.autoScored")}</Badge>}
+        {!manual && autoScored && !gradable && (
+          <Badge variant="outline">{t("grading.autoScored")}</Badge>
+        )}
       </CardHeader>
       <CardContent>
         {!answered ? (
@@ -282,17 +314,20 @@ function PointsInput({
   questionId,
   max,
   initial,
+  autoPoints,
 }: {
   surveyId: string;
   responseId: string;
   questionId: string;
   max: number;
   initial: number | null;
+  autoPoints: number | null;
 }) {
   const { t } = useTranslation();
   const grade = useGradeResponse(surveyId);
   const [text, setText] = useState(initial == null ? "" : String(initial));
   const [saved, setSaved] = useState(initial);
+  const [justSaved, setJustSaved] = useState(false);
   const parsed = parsePoints(text, max);
   const invalid = parsed === "invalid";
 
@@ -301,7 +336,10 @@ function PointsInput({
     grade.mutate(
       { responseId, grades: [{ questionId, points: parsed }] },
       {
-        onSuccess: () => setSaved(parsed),
+        onSuccess: () => {
+          setSaved(parsed);
+          setJustSaved(true);
+        },
         onError: (err) =>
           toast.error(err instanceof Error ? err.message : t("grading.saveFailed")),
       },
@@ -324,15 +362,29 @@ function PointsInput({
           step={1}
           className="w-20 tabular-nums"
           aria-invalid={invalid}
+          placeholder={autoPoints != null ? String(autoPoints) : undefined}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setJustSaved(false);
+          }}
           onBlur={save}
           onKeyDown={(e) => {
             if (e.key === "Enter") save();
           }}
         />
         <span className="text-sm text-muted-foreground tabular-nums">/ {max}</span>
+        {justSaved && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Check className="size-3.5" /> {t("grading.saved")}
+          </span>
+        )}
       </div>
+      {autoPoints != null && saved == null && !invalid && (
+        <p className="text-xs text-muted-foreground">
+          {t("grading.autoPointsHint", { points: String(autoPoints) })}
+        </p>
+      )}
       {invalid && (
         <p className="text-xs text-destructive">
           {t("grading.invalidPoints", { max: String(max) })}

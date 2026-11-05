@@ -126,7 +126,12 @@ public class SurveyMapper {
             s.ogShowDescription,
             s.ogShowOwner,
             s.ogShowQuestion,
-            s.ogStyle
+            s.ogStyle,
+            s.gradingScale == null ? null : s.gradingScale.stream()
+                .map(g -> new org.acme.dto.SurveyDtos.GradeStepDto(g.label, g.minScore))
+                .toList(),
+            s.studentResults,
+            s.resultsReleased
         );
     }
 
@@ -283,6 +288,16 @@ public class SurveyMapper {
         s.ogShowOwner = d.ogShowOwner();
         s.ogShowQuestion = d.ogShowQuestion();
         s.ogStyle = d.ogStyle() != null && OG_STYLES.contains(d.ogStyle()) ? d.ogStyle() : null;
+        s.gradingScale = d.gradingScale() == null ? null : d.gradingScale().stream()
+            .map(g -> {
+                var x = new org.acme.entity.GradeStep();
+                x.label = g.label();
+                x.minScore = g.minScore();
+                return x;
+            })
+            .toList();
+        s.studentResults = d.studentResults();
+        s.resultsReleased = d.resultsReleased();
         return s;
     }
 

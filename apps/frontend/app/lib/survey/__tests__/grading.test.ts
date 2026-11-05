@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatResultCode,
   hasAnswer,
+  isGradable,
   isManuallyGraded,
   maxPointsFor,
   nextPendingIndex,
@@ -26,6 +28,22 @@ describe("isManuallyGraded", () => {
       isManuallyGraded(q({ correctAnswers: ["Paris"], settings: { manualGrading: true } })),
     ).toBe(false);
     expect(isManuallyGraded(q({ type: "checkboxes", settings: { manualGrading: true } }))).toBe(false);
+  });
+});
+
+describe("isGradable", () => {
+  it("lets teachers override auto-scored answers outside live mode", () => {
+    expect(isGradable(q({ correctAnswers: ["SQL"] }), false)).toBe(true);
+    expect(isGradable(q({ correctAnswers: ["SQL"] }), true)).toBe(false);
+    expect(isGradable(q({ type: "long-answer" }), true)).toBe(true);
+    expect(isGradable(q({ type: "rating" }), false)).toBe(false);
+  });
+});
+
+describe("formatResultCode", () => {
+  it("splits eight-character codes for readability", () => {
+    expect(formatResultCode("ABCDEFGH")).toBe("ABCD-EFGH");
+    expect(formatResultCode("ABC")).toBe("ABC");
   });
 });
 

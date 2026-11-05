@@ -108,6 +108,11 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
     }
 
     /** Find a response by its edit token — for edit-after-submit (#40). */
+    public java.util.Optional<SurveyResponse> findByResultCode(String surveyId, String resultCode) {
+        return find("surveyId = ?1 and resultCode = ?2 and preview = false", surveyId, resultCode)
+            .firstResultOptional();
+    }
+
     public java.util.Optional<SurveyResponse> findByEditToken(String editToken) {
         return find("editToken", editToken).firstResultOptional();
     }

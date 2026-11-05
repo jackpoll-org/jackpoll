@@ -82,12 +82,21 @@ class SpamProtectionTest {
     @TestSecurity(user = "owner-1")
     void duplicatePerBrowserRejected() {
         String id = publish("{\"onePerBrowser\":true}");
+        String responded = "/api/v1/public/surveys/" + id + "/responded";
+
+        given().contentType(ContentType.JSON).body("{\"clientId\":\"browser-abc\"}")
+            .when().post(responded)
+            .then().statusCode(200).body("data.responded", org.hamcrest.CoreMatchers.is(false));
 
         given()
             .contentType(ContentType.JSON)
             .body("{\"answers\":[],\"clientId\":\"browser-abc\"}")
             .when().post(SURVEYS + "/" + id + "/responses")
             .then().statusCode(201);
+
+        given().contentType(ContentType.JSON).body("{\"clientId\":\"browser-abc\"}")
+            .when().post(responded)
+            .then().statusCode(200).body("data.responded", org.hamcrest.CoreMatchers.is(true));
 
         // same browser again → rejected
         given()

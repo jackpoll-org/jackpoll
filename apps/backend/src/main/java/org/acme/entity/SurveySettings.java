@@ -114,6 +114,10 @@ public class SurveySettings {
     public Boolean ogShowQuestion;
     public String ogStyle;
 
+    public java.util.List<GradeStep> gradingScale;
+    public boolean studentResults;
+    public boolean resultsReleased;
+
     public static SurveySettings defaults() {
         var s = new SurveySettings();
         s.allowMultipleResponses = false;

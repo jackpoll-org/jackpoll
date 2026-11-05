@@ -135,8 +135,13 @@ public final class SurveyDtos {
         Boolean ogShowDescription,
         Boolean ogShowOwner,
         Boolean ogShowQuestion,
-        String ogStyle
+        String ogStyle,
+        @Size(max = 30) java.util.List<@Valid GradeStepDto> gradingScale,
+        boolean studentResults,
+        boolean resultsReleased
     ) {}
+
+    public record GradeStepDto(@Size(max = 50) String label, Integer minScore) {}
 
     // ── Requests ──────────────────────────────────────────────────
 
@@ -149,7 +154,7 @@ public final class SurveyDtos {
         @NotBlank @Size(max = 255) String title,
         String description,
         @NotNull SurveyStatus status,
-        SurveySettingsDto settings,
+        @Valid SurveySettingsDto settings,
         List<@Valid QuestionDto> questions,
         List<SectionDto> sections,
         // Multilingual content (issue #37) — optional, null/empty = single language.
