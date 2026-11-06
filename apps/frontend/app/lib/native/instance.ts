@@ -77,6 +77,10 @@ export function normalizeInstanceUrl(raw: string): string {
  * `allowNavigation`, which keeps the native bridge active on the new instance.
  */
 export async function switchToInstance(url: string): Promise<void> {
+  const target = new URL(url);
+  if (target.protocol !== "https:" && target.protocol !== "http:") {
+    throw new Error("Instance URL must use http(s)");
+  }
   // The other instance runs its own code with this app's native bridge, so it
   // must not find this instance's offline login in the keychain.
   await clearOfflineToken();

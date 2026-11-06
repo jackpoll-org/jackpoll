@@ -74,4 +74,11 @@ describe("switchToInstance", () => {
     await switchToInstance(URL_B);
     expect(clearOfflineToken).toHaveBeenCalled();
   });
+
+  it("refuses to navigate to a non-http(s) address", async () => {
+    platform.current = "ios";
+    await expect(switchToInstance("javascript:alert(1)")).rejects.toThrow("http(s)");
+    expect(replace).not.toHaveBeenCalled();
+    expect(store).toEqual({});
+  });
 });

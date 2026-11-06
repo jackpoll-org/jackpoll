@@ -200,7 +200,12 @@
           });
         }
 
-        function go(url) { window.location.replace(url); }
+        function go(url) {
+          var target;
+          try { target = new URL(url); } catch (e) { return; }
+          if (target.protocol !== "https:" && target.protocol !== "http:") return;
+          window.location.replace(url);
+        }
 
         function showRecovery(url) {
           hostEl.textContent = hostOf(url);
