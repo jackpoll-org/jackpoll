@@ -106,4 +106,16 @@ describe("collab doc binding", () => {
     expect(ta).toBe(tb); // converged
     expect(ta).toBe("Hi Hello!"); // both edits preserved, not overwritten
   });
+
+  it("keeps owner-only settings out of the shared doc, so differing peers don't fight over them", () => {
+    const doc = new Y.Doc();
+    const base = content([]);
+    applyContentToDoc(doc, { ...base, settings: { ...base.settings, showLiveResults: true } });
+    let updates = 0;
+    doc.on("update", () => updates++);
+    applyContentToDoc(doc, { ...base, settings: { ...base.settings, showLiveResults: false } });
+
+    expect(updates).toBe(0);
+    expect(docToContent(doc).settings).not.toHaveProperty("showLiveResults");
+  });
 });

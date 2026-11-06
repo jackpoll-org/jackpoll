@@ -47,13 +47,13 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
             .getResultList();
     }
 
-    /** Live leaderboard rows for one session: [trimmed name, total score], best first. */
+    /** Live leaderboard rows for one session: [trimmed name, total score] per player, best first. */
     public List<Object[]> leaderboard(String surveyId, String sessionId, int limit) {
         return getEntityManager().createQuery(
                 "select trim(r.respondentName), coalesce(sum(r.score), 0) from SurveyResponse r"
                     + " where r.surveyId = ?1 and r.sessionId = ?2 and r.preview = false"
                     + " and r.respondentName is not null and trim(r.respondentName) <> ''"
-                    + " group by trim(r.respondentName)"
+                    + " group by r.clientId, trim(r.respondentName)"
                     + " order by coalesce(sum(r.score), 0) desc, trim(r.respondentName) asc",
                 Object[].class)
             .setParameter(1, surveyId)
@@ -86,6 +86,26 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
     /** Whether a given browser (hashed client id) already responded (#31). */
     public boolean existsByClientId(String surveyId, String clientId) {
         return count("surveyId = ?1 and clientId = ?2", surveyId, clientId) > 0;
+    }
+
+    public void lockPlayer(String sessionId, String clientId) {
+        getEntityManager().createNativeQuery("select 1 from (select pg_advisory_xact_lock(hashtext(?1))) l")
+            .setParameter(1, sessionId + "|" + clientId)
+            .getSingleResult();
+    }
+
+    public boolean playerAnswered(
+            String surveyId, String sessionId, String clientId, java.util.Collection<String> questionIds) {
+        if (questionIds.isEmpty()) return false;
+        return getEntityManager().createQuery(
+                "select count(a) from ResponseAnswer a where a.response.surveyId = ?1"
+                    + " and a.response.sessionId = ?2 and a.response.clientId = ?3"
+                    + " and a.questionId in ?4", Long.class)
+            .setParameter(1, surveyId)
+            .setParameter(2, sessionId)
+            .setParameter(3, clientId)
+            .setParameter(4, questionIds)
+            .getSingleResult() > 0;
     }
 
     public boolean tokenAnswered(

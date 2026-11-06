@@ -80,6 +80,38 @@ class EmailCodeServiceTest {
     }
 
     @Test
+    void reissuingDoesNotResetTheDailyGuessBudget() {
+        String email = "verify-reissue@example.com";
+        for (int round = 0; round < 4; round++) {
+            issueAndReadCode(email, EmailCode.PURPOSE_RESET);
+            for (int i = 0; i < 5; i++) {
+                assertFalse(service.verify(email, EmailCode.PURPOSE_RESET, "111111"));
+            }
+        }
+        String code = issueAndReadCode(email, EmailCode.PURPOSE_RESET);
+        assertFalse(service.verify(email, EmailCode.PURPOSE_RESET, code));
+    }
+
+    @Test
+    void guessesWithoutAnActiveCodeDoNotUseTheBudget() {
+        String email = "verify-no-code-spam@example.com";
+        for (int i = 0; i < 30; i++) {
+            assertFalse(service.verify(email, EmailCode.PURPOSE_RESET, "111111"));
+        }
+        String code = issueAndReadCode(email, EmailCode.PURPOSE_RESET);
+        assertTrue(service.verify(email, EmailCode.PURPOSE_RESET, code));
+    }
+
+    @Test
+    void codeMailsToOneAddressAreCappedPerDay() {
+        String email = "verify-mail-cap@example.com";
+        for (int i = 0; i < 10; i++) {
+            org.junit.jupiter.api.Assertions.assertNotNull(service.issue(email, EmailCode.PURPOSE_VERIFY));
+        }
+        org.junit.jupiter.api.Assertions.assertNull(service.issue(email, EmailCode.PURPOSE_VERIFY));
+    }
+
+    @Test
     void rejectsExpiredCode() {
         String email = "verify-expired@example.com";
         String code = issueAndReadCode(email, EmailCode.PURPOSE_VERIFY);

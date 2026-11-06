@@ -1,13 +1,13 @@
 {
   "realm": "survey-school",
   "enabled": true,
-  "sslRequired": "none",
+  "sslRequired": "external",
   "verifyEmail": false,
-  "registrationAllowed": true,
+  "registrationAllowed": false,
   "registrationEmailAsUsername": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "resetPasswordAllowed": true,
+  "resetPasswordAllowed": false,
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
   "permanentLockout": false,
@@ -78,13 +78,27 @@
         "address",
         "phone",
         "microprofile-jwt"
+      ],
+      "protocolMappers": [
+        {
+          "name": "survey-backend-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "survey-backend",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
       ]
     },
     {
       "clientId": "survey-frontend",
       "name": "Survey School Frontend",
       "description": "Frontend SPA client for Survey School",
-      "enabled": true,
+      "enabled": false,
       "alwaysDisplayInConsole": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "secret",
@@ -117,6 +131,15 @@
         "roles",
         "email"
       ]
+    },
+    {
+      "clientId": "admin-cli",
+      "name": "${client_admin-cli}",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
     }
   ],
   "users": [
@@ -128,47 +151,9 @@
         "realm-management": [
           "manage-users",
           "view-users",
-          "view-realm",
-          "manage-realm"
+          "view-realm"
         ]
       }
-    },
-    {
-      "username": "testuser@survey.local",
-      "email": "testuser@survey.local",
-      "enabled": true,
-      "emailVerified": true,
-      "firstName": "Test",
-      "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Test1234",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "user"
-      ]
-    },
-    {
-      "username": "admin@survey.local",
-      "email": "admin@survey.local",
-      "enabled": true,
-      "emailVerified": true,
-      "firstName": "Admin",
-      "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Admin1234",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "admin",
-        "user"
-      ]
     }
   ],
   "smtpServer": {
@@ -178,5 +163,8 @@
     "starttls": "false",
     "auth": "false",
     "ssl": "false"
-  }
+  },
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 7776000,
+  "passwordPolicy": "length(8) and notUsername"
 }

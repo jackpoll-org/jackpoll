@@ -153,4 +153,22 @@ class EmailNotificationTest {
             .then().statusCode(200)
             .body("data.settings.ownerNotify", is("each"));
     }
+
+    @Test
+    @TestSecurity(user = "owner-receipt-cap")
+    void receiptsToOneAddressAreCapped() {
+        ensureOwner("owner-receipt-cap");
+        String id = createSurvey("{\"respondentReceipts\":true}");
+        String victim = "victim-" + UUID.randomUUID() + "@test.local";
+
+        for (int i = 0; i < 5; i++) {
+            given()
+                .contentType(ContentType.JSON)
+                .header("X-Forwarded-For", "203.0.113." + (50 + i))
+                .body("{\"answers\":[],\"respondentEmail\":\"" + victim + "\"}")
+                .when().post(SURVEYS + "/" + id + "/responses")
+                .then().statusCode(201);
+        }
+        assertEquals(3, mailbox.getMessagesSentTo(victim).size());
+    }
 }

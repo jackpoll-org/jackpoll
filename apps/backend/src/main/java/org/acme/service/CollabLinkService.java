@@ -89,8 +89,7 @@ public class CollabLinkService {
     @Transactional
     public SurveyDto applyEdit(String slug, UpdateSurveyRequest req) {
         var survey = requireValidLinkSurvey(slug);
-        mapper.applyUpdate(survey, req);
-        surveys.persist(survey);
+        surveyService.applyEdit(survey, req, false, true);
         return mapper.toDto(survey, true);
     }
 

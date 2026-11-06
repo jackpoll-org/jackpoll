@@ -36,6 +36,11 @@ public class DraftService {
     @Inject
     SurveyRepository surveys;
 
+    @Inject
+    com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    static final int MAX_DRAFT_BYTES = 262_144;
+
     @ConfigProperty(name = "survey.draft.ttl-days", defaultValue = "30")
     long ttlDays;
 
@@ -43,7 +48,9 @@ public class DraftService {
     @Transactional
     public DraftDto save(String surveyId, SaveDraftRequest req) {
         surveys.findByIdOptional(surveyId)
+            .filter(s -> s.status == org.acme.entity.SurveyStatus.PUBLISHED)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + surveyId));
+        ResponseService.requireAnswersWithin(req.answers(), MAX_DRAFT_BYTES, objectMapper);
 
         var now = Instant.now();
         ResponseDraft draft = null;

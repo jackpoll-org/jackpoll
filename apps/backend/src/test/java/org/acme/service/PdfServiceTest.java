@@ -19,4 +19,17 @@ class PdfServiceTest {
         // PDF files start with the "%PDF" magic header.
         assertEquals("%PDF", new String(out, 0, 4));
     }
+
+    @Test
+    void neverFetchesRemoteResources() throws Exception {
+        try (var server = new java.net.ServerSocket(0)) {
+            new PdfService().render(
+                "<html><head><style>body{background:url(http://127.0.0.1:" + server.getLocalPort()
+                + "/probe)}</style></head><body><img src=\"http://127.0.0.1:" + server.getLocalPort()
+                + "/img.png\"/></body></html>");
+            server.setSoTimeout(300);
+            org.junit.jupiter.api.Assertions.assertThrows(
+                java.net.SocketTimeoutException.class, server::accept);
+        }
+    }
 }

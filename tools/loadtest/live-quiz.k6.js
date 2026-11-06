@@ -60,12 +60,13 @@ function schedule() {
 
 export function setup() {
   if (!SURVEY) throw new Error("SURVEY env var is required");
+  if (!__ENV.KC_USER || !__ENV.KC_PASS) throw new Error("KC_USER and KC_PASS (a verified test account) are required");
   const res = http.post(`${KC}/realms/survey-school/protocol/openid-connect/token`, {
     grant_type: "password",
     client_id: "survey-backend",
     client_secret: __ENV.KC_SECRET || "secret",
-    username: __ENV.KC_USER || "testuser@survey.local",
-    password: __ENV.KC_PASS || "Test1234",
+    username: __ENV.KC_USER,
+    password: __ENV.KC_PASS,
   });
   check(res, { "presenter token": (r) => r.status === 200 });
   const token = res.json("access_token");
@@ -161,6 +162,7 @@ export function player(data) {
       const body = {
         answers: [{ questionId: q.id, value: q.options[Math.floor(Math.random() * q.options.length)] }],
         respondentName: name,
+        clientId: `loadtest-${name}`,
         durationMs: Date.now() - questionAt,
       };
       const r = http.post(`${API}/api/v1/surveys/${SURVEY}/responses`, JSON.stringify(body), {

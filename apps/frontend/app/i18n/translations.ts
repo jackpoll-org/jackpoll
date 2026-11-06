@@ -596,7 +596,7 @@ export const en = {
   "profile.updated": "Profile updated.",
   "profile.updateFailed": "Failed to update profile",
   "profile.password.title": "Change password",
-  "profile.password.description": "Enter your current password and a new one.",
+  "profile.password.description": "Enter your current password and a new one. This signs you out everywhere and revokes your API keys.",
   "profile.password.current": "Current password",
   "profile.password.new": "New password",
   "profile.password.confirm": "Confirm new password",
@@ -604,7 +604,7 @@ export const en = {
   "profile.password.rule":
     "Password must be 8+ characters with an uppercase, lowercase and number.",
   "profile.password.mismatch": "New passwords don't match.",
-  "profile.password.changed": "Password changed.",
+  "profile.password.changed": "Password changed. Please sign in again.",
   "profile.password.changeFailed": "Failed to change password",
   "profile.data.title": "Your data",
   "profile.data.description":
@@ -618,7 +618,7 @@ export const en = {
   "profile.sessions.logoutAll": "Log out of all devices",
   "profile.sessions.confirmTitle": "Sign out of all devices?",
   "profile.sessions.confirmBody":
-    "Every signed-in session will be ended and you'll need to log in again on each device. This also signs you out here.",
+    "Every signed-in session will be ended and you'll need to log in again on each device. This also signs you out here and revokes your API keys.",
   "profile.sessions.confirmAction": "Sign out everywhere",
   "profile.sessions.done": "Signed out of all devices.",
   "profile.sessions.failed": "Failed to sign out everywhere",
@@ -1913,7 +1913,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "profile.updated": "Profil aktualisiert.",
   "profile.updateFailed": "Profil konnte nicht aktualisiert werden",
   "profile.password.title": "Passwort ändern",
-  "profile.password.description": "Gib dein aktuelles und ein neues Passwort ein.",
+  "profile.password.description": "Gib dein aktuelles und ein neues Passwort ein. Dadurch wirst du überall abgemeldet und deine API-Schlüssel werden widerrufen.",
   "profile.password.current": "Aktuelles Passwort",
   "profile.password.new": "Neues Passwort",
   "profile.password.confirm": "Neues Passwort bestätigen",
@@ -1921,7 +1921,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "profile.password.rule":
     "Das Passwort muss mindestens 8 Zeichen lang sein und einen Großbuchstaben, einen Kleinbuchstaben und eine Zahl enthalten.",
   "profile.password.mismatch": "Die neuen Passwörter stimmen nicht überein.",
-  "profile.password.changed": "Passwort geändert.",
+  "profile.password.changed": "Passwort geändert. Bitte melde dich erneut an.",
   "profile.password.changeFailed": "Passwort konnte nicht geändert werden",
   "profile.data.title": "Deine Daten",
   "profile.data.description":
@@ -1935,7 +1935,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "profile.sessions.logoutAll": "Von allen Geräten abmelden",
   "profile.sessions.confirmTitle": "Von allen Geräten abmelden?",
   "profile.sessions.confirmBody":
-    "Alle angemeldeten Sitzungen werden beendet und du musst dich auf jedem Gerät erneut anmelden. Das meldet dich auch hier ab.",
+    "Alle angemeldeten Sitzungen werden beendet und du musst dich auf jedem Gerät erneut anmelden. Das meldet dich auch hier ab und widerruft deine API-Schlüssel.",
   "profile.sessions.confirmAction": "Überall abmelden",
   "profile.sessions.done": "Von allen Geräten abgemeldet.",
   "profile.sessions.failed": "Abmelden überall fehlgeschlagen",

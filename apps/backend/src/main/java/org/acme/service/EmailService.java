@@ -270,7 +270,7 @@ public class EmailService {
             .note(COPY.t(lang, "verify.note"))
             .footerNote(COPY.t(lang, "verify.footer"))
             .build();
-        mailer.send(toEmail, COPY.t(lang, "verify.subject", code), mail);
+        mailer.send(toEmail, COPY.t(lang, "verify.subject"), mail);
     }
 
     /** Email a 6-digit password-reset code. Best-effort (logged on failure). */
@@ -286,7 +286,7 @@ public class EmailService {
             .note(COPY.t(lang, "reset.note"))
             .footerNote(COPY.t(lang, "reset.footer"))
             .build();
-        mailer.send(toEmail, COPY.t(lang, "reset.subject", code), mail);
+        mailer.send(toEmail, COPY.t(lang, "reset.subject"), mail);
     }
 
     /** Email a 6-digit code authorising permanent account deletion. Best-effort. */
@@ -303,7 +303,7 @@ public class EmailService {
                 + COPY.t(lang, "deleteaccount.muted"))
             .footerNote(COPY.t(lang, "deleteaccount.footer"))
             .build();
-        mailer.send(toEmail, COPY.t(lang, "deleteaccount.subject", code), mail);
+        mailer.send(toEmail, COPY.t(lang, "deleteaccount.subject"), mail);
     }
 
     /** Email a 6-digit code authorising deletion of a user's content data
@@ -321,7 +321,7 @@ public class EmailService {
                 + COPY.t(lang, "deletedata.muted"))
             .footerNote(COPY.t(lang, "deletedata.footer"))
             .build();
-        mailer.send(toEmail, COPY.t(lang, "deletedata.subject", code), mail);
+        mailer.send(toEmail, COPY.t(lang, "deletedata.subject"), mail);
     }
 
     // ── Unsubscribe token ─────────────────────────────────────────
@@ -333,7 +333,7 @@ public class EmailService {
     /** Turn off owner notifications for a survey via a signed token. */
     @Transactional
     public boolean unsubscribe(String surveyId, String token) {
-        if (!hmacHex("unsubscribe:" + surveyId).equals(token)) return false;
+        if (!SpamProtectionService.constantTimeEquals(hmacHex("unsubscribe:" + surveyId), token)) return false;
         Survey survey = surveys.findById(surveyId);
         if (survey == null) return false;
         if (survey.settings != null) survey.settings.ownerNotify = "off";

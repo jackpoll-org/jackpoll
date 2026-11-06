@@ -65,7 +65,7 @@ class LiveResponseNotificationTest {
     private void submitTwice(String[] survey) {
         for (int i = 0; i < 2; i++) {
             given().contentType(ContentType.JSON)
-                .body("{\"answers\":[{\"questionId\":\"" + survey[1] + "\",\"value\":\"A\"}]}")
+                .body("{\"clientId\":\"player-" + i + "\",\"answers\":[{\"questionId\":\"" + survey[1] + "\",\"value\":\"A\"}]}")
                 .when().post(SURVEYS + "/" + survey[0] + "/responses").then().statusCode(201);
         }
     }

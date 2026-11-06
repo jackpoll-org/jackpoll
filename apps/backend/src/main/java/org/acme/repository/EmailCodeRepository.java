@@ -7,6 +7,7 @@ import org.acme.entity.EmailCode;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.LockModeType;
 
 /**
  * Data access for {@link EmailCode}. One active code per {@code (email, purpose)}
@@ -19,7 +20,8 @@ public class EmailCodeRepository implements PanacheRepositoryBase<EmailCode, Str
     /** The current, unconsumed code for this email + purpose, if any. */
     public Optional<EmailCode> findActive(String email, String purpose) {
         return find("email = ?1 and purpose = ?2 and consumed = false"
-            + " order by createdAt desc", email, purpose).firstResultOptional();
+            + " order by createdAt desc", email, purpose)
+            .withLock(LockModeType.PESSIMISTIC_WRITE).firstResultOptional();
     }
 
     /** Drop every prior code for this email + purpose (called before issuing). */

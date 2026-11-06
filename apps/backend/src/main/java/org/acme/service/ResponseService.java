@@ -72,6 +72,12 @@ public class ResponseService {
     SpamProtectionService spamProtection;
 
     @Inject
+    LivePresentService livePresent;
+
+    @Inject
+    RateLimiterService rateLimiter;
+
+    @Inject
     org.acme.mapper.SurveyMapper surveyMapper;
 
     @Inject
@@ -144,6 +150,9 @@ public class ResponseService {
         // Survey must exist; submission is anonymous so no owner check.
         var survey = surveyRepository.findByIdOptional(surveyId)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + surveyId));
+        if (!Boolean.TRUE.equals(req.preview()) && survey.status != SurveyStatus.PUBLISHED) {
+            throw new ForbiddenAccessException("This survey is not accepting responses.");
+        }
 
         // Close time (#16) and response limit (#19).
         long countBeforeSubmit = responseRepository.countBySurvey(surveyId);
@@ -166,13 +175,21 @@ public class ResponseService {
 
         // One-response-per-browser guard (issue #31).
         String hashedClientId = null;
-        if (survey.settings != null && survey.settings.onePerBrowser) {
+        // Live players answer once per question instead (checked below).
+        if (survey.settings != null && survey.settings.onePerBrowser && !survey.settings.liveMode) {
             hashedClientId = spamProtection.hashClientId(req.clientId());
             if (hashedClientId != null
                 && responseRepository.existsByClientId(surveyId, hashedClientId)) {
                 throw new org.acme.exception.SpamRejectedException(
                     "You have already responded to this survey.");
             }
+        }
+        // Live quiz players are told apart by their browser id, not their name.
+        boolean livePlayer = !Boolean.TRUE.equals(req.preview())
+            && survey.settings != null && survey.settings.liveMode;
+        if (livePlayer) {
+            hashedClientId = spamProtection.hashClientId(req.clientId());
+            if (hashedClientId == null) throw badRequest("Please reload the page to keep playing.");
         }
 
         // Server-side answer validation (#55), e.g. slider range.
@@ -206,10 +223,15 @@ public class ResponseService {
         }
         response.respondentName = name != null && !name.isBlank() ? name : null;
 
+        // A live player answers the question on screen, not ones still to come.
+        var shown = livePlayer ? livePresent.getState(surveyId) : null;
+        String shownQuestionId = shown != null && shown.index() < survey.questions.size()
+            ? survey.questions.get(shown.index()).id : null;
         var values = new java.util.HashMap<String, Object>();
         if (req.answers() != null) {
             for (var a : req.answers()) {
-                if (!acceptsAnswer(survey, a.questionId())) continue;
+                if (shownQuestionId != null && !shownQuestionId.equals(a.questionId())) continue;
+                if (!acceptsAnswer(survey, a.questionId()) || values.containsKey(a.questionId())) continue;
                 var answer = new ResponseAnswer();
                 answer.id = UUID.randomUUID().toString();
                 answer.response = response;
@@ -217,6 +239,16 @@ public class ResponseService {
                 answer.value = a.value();
                 response.answers.add(answer);
                 values.put(a.questionId(), a.value());
+            }
+        }
+
+        if (shownQuestionId != null && values.isEmpty()) {
+            throw badRequest("This question is no longer open.");
+        }
+        if (livePlayer && response.sessionId != null) {
+            responseRepository.lockPlayer(response.sessionId, hashedClientId);
+            if (responseRepository.playerAnswered(surveyId, response.sessionId, hashedClientId, values.keySet())) {
+                throw new org.acme.exception.SpamRejectedException("You have already answered this question.");
             }
         }
 
@@ -229,12 +261,18 @@ public class ResponseService {
         if (survey.settings != null && survey.settings.isQuiz) {
             response.score = QuizScoring.score(survey, values);
             response.maxScore = QuizScoring.maxScore(survey);
-            // Live quiz: a correct answer scores more the faster it comes in (#).
+            // Live quiz: a correct answer scores more the faster it comes in (#),
+            // timed from when the presenter showed the question.
             var seconds = survey.settings.liveQuestionSeconds;
             if (survey.settings.liveMode && seconds != null && seconds > 0
-                && response.score != null && response.score > 0 && req.durationMs() != null) {
-                response.score = QuizScoring.speedAdjusted(
-                    response.score, req.durationMs(), seconds * 1000L);
+                && response.score != null && response.score > 0) {
+                long limitMs = seconds * 1000L;
+                boolean answeringShownQuestion = shown != null && shown.since() > 0
+                    && "question".equals(shown.phase())
+                    && shown.index() < survey.questions.size()
+                    && values.containsKey(survey.questions.get(shown.index()).id);
+                long elapsed = answeringShownQuestion ? System.currentTimeMillis() - shown.since() : limitMs;
+                response.score = QuizScoring.speedAdjusted(response.score, elapsed, limitMs);
             }
             response.autoScore = response.score;
             applyManualGrades(survey, response);
@@ -247,7 +285,7 @@ public class ResponseService {
         }
 
         // Edit-after-submission token (issue #40), only when the survey allows it.
-        if (survey.settings != null && survey.settings.allowEditResponses) {
+        if (survey.settings != null && survey.settings.allowEditResponses && !survey.settings.liveMode) {
             response.editToken = randomEditToken();
         }
 
@@ -268,10 +306,11 @@ public class ResponseService {
         // Email notifications & receipts (issue #24) — best-effort, never blocks
         // or fails the submission. Owner email is resolved here (in-transaction)
         // and only the actual send runs off-thread.
-        dispatchEmails(survey, response, req.respondentEmail(), req.locale());
+        dispatchEmails(survey, response, receiptAllowed(req.respondentEmail(), clientIp)
+            ? req.respondentEmail() : null, req.locale());
 
         // Outbound webhooks (issue #36) — HMAC-signed, off-thread, best-effort.
-        webhookService.dispatchResponse(surveyId, dto);
+        webhookService.dispatchResponse(surveyId, toDto(response, survey, true, false, true));
 
         // Per-response owner notifications. Skipped in live mode, where every
         // player answer is its own response (200 players x 10 questions would be
@@ -374,6 +413,14 @@ public class ResponseService {
         }
     }
 
+    /** Receipts go to an address the respondent types in, so they get a small
+     *  budget per recipient and per sender regardless of survey settings. */
+    private boolean receiptAllowed(String email, String clientIp) {
+        if (email == null || email.isBlank()) return false;
+        return rateLimiter.allow("receipt|to|" + email.trim().toLowerCase(), 3, 3600)
+            && rateLimiter.allow("receipt|ip|" + (clientIp == null ? "unknown" : clientIp), 10, 3600);
+    }
+
     /** Fire owner notification + respondent receipt without blocking submit. */
     private void dispatchEmails(Survey survey, SurveyResponse response,
                                 String respondentEmail, String respondentLocale) {
@@ -395,8 +442,9 @@ public class ResponseService {
         String title = survey.title;
         String surveyId = survey.id;
         boolean isQuiz = settings.isQuiz;
-        Integer score = response.score;
-        Integer maxScore = response.maxScore;
+        boolean showScore = resultsReleased(survey) || scoreVisible(survey);
+        Integer score = showScore ? response.score : null;
+        Integer maxScore = showScore ? response.maxScore : null;
         // The respondent has no account, so their language comes from the form
         // they just filled in; failing that, from the owner whose survey it is —
         // a German survey's receipt should not arrive in English.
@@ -500,7 +548,7 @@ public class ResponseService {
         var values = new java.util.HashMap<String, Object>();
         if (req.answers() != null) {
             for (var a : req.answers()) {
-                if (!acceptsAnswer(survey, a.questionId())) continue;
+                if (!acceptsAnswer(survey, a.questionId()) || values.containsKey(a.questionId())) continue;
                 var answer = new ResponseAnswer();
                 answer.id = UUID.randomUUID().toString();
                 answer.response = response;
@@ -536,10 +584,13 @@ public class ResponseService {
         var response = responseRepository.findByEditToken(editToken)
             .orElseThrow(() -> new ResourceNotFoundException("Response not found."));
         var survey = surveyRepository.findByIdOptional(response.surveyId).orElse(null);
-        if (survey == null || survey.settings == null || !survey.settings.allowEditResponses) {
-            // The owner disabled editing (or the survey is gone).
+        if (survey == null || survey.settings == null || !survey.settings.allowEditResponses
+            || survey.settings.liveMode
+            || survey.status != SurveyStatus.PUBLISHED || resultsReleased(survey)) {
+            // The owner disabled editing, closed the survey or released results.
             throw new ResourceNotFoundException("Editing is no longer available.");
         }
+        SurveyAvailability.ensureOpen(survey, 0);
         return response;
     }
 
@@ -560,7 +611,7 @@ public class ResponseService {
         return responseRepository.findBySurvey(surveyId, includePreview, sessionId).stream()
             .filter(r -> fromInstant == null || !r.submittedAt.isBefore(fromInstant))
             .filter(r -> toInstant == null || !r.submittedAt.isAfter(toInstant))
-            .map(r -> toDto(r, survey, true, true))
+            .map(r -> toDto(r, survey, true, false, true))
             .toList();
     }
 
@@ -609,7 +660,7 @@ public class ResponseService {
             answer.gradedAt = g.points() != null ? now : null;
         }
         applyManualGrades(survey, response);
-        return toDto(response, survey, true, true);
+        return toDto(response, survey, true, false, true);
     }
 
     @Transactional
@@ -619,7 +670,7 @@ public class ResponseService {
         response.bonusPoints = bonusPoints != null && bonusPoints != 0 ? bonusPoints : null;
         response.feedback = feedback != null && !feedback.isBlank() ? feedback.strip() : null;
         applyManualGrades(survey, response);
-        return toDto(response, survey, true, true);
+        return toDto(response, survey, true, false, true);
     }
 
     private SurveyResponse requireGradableResponse(Survey survey, String responseId) {
@@ -891,7 +942,7 @@ public class ResponseService {
         if (survey.settings == null || !survey.settings.showLiveResults) return false;
         if (!q.type.isAnswerable()) return false;
         switch (q.type) {
-            case SHORT_ANSWER, LONG_ANSWER, FILE_UPLOAD -> {
+            case SHORT_ANSWER, LONG_ANSWER, FILE_UPLOAD, SIGNATURE, DATE -> {
                 return false;
             }
             default -> {
@@ -914,10 +965,12 @@ public class ResponseService {
         Double median = null;
 
         switch (q.type) {
+            // Only known option ids are counted: anything else is free text, e.g.
+            // from before the question's type was changed, and must not leak out.
             case MULTIPLE_CHOICE, DROPDOWN -> {
                 optionCounts = zeroedOptionCounts(q);
                 for (var v : values) {
-                    if (v instanceof String s) optionCounts.merge(s, 1L, Long::sum);
+                    if (v instanceof String s) optionCounts.computeIfPresent(s, (key, count) -> count + 1);
                 }
             }
             case CHECKBOXES -> {
@@ -925,7 +978,7 @@ public class ResponseService {
                 for (var v : values) {
                     if (v instanceof List<?> list) {
                         for (var item : list) {
-                            if (item instanceof String s) optionCounts.merge(s, 1L, Long::sum);
+                            if (item instanceof String s) optionCounts.computeIfPresent(s, (key, count) -> count + 1);
                         }
                     }
                 }
@@ -939,7 +992,8 @@ public class ResponseService {
                     if (v instanceof List<?> order) {
                         for (int i = 0; i < order.size(); i++) {
                             if (order.get(i) instanceof String id) {
-                                optionCounts.merge(id, (long) (n - i), Long::sum);
+                                long points = n - i;
+                                optionCounts.computeIfPresent(id, (key, count) -> count + points);
                             }
                         }
                     }
@@ -969,10 +1023,10 @@ public class ResponseService {
                         if (v instanceof Map<?, ?> map) {
                             var cell = map.get(row.id);
                             if (cell instanceof String s) {
-                                columnCounts.merge(s, 1L, Long::sum);
+                                columnCounts.computeIfPresent(s, (key, count) -> count + 1);
                             } else if (cell instanceof List<?> cells) {
                                 for (var c : cells) {
-                                    if (c instanceof String s) columnCounts.merge(s, 1L, Long::sum);
+                                    if (c instanceof String s) columnCounts.computeIfPresent(s, (key, count) -> count + 1);
                                 }
                             }
                         }
@@ -1104,6 +1158,15 @@ public class ResponseService {
         return QuizScoring.isCorrect(q, value) ? QuizScoring.pointsFor(q) : 0;
     }
 
+    /** An owner who never shows correct answers doesn't hand out the score either:
+     *  it would let respondents work out the answer key. Outcome pages are the
+     *  owner's own choice to show a result by score. */
+    private static boolean scoreVisible(Survey survey) {
+        var settings = survey.settings;
+        return settings == null || settings.liveMode || !"never".equals(settings.showCorrectAnswers)
+            || (settings.outcomes != null && !settings.outcomes.isEmpty());
+    }
+
     private static String gradeFor(Survey survey, SurveyResponse r) {
         var scale = survey.settings != null ? survey.settings.gradingScale : null;
         if (scale == null || r.score == null || Boolean.TRUE.equals(r.gradingPending)) return null;
@@ -1116,6 +1179,12 @@ public class ResponseService {
     }
 
     private ResponseDto toDto(SurveyResponse r, Survey survey, boolean reveal, boolean includeEditToken) {
+        return toDto(r, survey, reveal, includeEditToken, includeEditToken);
+    }
+
+    /** {@code includeEditToken} is for the respondent alone: it lets its holder rewrite the answers. */
+    private ResponseDto toDto(SurveyResponse r, Survey survey, boolean reveal, boolean includeEditToken,
+                              boolean includeRespondentToken) {
         var questions = new HashMap<String, Question>();
         if (reveal && survey.settings != null && survey.settings.isQuiz) {
             for (var q : survey.questions) {
@@ -1129,18 +1198,19 @@ public class ResponseService {
                     q != null ? autoPoints(q, a.value) : null);
             })
             .toList();
+        boolean showScore = reveal || scoreVisible(survey);
         return new ResponseDto(
             r.id,
             r.submittedAt != null ? r.submittedAt.toString() : null,
             r.durationMs,
-            r.score,
-            r.maxScore,
-            r.passed,
+            showScore ? r.score : null,
+            showScore ? r.maxScore : null,
+            showScore ? r.passed : null,
             answers,
             includeEditToken ? r.editToken : null,
             r.editedAt != null ? r.editedAt.toString() : null,
             r.respondentName,
-            includeEditToken ? r.respondentToken : null,
+            includeRespondentToken ? r.respondentToken : null,
             r.sessionId,
             Boolean.TRUE.equals(r.gradingPending) ? Boolean.TRUE : null,
             reveal ? r.bonusPoints : null,
@@ -1160,7 +1230,40 @@ public class ResponseService {
             .filter(q -> q.id.equals(questionId))
             .findFirst()
             .map(q -> q.type.isAnswerable())
-            .orElse(true);
+            .orElse(false);
+    }
+
+    private static boolean isOptionOf(Question q, Object value) {
+        return value instanceof String id && q.options.stream()
+            .anyMatch(o -> o.kind == org.acme.entity.OptionKind.OPTION && id.equals(o.id));
+    }
+
+    static final int MAX_SUBMISSION_BYTES = 1_048_576;
+
+    /** Rejects answers that are oversized one by one or together once serialized. */
+    static void requireAnswersWithin(List<AnswerDto> answers, int maxBytes,
+                                     com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        if (answers == null) return;
+        for (var a : answers) {
+            if (!withinAnswerLimits(a.value())) throw badRequest("An answer is too large.");
+        }
+        try {
+            if (mapper.writeValueAsBytes(answers).length > maxBytes) throw badRequest("Your answers are too large.");
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw badRequest("Invalid answers.");
+        }
+    }
+
+    private static boolean withinAnswerLimits(Object value) {
+        if (value instanceof String text) return text.length() <= MAX_LONG_ANSWER_LENGTH;
+        if (value instanceof java.util.Collection<?> items) {
+            return items.size() <= 1000 && items.stream().allMatch(ResponseService::withinAnswerLimits);
+        }
+        if (value instanceof java.util.Map<?, ?> entries) {
+            return entries.size() <= 1000 && entries.keySet().stream().allMatch(ResponseService::withinAnswerLimits)
+                && entries.values().stream().allMatch(ResponseService::withinAnswerLimits);
+        }
+        return true;
     }
 
     /** Longest accepted paragraph answer, in characters (public #8). */
@@ -1172,9 +1275,13 @@ public class ResponseService {
      */
     private void validateAnswers(Survey survey, SubmitResponseRequest req) {
         if (req.answers() == null) return;
+        requireAnswersWithin(req.answers(), MAX_SUBMISSION_BYTES, objectMapper);
         var byId = new java.util.HashMap<String, Question>();
         for (var q : survey.questions) byId.put(q.id, q);
         for (var a : req.answers()) {
+            if (!withinAnswerLimits(a.value())) {
+                throw badRequest("An answer is too large.");
+            }
             var q = byId.get(a.questionId());
             if (q == null || a.value() == null) continue;
             if (q.type == QuestionType.SLIDER) {
@@ -1191,6 +1298,13 @@ public class ResponseService {
                 }
                 if (text.length() > MAX_LONG_ANSWER_LENGTH) {
                     throw badRequest("A paragraph answer is too long.");
+                }
+            } else if (q.type == QuestionType.MULTIPLE_CHOICE || q.type == QuestionType.DROPDOWN) {
+                if (!isOptionOf(q, a.value())) throw badRequest("Invalid choice.");
+            } else if (q.type == QuestionType.CHECKBOXES) {
+                if (!(a.value() instanceof java.util.Collection<?> picks)
+                    || !picks.stream().allMatch(pick -> isOptionOf(q, pick))) {
+                    throw badRequest("Invalid choice.");
                 }
             } else if (q.type == QuestionType.RATING) {
                 if (!(a.value() instanceof Number num)) {

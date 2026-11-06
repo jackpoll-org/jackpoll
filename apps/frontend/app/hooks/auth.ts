@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import {
   loginApi,
@@ -111,6 +111,8 @@ export function useUpdateProfile() {
 }
 
 export function useChangePassword() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
       const res = await changePasswordApi(data.currentPassword, data.newPassword);
@@ -118,6 +120,9 @@ export function useChangePassword() {
         throw new Error(localizeServerError(res.error ?? "Failed to change password"));
       }
       return res;
+    },
+    onSuccess: () => {
+      endLocalSession(queryClient);
     },
   });
 }
@@ -133,10 +138,7 @@ export function useDeleteAccount() {
       return res;
     },
     onSuccess: () => {
-      clearAuthStorage();
-      void clearOfflineToken();
-      clearBiometricUnlock();
-      queryClient.clear();
+      endLocalSession(queryClient);
     },
   });
 }
@@ -219,6 +221,14 @@ export function useRegister() {
   });
 }
 
+/** Forget this device's session: stored token, offline login, biometric unlock and cached data. */
+function endLocalSession(queryClient: QueryClient): void {
+  clearAuthStorage();
+  void clearOfflineToken();
+  clearBiometricUnlock();
+  queryClient.clear();
+}
+
 // ── useLogout ─────────────────────────────────────────────────────
 
 export function useLogout() {
@@ -231,10 +241,7 @@ export function useLogout() {
       return logoutApi(offlineToken);
     },
     onSettled: () => {
-      clearAuthStorage();
-      void clearOfflineToken();
-      clearBiometricUnlock();
-      queryClient.clear();
+      endLocalSession(queryClient);
     },
   });
 }
@@ -251,10 +258,7 @@ export function useLogoutAllDevices() {
   return useMutation({
     mutationFn: () => logoutAllApi(),
     onSettled: () => {
-      clearAuthStorage();
-      void clearOfflineToken();
-      clearBiometricUnlock();
-      queryClient.clear();
+      endLocalSession(queryClient);
     },
   });
 }

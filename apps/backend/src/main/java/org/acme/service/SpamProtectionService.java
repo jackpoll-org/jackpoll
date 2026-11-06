@@ -47,6 +47,8 @@ public class SpamProtectionService {
     @jakarta.inject.Inject
     RateLimiterService rateLimiter;
 
+    static final long BEGIN_TOKEN_MAX_AGE_SECONDS = 24 * 60 * 60;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     // ── Begin-token (server-verified fill-time) ───────────────────
@@ -58,7 +60,7 @@ public class SpamProtectionService {
         return iat + "." + hmacHex(payload);
     }
 
-    private void verifyTiming(String surveyId, String token, int minSeconds) {
+    void verifyTiming(String surveyId, String token, int minSeconds) {
         if (token == null || !token.contains(".")) throw spam();
         String[] parts = token.split("\\.", 2);
         long iat;
@@ -70,7 +72,7 @@ public class SpamProtectionService {
         String expected = hmacHex(surveyId + ":" + iat);
         if (!constantTimeEquals(expected, parts[1])) throw spam();
         long elapsed = Instant.now().getEpochSecond() - iat;
-        if (elapsed < minSeconds) throw spam();
+        if (elapsed < minSeconds || elapsed > BEGIN_TOKEN_MAX_AGE_SECONDS) throw spam();
     }
 
     // ── Rate limiting (per IP + survey) ───────────────────────────

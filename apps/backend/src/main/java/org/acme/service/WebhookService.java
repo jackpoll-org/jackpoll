@@ -1,19 +1,16 @@
 package org.acme.service;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -59,17 +56,19 @@ public class WebhookService {
     /** Consecutive-failure streak that triggers the "webhook failing" notification (#89). */
     private static final int FAILURE_NOTIFY_THRESHOLD = 5;
 
-    private static final ExecutorService POOL = Executors.newFixedThreadPool(4, r -> {
-        var t = new Thread(r, "webhook-dispatch");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final int MAX_WEBHOOKS_PER_SURVEY = 10;
 
-    private final HttpClient http = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(5))
-        // Never follow redirects — a redirect can defeat the SSRF guard.
-        .followRedirects(HttpClient.Redirect.NEVER)
-        .build();
+    private static final ExecutorService POOL = new ThreadPoolExecutor(
+        4, 4, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(10_000),
+        r -> {
+            var t = new Thread(r, "webhook-dispatch");
+            t.setDaemon(true);
+            return t;
+        },
+        (task, pool) -> LOG.warn("webhook queue full; dropping a delivery"));
+
+    @Inject
+    PinnedHttpClient pinnedHttp;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -114,6 +113,9 @@ public class WebhookService {
     public WebhookDto create(String ownerId, String surveyId, CreateWebhookRequest req) {
         surveyService.requireOwner(ownerId, surveyId);
         urlGuard.ensureAllowed(req.url());
+        if (webhooks.findBySurvey(surveyId).size() >= MAX_WEBHOOKS_PER_SURVEY) {
+            throw new IllegalArgumentException("A survey can have at most " + MAX_WEBHOOKS_PER_SURVEY + " webhooks.");
+        }
         var hook = new Webhook();
         hook.id = UUID.randomUUID().toString();
         hook.surveyId = surveyId;
@@ -203,20 +205,16 @@ public class WebhookService {
 
     private Outcome deliverOnce(String url, String secret, String event, String body) {
         try {
-            urlGuard.ensureAllowed(url);
             String timestamp = String.valueOf(Instant.now().getEpochSecond());
             String signature = "sha256=" + hmacHex(secret, timestamp + "." + body);
-            var request = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(timeoutSeconds))
-                .header("Content-Type", "application/json")
-                .header("User-Agent", "Jackpoll-Webhook/1")
-                .header("X-Survey-Event", event)
-                .header("X-Survey-Timestamp", timestamp)
-                .header("X-Survey-Signature", signature)
-                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                .build();
-            var res = http.send(request, HttpResponse.BodyHandlers.discarding());
-            return new Outcome(res.statusCode(), res.statusCode() >= 400 ? "HTTP " + res.statusCode() : null);
+            int status = pinnedHttp.post(url, Map.of(
+                    "Content-Type", "application/json",
+                    "User-Agent", "Jackpoll-Webhook/1",
+                    "X-Survey-Event", event,
+                    "X-Survey-Timestamp", timestamp,
+                    "X-Survey-Signature", signature),
+                body.getBytes(StandardCharsets.UTF_8), timeoutSeconds);
+            return new Outcome(status, status >= 400 ? "HTTP " + status : null);
         } catch (SpamRejectedException e) {
             // SSRF guard rejected the URL.
             return new Outcome(null, e.getMessage());
@@ -224,6 +222,7 @@ public class WebhookService {
             return new Outcome(null, e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
+
 
     @Transactional
     void recordOutcomeTx(String webhookId, Outcome outcome) {

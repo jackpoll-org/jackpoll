@@ -78,11 +78,20 @@ public class AnalyticsService {
 
     // ── Helpers ───────────────────────────────────────────────────
 
+    static final int MAX_KEYS_PER_DIMENSION = 200;
+
     private void increment(String surveyId, String dimension, String key) {
         var safeKey = (key == null || key.isBlank()) ? "unknown" : key;
         if (safeKey.length() > 120) safeKey = safeKey.substring(0, 120);
+        var counter = counters.find(surveyId, dimension, safeKey).orElse(null);
+        // Anyone can send a beacon, so the number of distinct keys is capped; the
+        // day key comes from the server clock and must keep one row per day.
+        if (counter == null && !"day".equals(dimension)
+            && counters.countKeys(surveyId, dimension) >= MAX_KEYS_PER_DIMENSION) {
+            safeKey = "other";
+            counter = counters.find(surveyId, dimension, safeKey).orElse(null);
+        }
         final var k = safeKey;
-        var counter = counters.find(surveyId, dimension, k).orElse(null);
         if (counter == null) {
             counter = new AnalyticsCounter();
             counter.id = UUID.randomUUID().toString();

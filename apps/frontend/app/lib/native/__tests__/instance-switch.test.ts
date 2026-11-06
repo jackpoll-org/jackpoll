@@ -20,6 +20,9 @@ vi.mock("@capacitor/preferences", () => ({
   },
 }));
 
+const { clearOfflineToken } = vi.hoisted(() => ({ clearOfflineToken: vi.fn(async () => {}) }));
+vi.mock("../secure-session", () => ({ clearOfflineToken }));
+
 import { switchToInstance } from "../instance";
 
 const URL_B = "https://survey.example.com";
@@ -64,5 +67,11 @@ describe("switchToInstance", () => {
     expect(switchTo).not.toHaveBeenCalled();
     expect(store.instance_url).toBe(URL_B);
     expect(replace).toHaveBeenCalledWith(URL_B);
+  });
+
+  it("forgets this instance's offline login before leaving it", async () => {
+    platform.current = "ios";
+    await switchToInstance(URL_B);
+    expect(clearOfflineToken).toHaveBeenCalled();
   });
 });

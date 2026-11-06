@@ -30,6 +30,12 @@ public class OutboundUrlGuard {
     boolean allowPrivate;
 
     public void ensureAllowed(String url) {
+        resolveAllowed(url);
+    }
+
+    /** The address to connect to for {@code url}: connecting to exactly this one
+     *  keeps a second DNS lookup from swapping in an internal host. */
+    public InetAddress resolveAllowed(String url) {
         URI uri;
         try {
             uri = URI.create(url);
@@ -40,13 +46,14 @@ public class OutboundUrlGuard {
         if (scheme == null || !(scheme.equals("http") || scheme.equals("https")) || uri.getHost() == null) {
             throw new SpamRejectedException("URL must use http or https.");
         }
-        if (allowPrivate) return;
         try {
-            for (InetAddress addr : InetAddress.getAllByName(uri.getHost())) {
-                if (!isPublic(addr)) {
+            var addresses = InetAddress.getAllByName(uri.getHost());
+            for (InetAddress addr : addresses) {
+                if (!allowPrivate && !isPublic(addr)) {
                     throw new SpamRejectedException("URL must point to a public address.");
                 }
             }
+            return addresses[0];
         } catch (SpamRejectedException e) {
             throw e;
         } catch (Exception e) {

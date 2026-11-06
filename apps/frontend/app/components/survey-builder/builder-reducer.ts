@@ -9,7 +9,7 @@ import type {
 } from "@/app/types/survey";
 import { newId } from "@/app/components/question-types/helpers";
 import { getQuestionTypeDefinition } from "@/app/components/question-types/registry";
-import type { CollabContent } from "@/app/lib/collab/doc";
+import { PROTECTED_SETTINGS, type CollabContent } from "@/app/lib/collab/doc";
 
 export interface BuilderState {
   survey: Survey;
@@ -82,6 +82,14 @@ export function builderReducer(
   return { ...next, locallyDirty };
 }
 
+function mergeRemoteSettings(local: SurveySettings, remote: SurveySettings): SurveySettings {
+  const merged = { ...remote };
+  for (const key of PROTECTED_SETTINGS) {
+    (merged as Record<string, unknown>)[key] = local[key];
+  }
+  return merged;
+}
+
 function coreReducer(state: CoreState, action: BuilderAction): CoreState {
   switch (action.type) {
     case "reset":
@@ -99,7 +107,7 @@ function coreReducer(state: CoreState, action: BuilderAction): CoreState {
           title: action.content.title,
           description: action.content.description,
           status: action.content.status,
-          settings: action.content.settings,
+          settings: mergeRemoteSettings(state.survey.settings, action.content.settings),
           questions: action.content.questions,
           sections: action.content.sections,
         },

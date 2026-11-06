@@ -75,7 +75,8 @@ class RespondentTokenResourceTest {
     private int submit(String surveyId, String questionId, String token) {
         var tokenField = token == null ? "" : "\"respondentToken\":\"" + token + "\",";
         return given().contentType(ContentType.JSON)
-            .body("{" + tokenField + "\"answers\":[{\"questionId\":\"" + questionId + "\",\"value\":\"x\"}]}")
+            .body("{" + tokenField + "\"clientId\":\"" + java.util.UUID.randomUUID()
+                + "\",\"answers\":[{\"questionId\":\"" + questionId + "\",\"value\":\"x\"}]}")
             .when().post(SURVEYS + "/" + surveyId + "/responses")
             .then().extract().statusCode();
     }

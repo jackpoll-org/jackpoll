@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { SurveyBuilder } from "@/app/components/survey-builder/survey-builder";
 import { NamePromptDialog } from "@/app/components/survey-builder/name-prompt-dialog";
 import { usePublicCollab } from "@/app/hooks/survey";
-import { editCollabApi } from "@/app/lib/survey/api";
+import { editCollabApi, rememberCollabLink } from "@/app/lib/survey/api";
 import { useAuthContext } from "@/app/components/auth/auth-provider";
 import { loadStoredName, makeGuestUser, storeName } from "@/app/lib/collab/identity";
 import { Spinner } from "@/app/components/ui/spinner";
@@ -38,6 +38,10 @@ export default function CollabPage() {
     setUser(makeGuestUser(name));
     setNeedsName(false);
   }
+
+  useEffect(() => {
+    if (survey) rememberCollabLink(survey.id, params.slug);
+  }, [survey, params.slug]);
 
   async function save(req: UpdateSurveyRequest): Promise<Survey> {
     const res = await editCollabApi(params.slug, req);

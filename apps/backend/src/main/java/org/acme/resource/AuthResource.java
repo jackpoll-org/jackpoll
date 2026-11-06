@@ -76,14 +76,22 @@ public class AuthResource {
      * IP and, when given, per account so neither a single source nor a single
      * target can be hammered. Throws 429 when the window is exhausted.
      */
+    private static final java.util.Set<String> GUESS_ENDPOINTS =
+        java.util.Set.of("login", "verify-email", "reset-password");
+
     private void enforceAuthRateLimit(String endpoint, String forwardedFor,
         io.vertx.core.http.HttpServerRequest http, String account) {
         String ip = ClientIp.of(forwardedFor, http);
         boolean ipOk = rateLimiter.allow(
             "auth|" + endpoint + "|ip|" + (ip == null ? "unknown" : ip),
             authRateLimitMax, authRateLimitWindowSeconds);
+        // Guessing endpoints key the account bucket by IP too, so strangers can't
+        // lock a user out; their global cap is Keycloak's brute-force guard and
+        // EmailCodeService's daily budget.
+        String acctKey = account == null ? null : account.trim().toLowerCase()
+            + (GUESS_ENDPOINTS.contains(endpoint) ? "|ip|" + ip : "");
         boolean acctOk = account == null || account.isBlank() || rateLimiter.allow(
-            "auth|" + endpoint + "|acct|" + account.trim().toLowerCase(),
+            "auth|" + endpoint + "|acct|" + acctKey,
             authRateLimitMax, authRateLimitWindowSeconds);
         if (!ipOk || !acctOk) {
             throw new RateLimitedException(
@@ -104,7 +112,7 @@ public class AuthResource {
     @ConfigProperty(name = "app.email-verification-required", defaultValue = "true")
     boolean emailVerificationRequired;
 
-    @ConfigProperty(name = "app.debug-tools-enabled", defaultValue = "true")
+    @ConfigProperty(name = "app.debug-tools-enabled", defaultValue = "false")
     boolean debugToolsEnabled;
 
     @POST

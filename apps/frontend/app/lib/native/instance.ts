@@ -7,6 +7,7 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
+import { clearOfflineToken } from "./secure-session";
 
 const INSTANCE_KEY = "instance_url";
 const LAST_PATH_KEY = "last_path";
@@ -76,6 +77,9 @@ export function normalizeInstanceUrl(raw: string): string {
  * `allowNavigation`, which keeps the native bridge active on the new instance.
  */
 export async function switchToInstance(url: string): Promise<void> {
+  // The other instance runs its own code with this app's native bridge, so it
+  // must not find this instance's offline login in the keychain.
+  await clearOfflineToken();
   if (Capacitor.getPlatform() === "android") {
     try {
       await InstanceBridge.switchTo({ url });

@@ -91,7 +91,9 @@ const nextConfig: NextConfig = {
       {
         // Everything else (dashboard, builder, auth, public response pages):
         // only this origin may frame it. Blocks cross-site clickjacking.
-        source: "/((?!embed).*)",
+        // API responses are excluded: the proxy sets their policy, and a header
+        // set here would override the backend's (e.g. the upload sandbox).
+        source: "/((?!embed|api/).*)",
         headers: SECURITY_HEADERS,
       },
     ];

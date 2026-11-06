@@ -74,7 +74,13 @@ public class PublicSurveyResource {
     @Path("/{id}/track")
     @PermitAll
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response track(@PathParam("id") String id, @Valid TrackRequest req) {
+    public Response track(
+        @PathParam("id") String id,
+        @Valid TrackRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context HttpServerRequest http
+    ) {
+        rateLimiter.requirePublicWrite("track", id, ClientIp.of(forwardedFor, http));
         analyticsService.track(id, req);
         return Response.noContent().build();
     }
@@ -82,7 +88,13 @@ public class PublicSurveyResource {
     @GET
     @Path("/{id}/live-results")
     @PermitAll
-    public Response liveResults(@PathParam("id") String id) {
+    public Response liveResults(
+        @PathParam("id") String id,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context HttpServerRequest http
+    ) {
+        // Every call aggregates all responses, so it shares the anonymous budget.
+        rateLimiter.requirePublicWrite("live-results", id, ClientIp.of(forwardedFor, http));
         accessCodes.requireAccess(id);
         return Response.ok(ApiResponse.ok(responseService.liveResults(id))).build();
     }
@@ -92,7 +104,13 @@ public class PublicSurveyResource {
     @Path("/{id}/drafts")
     @PermitAll
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response saveDraft(@PathParam("id") String id, @Valid SaveDraftRequest req) {
+    public Response saveDraft(
+        @PathParam("id") String id,
+        @Valid SaveDraftRequest req,
+        @HeaderParam("X-Forwarded-For") String forwardedFor,
+        @Context HttpServerRequest http
+    ) {
+        rateLimiter.requirePublicWrite("draft", id, ClientIp.of(forwardedFor, http));
         accessCodes.requireAccess(id);
         return Response.ok(ApiResponse.ok(draftService.save(id, req))).build();
     }

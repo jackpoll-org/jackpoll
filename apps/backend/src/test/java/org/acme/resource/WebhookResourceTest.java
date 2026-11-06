@@ -92,4 +92,34 @@ class WebhookResourceTest {
             .body("data.delivered", is(false))
             .body("data.error", notNullValue());
     }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void deliversToTheCheckedAddressUnderTheUrlsHostName() throws Exception {
+        var hosts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress(0), 0);
+        server.createContext("/hook", exchange -> {
+            hosts.add(exchange.getRequestHeaders().getFirst("Host"));
+            exchange.sendResponseHeaders(204, -1);
+            exchange.close();
+        });
+        server.start();
+        try {
+            int port = server.getAddress().getPort();
+            String id = newSurvey();
+            String hookId = given()
+                .contentType(ContentType.JSON)
+                .body("{\"url\":\"http://localhost:" + port + "/hook\",\"enabled\":true}")
+                .when().post(SURVEYS + "/" + id + "/webhooks")
+                .then().statusCode(201).extract().path("data.id");
+
+            given()
+                .when().post(SURVEYS + "/" + id + "/webhooks/" + hookId + "/test")
+                .then().statusCode(200)
+                .body("data.delivered", is(true));
+            org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("localhost:" + port), hosts);
+        } finally {
+            server.stop(0);
+        }
+    }
 }

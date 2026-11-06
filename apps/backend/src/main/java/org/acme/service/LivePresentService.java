@@ -51,14 +51,19 @@ public class LivePresentService {
     /** surveyId → last broadcast state, for the single-replica/dev fallback. */
     private final Map<String, LiveState> lastState = new ConcurrentHashMap<>();
 
-    public record LiveState(int index, String phase) {}
+    /** {@code since}: epoch millis when this index/phase was first shown, 0 if unknown. */
+    public record LiveState(int index, String phase, long since) {}
 
     /** Broadcast the presenter's current question index + phase. Owner only. */
     public void setState(String ownerId, String surveyId, int index, String phase) {
         surveyService.requireOwner(ownerId, surveyId);
         var normalizedIndex = Math.max(0, index);
         var normalizedPhase = phase == null || phase.isBlank() ? "question" : phase;
-        var state = new LiveState(normalizedIndex, normalizedPhase);
+        var previous = getState(surveyId);
+        var since = previous != null && previous.index() == normalizedIndex
+            && previous.phase().equals(normalizedPhase) && previous.since() > 0
+            ? previous.since() : System.currentTimeMillis();
+        var state = new LiveState(normalizedIndex, normalizedPhase, since);
         lastState.put(surveyId, state);
         writeRedisState(surveyId, state);
         try {
@@ -103,7 +108,7 @@ public class LivePresentService {
     }
 
     private static String encode(LiveState state) {
-        return state.index() + ":" + state.phase();
+        return state.index() + ":" + state.since() + ":" + state.phase();
     }
 
     private static LiveState decode(String raw) {
@@ -111,7 +116,10 @@ public class LivePresentService {
         int sep = raw.indexOf(':');
         if (sep < 0) return null;
         try {
-            return new LiveState(Integer.parseInt(raw.substring(0, sep)), raw.substring(sep + 1));
+            int index = Integer.parseInt(raw.substring(0, sep));
+            int next = raw.indexOf(':', sep + 1);
+            if (next < 0) return new LiveState(index, raw.substring(sep + 1), 0);
+            return new LiveState(index, raw.substring(next + 1), Long.parseLong(raw.substring(sep + 1, next)));
         } catch (NumberFormatException e) {
             return null;
         }

@@ -10,7 +10,9 @@ import org.acme.dto.ResponseDtos.ReviewRequest;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
 import org.acme.service.AccessCodeService;
+import org.acme.service.CollabLinkService;
 import org.acme.service.ExportService;
+import org.acme.service.RateLimiterService;
 import org.acme.service.ResponseService;
 import org.acme.service.SurveyService;
 
@@ -52,6 +54,12 @@ public class ResponseResource {
     SurveyService surveyService;
 
     @Inject
+    RateLimiterService rateLimiter;
+
+    @Inject
+    CollabLinkService collabLinks;
+
+    @Inject
     SecurityIdentity identity;
 
     private String ownerId() {
@@ -67,10 +75,19 @@ public class ResponseResource {
         @PathParam("id") String id,
         @Valid SubmitResponseRequest req,
         @jakarta.ws.rs.HeaderParam("X-Forwarded-For") String forwardedFor,
+        @jakarta.ws.rs.HeaderParam("X-Collab-Link") String collabLink,
         @jakarta.ws.rs.core.Context io.vertx.core.http.HttpServerRequest http
     ) {
+        if (Boolean.TRUE.equals(req.preview()) && !id.equals(collabLinks.validSurveyId(collabLink))) {
+            if (identity.isAnonymous()) {
+                throw new org.acme.exception.ForbiddenAccessException("Sign in to preview this survey.");
+            }
+            surveyService.requireReadable(ownerId(), id);
+        }
+        String ip = ClientIp.of(forwardedFor, http);
+        rateLimiter.requirePublicWrite("submit", id, ip);
         accessCodes.requireAccess(id);
-        var created = responseService.submit(id, req, ClientIp.of(forwardedFor, http));
+        var created = responseService.submit(id, req, ip);
         return Response.status(Response.Status.CREATED)
             .entity(ApiResponse.ok(created))
             .build();

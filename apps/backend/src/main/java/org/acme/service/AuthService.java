@@ -27,6 +27,7 @@ public class AuthService {
     private final KeycloakService keycloakService;
     private final EmailCodeService emailCodeService;
     private final GdprService gdprService;
+    private final ApiKeyService apiKeyService;
 
     /**
      * Whether new accounts must confirm their email before they can sign in.
@@ -45,11 +46,13 @@ public class AuthService {
     java.util.Optional<String> termsVersion;
 
     public AuthService(UserRepository userRepository, KeycloakService keycloakService,
-                       EmailCodeService emailCodeService, GdprService gdprService) {
+                       EmailCodeService emailCodeService, GdprService gdprService,
+                       ApiKeyService apiKeyService) {
         this.userRepository = userRepository;
         this.keycloakService = keycloakService;
         this.emailCodeService = emailCodeService;
         this.gdprService = gdprService;
+        this.apiKeyService = apiKeyService;
     }
 
     // ── Register (#security email-verify) ─────────────────────────
@@ -65,6 +68,12 @@ public class AuthService {
             throw new IllegalArgumentException("Please accept the terms of use.");
         }
         var result = keycloakService.register(req);
+        if (KeycloakService.EMAIL_TAKEN.equals(result.error())) {
+            userRepository.findByEmail(req.email().trim().toLowerCase())
+                .ifPresent(u -> emailCodeService.issue(u.email,
+                    u.emailVerified ? EmailCode.PURPOSE_RESET : EmailCode.PURPOSE_VERIFY));
+            return ApiResponse.ok(new AuthDtos.RegisterResult(req.email(), emailVerificationRequired));
+        }
         if (!result.success()) {
             return ApiResponse.error(result.error());
         }
@@ -160,6 +169,7 @@ public class AuthService {
     /** Log the user out of every device by revoking all Keycloak sessions (#76). */
     public void logoutAllDevices(String userId) {
         keycloakService.logoutAllDevices(userId);
+        apiKeyService.deleteAllForUser(userId);
     }
 
     // ── Current User ──────────────────────────────────────────────
@@ -210,8 +220,10 @@ public class AuthService {
         if (user == null) {
             return ApiResponse.error("User not found");
         }
-        return keycloakService.changePassword(
+        var result = keycloakService.changePassword(
             user.email, req.currentPassword(), req.newPassword(), userId);
+        if (result.success()) apiKeyService.deleteAllForUser(userId);
+        return result;
     }
 
     // ── Forgot / Reset Password (code flow) ───────────────────────
@@ -242,6 +254,7 @@ public class AuthService {
         userRepository.findByEmail(req.email().trim().toLowerCase()).ifPresent(u -> {
             u.emailVerified = true;
             u.updatedAt = Instant.now();
+            apiKeyService.deleteAllForUser(u.id);
         });
         return ApiResponse.ok(null);
     }

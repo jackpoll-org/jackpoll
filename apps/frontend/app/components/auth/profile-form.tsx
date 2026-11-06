@@ -102,9 +102,7 @@ export function ProfileForm() {
     try {
       await changePassword.mutateAsync({ currentPassword: current, newPassword: next });
       toast.success(t("profile.password.changed"));
-      setCurrent("");
-      setNext("");
-      setConfirm("");
+      router.replace("/login");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("profile.password.changeFailed"));
     }

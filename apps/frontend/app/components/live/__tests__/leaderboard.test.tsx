@@ -48,6 +48,19 @@ describe("live leaderboard", () => {
     expect(listResponsesApi).not.toHaveBeenCalled();
   });
 
+  it("lists two players who share a name as two rows", async () => {
+    getLiveLeaderboardApi.mockResolvedValue({
+      success: true,
+      data: [{ name: "Max", score: 300 }, { name: "Max", score: 100 }],
+    });
+    wrap(<Leaderboard surveyId="s1" />);
+
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
+    const rows = screen.getAllByRole("listitem").map((li) => li.textContent);
+    expect(rows[0]).toContain("300");
+    expect(rows[1]).toContain("100");
+  });
+
   it("puts the current game's top three on the podium", async () => {
     getLiveLeaderboardApi.mockResolvedValue({ success: true, data: board });
     wrap(<Podium surveyId="s1" />);

@@ -169,12 +169,26 @@ class CollaboratorServiceTest {
         when(surveys.findByIdOptional(SURVEY)).thenReturn(Optional.of(survey(SURVEY, OWNER, "My Survey")));
         when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
         when(users.findByIdOptional(OWNER)).thenReturn(Optional.of(user(OWNER, "owner@example.com", "Owner")));
+        var invite = new SurveyCollaborator();
+        invite.status = CollaboratorStatus.PENDING;
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(invite));
 
         service.decline(INVITEE, SURVEY);
 
         verify(pushService).notifyUser(
             eq(OWNER), eq(NotificationEventType.COLLABORATOR_DECLINED), anyString(), anyString());
         verify(collaborators).deleteBySurveyAndUser(SURVEY, INVITEE);
+    }
+
+    @Test
+    void decline_withoutAnInvitationNotifiesNobody() {
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.empty());
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            org.acme.exception.ResourceNotFoundException.class, () -> service.decline(INVITEE, SURVEY));
+
+        verify(pushService, org.mockito.Mockito.never()).notifyUser(
+            anyString(), org.mockito.ArgumentMatchers.any(), anyString(), anyString());
     }
 
     @Test

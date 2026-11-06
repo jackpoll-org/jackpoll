@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Create a published live-quiz survey for the k6 load test and print its id.
 
-Usage: API=http://localhost:8090 KC=http://localhost:8180 python3 seed-live-quiz.py
+Usage: API=http://localhost:8090 KC=http://localhost:8180 KC_USER=<email> KC_PASS=<password> \
+       python3 seed-live-quiz.py   (a verified account you registered for testing)
 """
 
 import json
@@ -20,8 +21,8 @@ def token() -> str:
         "grant_type": "password",
         "client_id": "survey-backend",
         "client_secret": os.environ.get("KC_SECRET", "secret"),
-        "username": os.environ.get("KC_USER", "testuser@survey.local"),
-        "password": os.environ.get("KC_PASS", "Test1234"),
+        "username": os.environ["KC_USER"],
+        "password": os.environ["KC_PASS"],
     }).encode()
     url = f"{KC}/realms/survey-school/protocol/openid-connect/token"
     with urllib.request.urlopen(url, body) as res:

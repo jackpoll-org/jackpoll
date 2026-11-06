@@ -77,7 +77,7 @@ public class CollaboratorService {
 
         var user = users.findByEmail(req.email())
             .orElseThrow(() -> new ResourceNotFoundException(
-                "No user with email " + req.email() + ". They must register first."));
+                "Could not invite this address. They need a Jackpoll account first."));
 
         if (user.id.equals(ownerId)) {
             throw new ForbiddenAccessException("You already own this survey.");
@@ -161,6 +161,7 @@ public class CollaboratorService {
     @Transactional
     public void accept(String userId, String surveyId) {
         var invite = collaborators.findBySurveyAndUser(surveyId, userId)
+            .filter(c -> c.status == CollaboratorStatus.PENDING)
             .orElseThrow(() -> new ResourceNotFoundException("No invitation for this survey."));
         invite.status = CollaboratorStatus.ACCEPTED;
         notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_ACCEPTED,
@@ -170,6 +171,10 @@ public class CollaboratorService {
     /** Decline (or remove yourself from) a collaboration. */
     @Transactional
     public void decline(String userId, String surveyId) {
+        // Only someone actually invited may decline, or anyone could mail the owner at will.
+        collaborators.findBySurveyAndUser(surveyId, userId)
+            .filter(c -> c.status == CollaboratorStatus.PENDING)
+            .orElseThrow(() -> new ResourceNotFoundException("No invitation for this survey."));
         notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_DECLINED,
             "notify.declined", EmailService::sendCollaboratorDeclined);
         collaborators.deleteBySurveyAndUser(surveyId, userId);

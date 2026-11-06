@@ -75,8 +75,8 @@ class MailCopyTest {
     @Test
     void placeholdersAreSubstitutedLiterally() {
         // Apostrophes must survive — MessageFormat would eat them.
-        assertEquals("Your verification code: 123456",
-            MailCopy.of("messages").t("en", "verify.subject", "123456"));
+        assertEquals("New response: Don't panic",
+            MailCopy.of("messages").t("en", "owner.subject", "Don't panic"));
     }
 
     @Test

@@ -12,10 +12,13 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.acme.entity.EmailCode;
+import org.acme.resource.ClientIp;
 import org.acme.repository.EmailCodeRepository;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import io.quarkus.arc.Arc;
 import io.quarkus.scheduler.Scheduled;
+import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -43,11 +46,28 @@ public class EmailCodeService {
     @Inject
     EmailService emailService;
 
+    @Inject
+    RateLimiterService rateLimiter;
+
     @ConfigProperty(name = "survey.auth.email-code.ttl-minutes", defaultValue = "15")
     long ttlMinutes;
 
     @ConfigProperty(name = "survey.auth.email-code.max-attempts", defaultValue = "5")
     int maxAttempts;
+
+    /** Failed guesses per (email, purpose) and caller IP per day, across re-issued
+     *  codes, so requesting a new code never buys fresh guesses. */
+    @ConfigProperty(name = "survey.auth.email-code.max-daily-attempts", defaultValue = "20")
+    int maxDailyAttempts;
+
+    /** The same, from all callers together: high enough that strangers can't
+     *  easily lock the owner out, low enough to keep guessing hopeless. */
+    @ConfigProperty(name = "survey.auth.email-code.max-daily-attempts-per-address", defaultValue = "100")
+    int maxDailyAttemptsPerAddress;
+
+    /** Code mails per (email, purpose) per day, so nobody can flood an inbox. */
+    @ConfigProperty(name = "survey.auth.email-code.max-daily-issues", defaultValue = "10")
+    int maxDailyIssues;
 
     /** HMAC key for hashing codes at rest. Set EMAIL_CODE_SECRET in production. */
     @ConfigProperty(name = "survey.auth.email-code.secret")
@@ -62,6 +82,10 @@ public class EmailCodeService {
     @Transactional
     public String issue(String email, String purpose) {
         String normalized = normalize(email);
+        // Callers answer the same either way, so a capped address learns nothing.
+        if (!rateLimiter.allow("email-code-issue|" + purpose + "|" + normalized, maxDailyIssues, 86_400)) {
+            return null;
+        }
         String code = mint(normalized, purpose);
 
         switch (purpose) {
@@ -114,6 +138,12 @@ public class EmailCodeService {
     public boolean verify(String email, String purpose, String submittedCode) {
         if (submittedCode == null || submittedCode.isBlank()) return false;
         String normalized = normalize(email);
+        String failures = "email-code-fail|" + purpose + "|" + normalized;
+        String callerFailures = failures + "|" + callerIp();
+        if (rateLimiter.exhausted(callerFailures, maxDailyAttempts, 86_400)
+            || rateLimiter.exhausted(failures, maxDailyAttemptsPerAddress, 86_400)) {
+            return false;
+        }
         var row = codes.findActive(normalized, purpose).orElse(null);
         if (row == null) return false;
 
@@ -129,6 +159,8 @@ public class EmailCodeService {
         boolean match = constantTimeEquals(expected, actual);
         if (!match) {
             row.attempts += 1; // managed entity: flushed on commit
+            rateLimiter.allow(callerFailures, maxDailyAttempts, 86_400);
+            rateLimiter.allow(failures, maxDailyAttemptsPerAddress, 86_400);
             return false;
         }
         row.consumed = true;
@@ -167,5 +199,13 @@ public class EmailCodeService {
     private static boolean constantTimeEquals(String a, String b) {
         return MessageDigest.isEqual(
             a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String callerIp() {
+        if (!Arc.container().requestContext().isActive()) return "unknown";
+        var routing = Arc.container().instance(CurrentVertxRequest.class).get().getCurrent();
+        var http = routing == null ? null : routing.request();
+        String ip = http == null ? null : ClientIp.of(http.getHeader("X-Forwarded-For"), http);
+        return ip == null ? "unknown" : ip;
     }
 }

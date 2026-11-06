@@ -44,7 +44,7 @@ export function Leaderboard({
               {board.map((entry, i) => (
                 <motion.li
                   layout
-                  key={entry.name}
+                  key={entry.key}
                   initial={reduced ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}

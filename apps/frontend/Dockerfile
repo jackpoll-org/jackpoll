@@ -33,7 +33,10 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+# The server runs with plain `node`; the bundled package managers only add attack surface.
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 # The standalone output bundles only the files the server needs.
 COPY --from=build /app/public ./public

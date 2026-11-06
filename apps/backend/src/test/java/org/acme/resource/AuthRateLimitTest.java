@@ -47,4 +47,23 @@ class AuthRateLimitTest {
             .when().post("/api/v1/auth/login")
             .then().statusCode(429);
     }
+
+    @Test
+    void failedLoginsFromOneIpDoNotLockTheAccountForOthers() {
+        String body = "{\"email\":\"victim@example.com\",\"password\":\"wrong-pw\"}";
+        for (int i = 0; i < 4; i++) {
+            given()
+                .contentType(ContentType.JSON)
+                .header("X-Forwarded-For", "198.51.100.1")
+                .body(body)
+                .when().post("/api/v1/auth/login");
+        }
+
+        given()
+            .contentType(ContentType.JSON)
+            .header("X-Forwarded-For", "198.51.100.2")
+            .body(body)
+            .when().post("/api/v1/auth/login")
+            .then().statusCode(not(429));
+    }
 }

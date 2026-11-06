@@ -9,9 +9,11 @@
  *   - static assets (_next/static, icons, fonts): stale-while-revalidate;
  *   - public survey reads (GET .../public/surveys/...): network-first with a
  *     cache fallback, so a loaded survey can be filled offline (Phase 2).
+ *     Reads unlocked by a credential (access code, resume link, sign-in) are
+ *     never cached, so the device can't serve them to the next person offline.
  * Owner/dashboard and any non-GET request always go to the network.
  */
-const VERSION = "v4";
+const VERSION = "v5";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGES_CACHE = `pages-${VERSION}`;
 const DATA_CACHE = `survey-data-${VERSION}`;
@@ -100,6 +102,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (isPublicSurveyRead(url)) {
+    const unlocked = ["Authorization", "X-Access-Token", "X-Resume-Token"].some((h) =>
+      request.headers.has(h),
+    );
+    if (unlocked) return;
     event.respondWith(networkFirst(request, DATA_CACHE));
     return;
   }

@@ -847,6 +847,8 @@ export function useDeleteDraft() {
 
 // ── Spam & bot protection (issue #31) ─────────────────────────────
 
+const BEGIN_TOKEN_REFRESH_MS = 12 * 60 * 60 * 1000;
+
 /** Fetch a signed begin-token used for the server-side fill-time check. */
 export function useBeginToken(surveyId: string | undefined, enabled: boolean) {
   return useQuery({
@@ -860,7 +862,9 @@ export function useBeginToken(surveyId: string | undefined, enabled: boolean) {
       return res.data.beginToken ?? null;
     },
     enabled: !!surveyId && enabled,
-    staleTime: Infinity,
+    // The server refuses begin tokens older than a day.
+    staleTime: BEGIN_TOKEN_REFRESH_MS,
+    refetchInterval: BEGIN_TOKEN_REFRESH_MS,
     retry: false,
   });
 }

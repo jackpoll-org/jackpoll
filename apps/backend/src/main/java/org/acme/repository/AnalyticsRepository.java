@@ -15,6 +15,10 @@ public class AnalyticsRepository implements PanacheRepositoryBase<AnalyticsCount
         return list("surveyId", surveyId);
     }
 
+    public long countKeys(String surveyId, String dimension) {
+        return count("surveyId = ?1 and dimension = ?2", surveyId, dimension);
+    }
+
     public Optional<AnalyticsCounter> find(String surveyId, String dimension, String key) {
         return find("surveyId = ?1 and dimension = ?2 and key = ?3", surveyId, dimension, key)
             .firstResultOptional();

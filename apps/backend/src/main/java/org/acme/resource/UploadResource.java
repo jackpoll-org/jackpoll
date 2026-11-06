@@ -51,6 +51,12 @@ public class UploadResource {
     @ConfigProperty(name = "survey.upload.rate-limit.window-seconds", defaultValue = "60")
     long uploadRateLimitWindowSeconds;
 
+    @ConfigProperty(name = "survey.upload.daily-max", defaultValue = "2000")
+    int uploadDailyMax;
+
+    @ConfigProperty(name = "survey.upload.daily-megabytes", defaultValue = "20000")
+    int uploadDailyMegabytes;
+
     // Anonymous on purpose: public survey respondents upload files (issue #3)
     // and signatures. StorageService validates content type (images only) + size
     // and optionally virus-scans, so anonymous upload can't store arbitrary data.
@@ -64,14 +70,20 @@ public class UploadResource {
     ) {
         // Throttle this anonymous, storage-writing endpoint per client IP so it
         // can't be abused to fill object storage (validation still runs below).
-        String ip = ClientIp.of(forwardedFor, http);
-        if (!rateLimiter.allow("upload|" + (ip == null ? "unknown" : ip),
-                uploadRateLimitMax, uploadRateLimitWindowSeconds)) {
+        String ip = ClientIp.bucket(ClientIp.of(forwardedFor, http));
+        if (!rateLimiter.allow("upload|" + ip, uploadRateLimitMax, uploadRateLimitWindowSeconds)
+            || !rateLimiter.allow("upload-day|" + ip, uploadDailyMax, 86_400)) {
             throw new RateLimitedException(
                 "Too many uploads. Please wait a moment and try again.");
         }
         if (file == null) {
             throw new InvalidUploadException("No file provided.");
+        }
+        // Rotating addresses defeats per-IP limits, so all anonymous uploads share
+        // a daily storage budget: uploads pause instead of the disk filling up.
+        int megabytes = (int) Math.max(1, (file.size() + 1_048_575) / 1_048_576);
+        if (!rateLimiter.allowAmount("upload-bytes-day", megabytes, uploadDailyMegabytes, 86_400)) {
+            throw new RateLimitedException("Uploads are paused for today. Please try again later.");
         }
         try (InputStream in = Files.newInputStream(file.uploadedFile())) {
             var result = storage.upload(file.fileName(), file.contentType(), in, file.size());
@@ -112,7 +124,9 @@ public class UploadResource {
             // Defense in depth: never let the browser MIME-sniff a stored object
             // into an executable type, and force inline rendering.
             .header("X-Content-Type-Options", "nosniff")
-            .header("Content-Disposition", wantsDownload(download) ? attachment(name) : "inline")
+            // An SVG opened directly is a document; <img> still shows it as an attachment.
+            .header("Content-Disposition",
+                wantsDownload(download) || String.valueOf(obj.contentType()).startsWith("image/svg") ? attachment(name) : "inline")
             // An SVG opened directly is a document; sandbox it so no script in it can run.
             .header("Content-Security-Policy", RAW_CSP)
             .build();

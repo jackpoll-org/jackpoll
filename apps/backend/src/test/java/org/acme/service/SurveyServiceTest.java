@@ -58,6 +58,8 @@ class SurveyServiceTest {
         respondentTokens = mock(org.acme.repository.RespondentTokenRepository.class);
         service.respondentTokens = respondentTokens;
         service.mapper = new SurveyMapper();
+        service.folders = mock(org.acme.repository.FolderRepository.class);
+        when(service.folders.findByIdAndOwner("f1", OWNER)).thenReturn(Optional.of(new org.acme.entity.Folder()));
         // default: no collaborator rows
         when(collaborators.findBySurveyAndUser(anyString(), anyString())).thenReturn(Optional.empty());
     }

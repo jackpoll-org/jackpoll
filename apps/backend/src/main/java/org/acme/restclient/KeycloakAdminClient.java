@@ -37,7 +37,8 @@ public interface KeycloakAdminClient {
     @Path("/{realm}/users")
     List<Map<String, Object>> searchUsers(@HeaderParam("Authorization") String authHeader,
                                            @PathParam("realm") String realm,
-                                           @QueryParam("email") String email);
+                                           @QueryParam("email") String email,
+                                           @QueryParam("exact") boolean exact);
 
     @GET
     @Path("/{realm}/users/{userId}")

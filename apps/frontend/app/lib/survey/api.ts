@@ -72,6 +72,17 @@ function rememberResumeToken(token: string): void {
   if (typeof window !== "undefined") sessionStorage.setItem(RESUME_TOKEN_KEY, token);
 }
 
+const COLLAB_LINK_KEY = "survey-collab-link";
+
+/** An edit link lets its holder preview the survey it edits without signing in. */
+export function rememberCollabLink(surveyId: string, slug: string): void {
+  if (typeof window !== "undefined") sessionStorage.setItem(`${COLLAB_LINK_KEY}:${surveyId}`, slug);
+}
+
+export function resumeToken(): string | null {
+  return typeof window !== "undefined" ? sessionStorage.getItem(RESUME_TOKEN_KEY) : null;
+}
+
 /** The access token entered for one survey in this tab, if any. */
 export function accessTokenFor(surveyId: string): string | null {
   if (typeof window === "undefined") return null;
@@ -99,9 +110,13 @@ export async function request<T>(
         ? sessionStorage.getItem(ACCESS_TOKEN_KEY)
         : null;
     if (accessToken && !headers["X-Access-Token"]) headers["X-Access-Token"] = accessToken;
-    const resumeToken =
-      typeof window !== "undefined" ? sessionStorage.getItem(RESUME_TOKEN_KEY) : null;
-    if (resumeToken) headers["X-Resume-Token"] = resumeToken;
+    const resume = resumeToken();
+    if (resume) headers["X-Resume-Token"] = resume;
+    const collabLink =
+      surveyId && typeof window !== "undefined"
+        ? sessionStorage.getItem(`${COLLAB_LINK_KEY}:${surveyId}`)
+        : null;
+    if (collabLink) headers["X-Collab-Link"] = collabLink;
     return headers;
   };
 

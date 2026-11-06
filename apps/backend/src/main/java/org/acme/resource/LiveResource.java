@@ -12,6 +12,8 @@ import io.vertx.core.http.HttpServerRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -118,7 +120,7 @@ public class LiveResource {
     @PermitAll
     public Response leaderboard(
         @PathParam("id") String id,
-        @QueryParam("limit") @DefaultValue("10") int limit
+        @QueryParam("limit") @DefaultValue("10") @Min(1) @Max(100) int limit
     ) {
         accessCodes.requireAccess(id);
         return Response.ok(ApiResponse.ok(sessionService.leaderboard(id, limit))).build();

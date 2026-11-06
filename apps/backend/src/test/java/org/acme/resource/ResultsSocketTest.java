@@ -32,9 +32,61 @@ class ResultsSocketTest {
     @Inject
     SurveyService surveys;
 
+    @Inject
+    org.acme.repository.SurveyRepository surveyRepository;
+
+    @Inject
+    org.acme.repository.AccessCodeRepository accessCodeRepository;
+
+    private String publishedSurvey(String owner, boolean requireCode) {
+        String id = surveys.create(owner, new CreateSurveyRequest("Live", null)).id();
+        io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() -> {
+            surveyRepository.findById(id).status = org.acme.entity.SurveyStatus.PUBLISHED;
+            if (requireCode) {
+                var code = new org.acme.entity.AccessCode();
+                code.id = java.util.UUID.randomUUID().toString();
+                code.surveyId = id;
+                code.code = "SECRET12";
+                code.requireCode = true;
+                accessCodeRepository.persist(code);
+            }
+        });
+        return id;
+    }
+
+    private List<String> listen(String id) throws InterruptedException {
+        List<String> received = new CopyOnWriteArrayList<>();
+        var connection = connector.baseUri(baseUri)
+            .addHeader("Origin", "http://localhost:3000")
+            .path("/results-ws/" + id)
+            .onTextMessage((c, message) -> received.add(message))
+            .connectAndAwait();
+        Thread.sleep(300);
+        relay.broadcast(id, "{\"updated\":true}");
+        Thread.sleep(500);
+        if (connection.isOpen()) connection.close().await().indefinitely();
+        return received;
+    }
+
+    @Test
+    void anonymousViewersFollowAPublishedSurvey() throws InterruptedException {
+        assertEquals(1, listen(publishedSurvey("results-ws-owner-c", false)).size());
+    }
+
+    @Test
+    void anonymousViewersNeedTheAccessCode() throws InterruptedException {
+        assertTrue(listen(publishedSurvey("results-ws-owner-d", true)).isEmpty());
+    }
+
+    @Test
+    void anonymousViewersCannotFollowADraft() throws InterruptedException {
+        String id = surveys.create("results-ws-owner-e", new CreateSurveyRequest("Draft", null)).id();
+        assertTrue(listen(id).isEmpty());
+    }
+
     @Test
     void anonymousHostRequestOnlyListens() throws InterruptedException {
-        String id = surveys.create("results-ws-owner-a", new CreateSurveyRequest("Live", null)).id();
+        String id = publishedSurvey("results-ws-owner-a", false);
         List<String> received = new CopyOnWriteArrayList<>();
         var connection = connectAsHost(id, received);
         Thread.sleep(300);

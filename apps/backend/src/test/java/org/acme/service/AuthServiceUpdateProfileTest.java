@@ -39,7 +39,8 @@ class AuthServiceUpdateProfileTest {
         userRepository = mock(UserRepository.class);
         keycloakService = mock(KeycloakService.class);
         authService = new AuthService(
-            userRepository, keycloakService, mock(EmailCodeService.class), mock(GdprService.class));
+            userRepository, keycloakService, mock(EmailCodeService.class), mock(GdprService.class),
+            mock(ApiKeyService.class));
         authService.nameChangeMinIntervalDays = 7;
 
         user = new User();

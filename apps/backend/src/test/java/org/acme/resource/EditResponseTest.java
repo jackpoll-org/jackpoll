@@ -95,4 +95,38 @@ class EditResponseTest {
 
         given().when().get(EDIT + "/does-not-exist").then().statusCode(404);
     }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void editingStopsOnceResultsAreReleased() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Quiz\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String body = """
+            {
+              "title": "Quiz", "status": "published",
+              "settings": { "allowEditResponses": true, "isQuiz": true, "studentResults": true, "resultsReleased": %s },
+              "questions": [{"id":"q-release-%s","type":"short-answer","title":"Name","required":false,"order":0}]
+            }
+            """;
+        String qId = "q-release-" + id.substring(0, 8);
+        given().contentType(ContentType.JSON).body(body.formatted(false, id.substring(0, 8)))
+            .when().put(SURVEYS + "/" + id).then().statusCode(200);
+        String token = given()
+            .contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"" + qId + "\",\"value\":\"Alice\"}]}")
+            .when().post(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(201).extract().path("data.editToken");
+
+        given().contentType(ContentType.JSON).body(body.formatted(true, id.substring(0, 8)))
+            .when().put(SURVEYS + "/" + id).then().statusCode(200);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"" + qId + "\",\"value\":\"Bob\"}]}")
+            .when().put(EDIT + "/" + token)
+            .then().statusCode(404);
+    }
 }

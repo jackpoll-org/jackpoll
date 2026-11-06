@@ -1,5 +1,6 @@
 # ── Security overrides: force patched versions of vulnerable transitives ──
-# dompurify <=3.4.10 ALLOWED_ATTR pollution (via jspdf); postcss <8.5.10 XSS;
+# dompurify <=3.4.16 SAFE_FOR_TEMPLATES / IN_PLACE bypasses (via jspdf);
+# source-map-js <1.2.2 event-loop DoS (via next>postcss); postcss <8.5.10 XSS;
 # @babel/core <7.29.1 arbitrary file read (via next>styled-jsx). Kept in the
 # 7.x line for @babel/core so styled-jsx stays compatible.
 #
@@ -7,8 +8,13 @@
 # dev tooling (@capacitor/assets + cli, jsdom, eslint); majors are forced only
 # where the dependent's API is unchanged (tar 7, uuid 11, sharp 0.35).
 overrides:
-  "dompurify@<3.4.12": ">=3.4.12"
-  "postcss@<8.5.10": ">=8.5.10"
+  "dompurify@<3.4.17": ">=3.4.17"
+  "source-map-js@<1.2.2": "^1.2.2"
+  "postcss@<8.5.23": "^8.5.23"
+  "nanoid@<3.3.18": "^3.3.18"
+  "handlebars@<4.7.10": "^4.7.10"
+  "brace-expansion@>=2 <2.1.7": "^2.1.7"
+  "undici@>=8 <8.12.2": "^8.12.2"
   "@babel/core@<7.29.1": "^7.29.1"
   "tar@<7.5.18": "^7.5.18"
   "js-yaml@<4.3.2": "^4.3.2"

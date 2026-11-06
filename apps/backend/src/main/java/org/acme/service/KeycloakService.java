@@ -3,6 +3,7 @@ package org.acme.service;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.util.Map;
@@ -19,17 +20,13 @@ import org.acme.dto.ApiResponse;
 @ApplicationScoped
 public class KeycloakService {
 
+    private static final Logger LOG = Logger.getLogger(KeycloakService.class);
+
     @ConfigProperty(name = "keycloak.url")
     String keycloakUrl;
 
     @ConfigProperty(name = "keycloak.realm")
     String realm;
-
-    @ConfigProperty(name = "keycloak.admin.username")
-    String adminUsername;
-
-    @ConfigProperty(name = "keycloak.admin.password")
-    String adminPassword;
 
     @ConfigProperty(name = "keycloak.client-id")
     String clientId;
@@ -94,9 +91,10 @@ public class KeycloakService {
         try (var createResponse = adminClient.createUser("Bearer " + adminToken, realm, userRep)) {
             if (createResponse.getStatus() != 201) {
                 if (createResponse.getStatus() == 409) {
-                    return ApiResponse.error("A user with this email already exists");
+                    return ApiResponse.error(EMAIL_TAKEN);
                 }
-                return ApiResponse.error("Failed to create user: " + createResponse.getStatus());
+                LOG.warnf("Keycloak user creation failed with HTTP %d", createResponse.getStatus());
+                return ApiResponse.error(REGISTRATION_FAILED);
             }
 
             // Extract user ID from Location header
@@ -105,9 +103,10 @@ public class KeycloakService {
         } catch (Exception e) {
             // REST Client may throw on non-2xx; check for conflict
             if (e.getMessage() != null && e.getMessage().contains("409")) {
-                return ApiResponse.error("A user with this email already exists");
+                return ApiResponse.error(EMAIL_TAKEN);
             }
-            return ApiResponse.error("Failed to create user: " + e.getMessage());
+            LOG.warnf(e, "Keycloak user creation failed");
+            return ApiResponse.error(REGISTRATION_FAILED);
         }
 
         // Assign "user" role
@@ -176,6 +175,10 @@ public class KeycloakService {
         return ApiResponse.ok(data);
     }
 
+    static final String REGISTRATION_FAILED = "Registration failed. Please try again later.";
+
+    public static final String EMAIL_TAKEN = "A user with this email already exists";
+
     /** Error marker returned by {@link #login} when credentials are valid but the
      *  account email is not yet verified. The resource maps it to HTTP 403. */
     public static final String EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED";
@@ -190,7 +193,7 @@ public class KeycloakService {
     private String keycloakUuid(String adminToken, String idOrEmail) {
         if (idOrEmail == null || !idOrEmail.contains("@")) return idOrEmail;
         var email = idOrEmail.trim().toLowerCase();
-        var users = adminClient.searchUsers("Bearer " + adminToken, realm, email);
+        var users = adminClient.searchUsers("Bearer " + adminToken, realm, email, true);
         return users.stream()
             .filter(u -> email.equalsIgnoreCase((String) u.get("email"))
                 || email.equalsIgnoreCase((String) u.get("username")))
@@ -237,6 +240,7 @@ public class KeycloakService {
             String kcId = keycloakUuid(adminToken, email);
             adminClient.resetPassword("Bearer " + adminToken, realm, kcId,
                 Map.of("type", "password", "value", newPassword, "temporary", false));
+            adminClient.logoutAllSessions("Bearer " + adminToken, realm, kcId);
             return ApiResponse.ok(null);
         } catch (Exception e) {
             return ApiResponse.error("Could not change the password. Please try again.");

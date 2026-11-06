@@ -15,7 +15,7 @@ import jakarta.ws.rs.NotFoundException;
 public class DebugTools {
 
     /** When false the debug endpoints behave as if they don't exist (404). */
-    @ConfigProperty(name = "app.debug-tools-enabled", defaultValue = "true")
+    @ConfigProperty(name = "app.debug-tools-enabled", defaultValue = "false")
     boolean enabled;
 
     @Inject

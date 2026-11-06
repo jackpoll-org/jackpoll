@@ -208,5 +208,49 @@ class SurveyResourceTest {
             .when().get(BASE + "/does-not-exist")
             .then().statusCode(404).body("success", is(false));
     }
-}
 
+    @Test
+    @TestSecurity(user = "owner-1")
+    void update_rejectsNonHexColors() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Colors\"}")
+            .when().post(BASE)
+            .then().statusCode(201).extract().path("data.id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Colors\",\"status\":\"draft\",\"settings\":{\"accentColor\":\"red}body{background:url(http://169.254.169.254/)}\"}}")
+            .when().put(BASE + "/" + id)
+            .then().statusCode(422);
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Colors\",\"status\":\"draft\",\"settings\":{\"accentColor\":\"#6d5ce7\"}}")
+            .when().put(BASE + "/" + id)
+            .then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void organize_rejectsAFolderTheOwnerDoesNotHave() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Folders\"}")
+            .when().post(BASE)
+            .then().statusCode(201).extract().path("data.id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"folderId\":\"not-my-folder\",\"tags\":[]}")
+            .when().put(BASE + "/" + id + "/organize")
+            .then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void list_rejectsOutOfRangePaging() {
+        given().when().get(BASE + "?page=-1").then().statusCode(422);
+        given().when().get(BASE + "?limit=0").then().statusCode(422);
+        given().when().get(BASE + "?limit=101").then().statusCode(422);
+    }
+}

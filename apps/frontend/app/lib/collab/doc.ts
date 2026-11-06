@@ -25,6 +25,27 @@ export interface CollabContent {
   sections: Section[];
 }
 
+/**
+ * Settings only the owner (or someone allowed to read responses) may change.
+ * They stay out of the shared doc: a peer's copy, once taken over, would be
+ * saved with this client's authority.
+ */
+export const PROTECTED_SETTINGS = [
+  "retentionDays",
+  "retentionAnonymize",
+  "ogShowOwner",
+  "showLiveResults",
+  "postSubmitSummary",
+  "studentResults",
+  "resultsReleased",
+] as const satisfies readonly (keyof SurveySettings)[];
+
+function sharedSettings(settings: SurveySettings): SurveySettings {
+  const shared: Record<string, unknown> = { ...settings };
+  for (const key of PROTECTED_SETTINGS) delete shared[key];
+  return shared as unknown as SurveySettings;
+}
+
 const ROOT = "survey";
 
 // Question fields: free-text fields are Y.Text (character-level merge + stable
@@ -187,7 +208,7 @@ export function applyContentToDoc(doc: Y.Doc, content: CollabContent): void {
     setText(ensureText(root, "description"), content.description ?? "");
     setIfChanged(root, "status", content.status);
     // Settings rarely see concurrent edits — stored as one opaque value.
-    setIfChanged(root, "settings", content.settings);
+    setIfChanged(root, "settings", sharedSettings(content.settings));
 
     reconcile(ensureArray(root, "questions"), content.questions, writeQuestion);
     reconcile(ensureArray(root, "sections"), content.sections, writeSection);

@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: survey
       POSTGRES_DB: survey
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -24,8 +24,8 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Console
+      - "127.0.0.1:9000:9000"   # S3 API
+      - "127.0.0.1:9001:9001"   # Console
     volumes:
       - miniodata:/data
     healthcheck:
@@ -40,7 +40,7 @@ services:
     image: redis:7-alpine
     container_name: survey-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -49,11 +49,11 @@ services:
 
   # Mailpit for email testing in dev
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.31.6
     container_name: survey-mailpit
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # Web UI
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
       interval: 3s
@@ -83,8 +83,8 @@ services:
       KC_HTTP_PORT: "8080"
       KC_MANAGEMENT_PORT: "9000"
     ports:
-      - "8180:8080"   # Keycloak HTTP (avoid conflict with Quarkus on 8080)
-      - "9900:9000"   # Keycloak management / health
+      - "127.0.0.1:8180:8080"   # Keycloak HTTP (avoid conflict with Quarkus on 8080)
+      - "127.0.0.1:9900:9000"   # Keycloak management / health
     volumes:
       - ./src/main/keycloak:/opt/keycloak/data/import
     depends_on:

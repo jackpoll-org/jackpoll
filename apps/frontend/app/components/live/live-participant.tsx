@@ -22,6 +22,7 @@ import type { LivePhase } from "@/app/lib/live/messages";
 import { useBeginToken, useSubmitResponse } from "@/app/hooks/survey";
 import { altchaChallengeUrl } from "@/app/lib/survey/api";
 import { validCaptcha } from "@/app/lib/survey/captcha";
+import { getClientId } from "@/app/lib/survey/client-id";
 import { prefersReducedMotion } from "@/app/lib/survey/a11y";
 import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import type { Question, Survey } from "@/app/types/survey";
@@ -178,6 +179,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
         respondentName: asksName && name.trim() ? name.trim() : undefined,
         respondentToken: asksToken ? token.trim() : undefined,
         durationMs: elapsedSince(startedAt),
+        clientId: getClientId(),
         beginToken: beginToken ?? undefined,
         captcha: requireCaptcha && captcha ? await validCaptcha(survey.id, captcha) : undefined,
       });

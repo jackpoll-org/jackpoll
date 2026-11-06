@@ -108,4 +108,60 @@ class CollabLinkResourceTest {
         given().when().delete(SURVEYS + "/" + id + "/collab-link").then().statusCode(204);
         given().when().get(COLLAB + "/" + slug).then().statusCode(404);
     }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void linkHolderCannotChangeOwnerOnlySettings() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Owner settings\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Owner settings\",\"status\":\"draft\",\"settings\":{\"retentionDays\":30}}")
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"title":"Owner settings","status":"draft",
+                 "settings":{"retentionDays":1,"retentionAnonymize":true,"ogShowOwner":true,
+                   "showLiveResults":true,"resultsReleased":true}}
+                """)
+            .when().put(COLLAB + "/" + slug)
+            .then().statusCode(200);
+
+        given().when().get(SURVEYS + "/" + id)
+            .then().statusCode(200)
+            .body("data.settings.retentionDays", is(30))
+            .body("data.settings.retentionAnonymize", is(false))
+            .body("data.settings.ogShowOwner", nullValue())
+            .body("data.settings.showLiveResults", is(false))
+            .body("data.settings.resultsReleased", is(false));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void linkHolderCanPreviewTheSurveyTheLinkEdits() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Preview via link\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        io.restassured.RestAssured.given().auth().none()
+            .contentType(ContentType.JSON)
+            .header("X-Collab-Link", slug)
+            .body("{\"preview\":true,\"answers\":[]}")
+            .when().post(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(201);
+    }
 }

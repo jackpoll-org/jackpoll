@@ -1,8 +1,8 @@
 // ── Stable per-browser client id (issue #31) ────────────────────────
 //
-// A random, anonymous identifier persisted in localStorage. Used only for the
-// optional one-response-per-browser guard (and only created when a survey
-// enables it); the backend stores a hash of it.
+// A random, anonymous identifier persisted in localStorage. Used for the
+// optional one-response-per-browser guard and to tell live quiz players apart;
+// the backend stores a hash of it.
 
 const KEY = "survey-client-id";
 

@@ -97,12 +97,15 @@ public class AccessCodeService {
      * response to this survey (resume and edit links), and for its members.
      */
     public void requireAccess(String surveyId) {
+        requireAccess(surveyId, request.getHeader("X-Access-Token"), request.getHeader("X-Resume-Token"));
+    }
+
+    public void requireAccess(String surveyId, String accessToken, String resume) {
         var entity = codes.findBySurvey(surveyId).orElse(null);
         if (entity == null || !entity.requireCode) return;
-        if (SpamProtectionService.constantTimeEquals(accessToken(entity), request.getHeader("X-Access-Token"))) {
+        if (SpamProtectionService.constantTimeEquals(accessToken(entity), accessToken)) {
             return;
         }
-        var resume = request.getHeader("X-Resume-Token");
         if (resume != null && !resume.isBlank()
                 && (drafts.findByToken(resume).filter(d -> surveyId.equals(d.surveyId)).isPresent()
                     || responses.findByEditToken(resume).filter(r -> surveyId.equals(r.surveyId)).isPresent())) {

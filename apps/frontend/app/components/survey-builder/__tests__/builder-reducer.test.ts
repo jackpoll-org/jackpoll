@@ -276,6 +276,33 @@ describe("builderReducer", () => {
     expect(next.survey.title).toBe("Remote");
   });
 
+  it("applyRemote never takes over a peer's owner-only settings", () => {
+    const local = baseSurvey();
+    const next = builderReducer(state(local), {
+      type: "applyRemote",
+      content: {
+        title: local.title,
+        description: undefined,
+        status: "draft",
+        settings: {
+          ...local.settings,
+          retentionDays: 1,
+          showLiveResults: true,
+          resultsReleased: true,
+          ogShowOwner: true,
+          showProgressBar: !local.settings.showProgressBar,
+        },
+        questions: [],
+        sections: [],
+      },
+    });
+    expect(next.survey.settings.retentionDays).toBe(local.settings.retentionDays);
+    expect(next.survey.settings.showLiveResults).toBe(local.settings.showLiveResults);
+    expect(next.survey.settings.resultsReleased).toBe(local.settings.resultsReleased);
+    expect(next.survey.settings.ogShowOwner).toBe(local.settings.ogShowOwner);
+    expect(next.survey.settings.showProgressBar).toBe(!local.settings.showProgressBar);
+  });
+
   it("saved clears locallyDirty", () => {
     const dirty = builderReducer(state(baseSurvey()), {
       type: "updateMeta",

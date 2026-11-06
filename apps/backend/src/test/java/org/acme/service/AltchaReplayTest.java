@@ -39,4 +39,15 @@ class AltchaReplayTest {
         assertDoesNotThrow(() -> spam.verifyCaptcha(payload, "survey-a"));
         assertThrows(SpamRejectedException.class, () -> spam.verifyCaptcha(payload, "survey-b"));
     }
+
+    @Test
+    void beginTokensExpireAfterADay() {
+        long now = java.time.Instant.now().getEpochSecond();
+        long old = now - SpamProtectionService.BEGIN_TOKEN_MAX_AGE_SECONDS - 60;
+        String fresh = (now - 10) + "." + spam.hmacHex("survey-a:" + (now - 10));
+        String stale = old + "." + spam.hmacHex("survey-a:" + old);
+
+        assertDoesNotThrow(() -> spam.verifyTiming("survey-a", fresh, 0));
+        assertThrows(SpamRejectedException.class, () -> spam.verifyTiming("survey-a", stale, 0));
+    }
 }

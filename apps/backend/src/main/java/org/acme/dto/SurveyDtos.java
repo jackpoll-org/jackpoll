@@ -9,6 +9,8 @@ import org.acme.entity.SurveyStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -17,6 +19,8 @@ import jakarta.validation.constraints.Size;
  * to avoid mapping drift between backend and frontend.
  */
 public final class SurveyDtos {
+
+    public static final String HEX_COLOR = "^(#[0-9a-fA-F]{3,8})?$";
 
     private SurveyDtos() {}
 
@@ -93,8 +97,8 @@ public final class SurveyDtos {
         Integer responseLimit,
         boolean showLiveResults,
         boolean postSubmitSummary,
-        String accentColor,
-        String backgroundColor,
+        @Pattern(regexp = HEX_COLOR) String accentColor,
+        @Pattern(regexp = HEX_COLOR) String backgroundColor,
         String logoUrl,
         String headerImageUrl,
         boolean showPoweredBy,
@@ -113,7 +117,7 @@ public final class SurveyDtos {
         // Outcome pages (issue #83)
         java.util.List<OutcomeDto> outcomes,
         // Data retention (issue #64)
-        Integer retentionDays,
+        @PositiveOrZero Integer retentionDays,
         boolean retentionAnonymize,
         // Respondent privacy notice & legal basis (issue #63)
         String privacyNotice,

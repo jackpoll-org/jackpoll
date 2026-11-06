@@ -178,7 +178,8 @@ public class SurveyMapper {
         s.description = req.description();
         s.status = req.status();
         var previous = s.settings;
-        s.settings = fromSettingsDto(req.settings());
+        // An update that sends no settings keeps the stored ones rather than resetting them.
+        s.settings = req.settings() == null && previous != null ? previous : fromSettingsDto(req.settings());
         keepPreviewSettings(previous, s.settings);
         s.sections = fromSectionDtos(req.sections());
         // Multilingual content (issue #37) — stored verbatim; ids stay stable.

@@ -1,11 +1,15 @@
 package org.acme.service;
 
 import java.security.Security;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.acme.entity.DeviceToken;
 import org.acme.entity.NotificationChannel;
@@ -73,12 +77,21 @@ public class PushService {
     @Inject
     ApnsService apns;
 
-    private static final ExecutorService PUSH_EXECUTOR =
-        Executors.newSingleThreadExecutor(r -> {
+    @Inject
+    PinnedHttpClient pinnedHttp;
+
+    static final long SEND_TIMEOUT_SECONDS = 15;
+
+    static final int MAX_DEVICES_PER_USER = 20;
+
+    private static final ExecutorService PUSH_EXECUTOR = new ThreadPoolExecutor(
+        4, 4, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(10_000),
+        r -> {
             var t = new Thread(r, "push-dispatch");
             t.setDaemon(true);
             return t;
-        });
+        },
+        (task, pool) -> LOG.warn("push queue full; dropping a notification"));
 
     /** Web Push client, built lazily from the VAPID keys (#74). */
     private volatile nl.martijndwars.webpush.PushService webPush;
@@ -116,6 +129,10 @@ public class PushService {
             existing.auth = auth;
             return;
         }
+        // Every send loops over a user's devices, so their number is capped.
+        var owned = new ArrayList<>(devices.findByUser(userId));
+        owned.sort(Comparator.comparing((DeviceToken d) -> d.createdAt, Comparator.nullsFirst(Comparator.naturalOrder())));
+        for (int i = 0; i <= owned.size() - MAX_DEVICES_PER_USER; i++) devices.delete(owned.get(i));
         var device = new DeviceToken();
         device.id = UUID.randomUUID().toString();
         device.userId = userId;
@@ -250,7 +267,6 @@ public class PushService {
         // (this is also how legacy FCM tokens get pruned after the update).
         if (!target.deliverableWeb()) return SendResult.INVALID_TOKEN;
         try {
-            urlGuard.ensureAllowed(target.token());
             var subscription = new nl.martijndwars.webpush.Subscription(
                 target.token(),
                 new nl.martijndwars.webpush.Subscription.Keys(target.p256dh(), target.auth()));
@@ -260,9 +276,11 @@ public class PushService {
             // to the legacy draft-04 "aesgcm" encoding, which the UnifiedPush
             // connector (RFC 8291 only) cannot decrypt — the app then shows the
             // raw ciphertext as garbled notification text.
-            var response = client.send(
-                notification, nl.martijndwars.webpush.Encoding.AES128GCM);
-            int status = response.getStatusLine().getStatusCode();
+            var post = client.preparePost(notification, nl.martijndwars.webpush.Encoding.AES128GCM);
+            var headers = new java.util.LinkedHashMap<String, String>();
+            for (var header : post.getAllHeaders()) headers.put(header.getName(), header.getValue());
+            int status = pinnedHttp.post(target.token(), headers,
+                org.apache.http.util.EntityUtils.toByteArray(post.getEntity()), SEND_TIMEOUT_SECONDS);
             if (status >= 200 && status < 300) return SendResult.OK;
             // 404 Not Found / 410 Gone = the subscription expired or the user
             // unsubscribed → drop it.

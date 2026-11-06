@@ -8,6 +8,8 @@ import org.acme.service.NotificationsService;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
@@ -36,8 +38,8 @@ public class NotificationsResource {
 
     @GET
     public Response list(
-        @QueryParam("page") @DefaultValue("0") int page,
-        @QueryParam("limit") @DefaultValue("20") int limit) {
+        @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+        @QueryParam("limit") @DefaultValue("20") @Min(1) @Max(100) int limit) {
         var result = service.list(userId(), page, limit);
         return Response.ok(
             ApiResponse.ok(result.items(), new ApiResponse.Meta(result.total(), page, limit))

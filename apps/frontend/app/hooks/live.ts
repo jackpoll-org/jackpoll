@@ -179,7 +179,13 @@ export function useLiveLeaderboard(surveyId: string, limit: number) {
       if (!res.success || !res.data) {
         throw new Error(localizeServerError(res.error ?? "Failed to load leaderboard"));
       }
-      return res.data;
+      // Players are told apart by device, so two can share a name.
+      const seen = new Map<string, number>();
+      return res.data.map((entry) => {
+        const n = seen.get(entry.name) ?? 0;
+        seen.set(entry.name, n + 1);
+        return { ...entry, key: n ? `${entry.name}#${n}` : entry.name };
+      });
     },
     refetchInterval: LEADERBOARD_POLL_MS,
   });

@@ -44,6 +44,9 @@ public class SurveyService {
     SurveyMapper mapper;
 
     @Inject
+    org.acme.repository.FolderRepository folders;
+
+    @Inject
     org.acme.repository.RespondentTokenRepository respondentTokens;
 
     // ── Listing (owned + collaborated) ────────────────────────────
@@ -109,18 +112,35 @@ public class SurveyService {
     @Transactional
     public SurveyDto update(String userId, String id, UpdateSurveyRequest req) {
         var survey = requireEditable(userId, id);
+        applyEdit(survey, req, isOwner(userId, survey), false);
+        return mapper.toDto(survey);
+    }
+
+    /** Apply an edit; owner-only settings (owner name on link previews, data
+     *  retention) keep their values when a collaborator or edit link sends it,
+     *  and an edit link, which carries no right to read responses, can't change
+     *  who sees results either. */
+    @Transactional
+    public void applyEdit(Survey survey, UpdateSurveyRequest req, boolean owner, boolean editLink) {
         // Drafts can be saved incomplete (untitled questions, empty options);
         // completeness is required only when publishing (#).
         if (req.status() == SurveyStatus.PUBLISHED) {
             ensurePublishable(req);
         }
-        var showOwner = survey.settings != null ? survey.settings.ogShowOwner : null;
+        var previous = survey.settings;
         mapper.applyUpdate(survey, req);
-        if (!isOwner(userId, survey)) {
-            survey.settings.ogShowOwner = showOwner;
+        if (!owner && survey.settings != null) {
+            survey.settings.ogShowOwner = previous == null ? null : previous.ogShowOwner;
+            survey.settings.retentionDays = previous == null ? null : previous.retentionDays;
+            survey.settings.retentionAnonymize = previous != null && previous.retentionAnonymize;
+        }
+        if (editLink && survey.settings != null) {
+            survey.settings.showLiveResults = previous != null && previous.showLiveResults;
+            survey.settings.postSubmitSummary = previous != null && previous.postSubmitSummary;
+            survey.settings.studentResults = previous != null && previous.studentResults;
+            survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
         repository.persist(survey);
-        return mapper.toDto(survey);
     }
 
     /** Reject a publish that still has blank question titles or option labels. */
@@ -151,6 +171,9 @@ public class SurveyService {
     @Transactional
     public SurveyDto organize(String userId, String id, org.acme.dto.SurveyDtos.OrganizeRequest req) {
         var survey = requireEditable(userId, id);
+        if (req.folderId() != null && folders.findByIdAndOwner(req.folderId(), survey.ownerId).isEmpty()) {
+            throw new ResourceNotFoundException("Folder not found: " + req.folderId());
+        }
         survey.tags = req.tags() != null ? req.tags() : new java.util.ArrayList<>();
         // Moving folders? Drop to the end of the destination bucket so the
         // manual order stays sensible (issue #94).

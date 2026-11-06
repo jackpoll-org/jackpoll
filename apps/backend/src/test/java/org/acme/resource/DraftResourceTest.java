@@ -19,12 +19,18 @@ class DraftResourceTest {
 
     /** Create a survey (requires the caller to be authenticated). */
     private static String createSurvey() {
-        return given()
+        String id = given()
             .contentType(ContentType.JSON)
             .body("{\"title\":\"Draftable\"}")
             .when().post(SURVEYS)
             .then().statusCode(201)
             .extract().path("data.id");
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Draftable\",\"status\":\"published\",\"questions\":[]}")
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        return id;
     }
 
     @Test
@@ -109,5 +115,28 @@ class DraftResourceTest {
         given().when().get(DRAFTS + "/" + token).then().statusCode(404);
         // deleting again is idempotent
         given().when().delete(DRAFTS + "/" + token).then().statusCode(204);
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void oversizedDraftsAndUnpublishedSurveysAreRefused() {
+        String id = createSurvey();
+        String big = "x".repeat(9_000);
+        var answers = new StringBuilder();
+        for (int i = 0; i < 40; i++) {
+            if (i > 0) answers.append(',');
+            answers.append("{\"questionId\":\"q").append(i).append("\",\"value\":\"").append(big).append("\"}");
+        }
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[" + answers + "]}")
+            .when().post(PUBLIC + "/" + id + "/drafts")
+            .then().statusCode(400);
+
+        String draftSurvey = given().contentType(ContentType.JSON).body("{\"title\":\"Unpublished\"}")
+            .when().post(SURVEYS).then().statusCode(201).extract().path("data.id");
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[]}")
+            .when().post(PUBLIC + "/" + draftSurvey + "/drafts")
+            .then().statusCode(404);
     }
 }

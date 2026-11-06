@@ -9,6 +9,8 @@ import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -43,8 +45,8 @@ public class SurveyResource {
 
     @GET
     public Response list(
-        @QueryParam("page") @DefaultValue("0") int page,
-        @QueryParam("limit") @DefaultValue("20") int limit
+        @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+        @QueryParam("limit") @DefaultValue("20") @Min(1) @Max(100) int limit
     ) {
         var owner = ownerId();
         var data = surveyService.list(owner, page, limit);

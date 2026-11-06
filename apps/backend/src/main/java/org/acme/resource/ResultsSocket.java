@@ -1,6 +1,7 @@
 package org.acme.resource;
 
 import io.quarkus.security.identity.SecurityIdentity;
+import io.quarkus.websockets.next.CloseReason;
 import io.quarkus.websockets.next.OnClose;
 import io.quarkus.websockets.next.OnOpen;
 import io.quarkus.websockets.next.WebSocket;
@@ -8,7 +9,11 @@ import io.quarkus.websockets.next.WebSocketConnection;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 
+import org.acme.entity.SurveyStatus;
+import org.acme.exception.ForbiddenAccessException;
 import org.acme.exception.ResourceNotFoundException;
+import org.acme.repository.SurveyRepository;
+import org.acme.service.AccessCodeService;
 import org.acme.service.SurveyService;
 
 /**
@@ -33,10 +38,37 @@ public class ResultsSocket {
     @Inject
     SecurityIdentity identity;
 
+    @Inject
+    SurveyRepository surveys;
+
+    @Inject
+    AccessCodeService accessCodes;
+
     @OnOpen
     @ActivateRequestContext
     public void onOpen(WebSocketConnection connection) {
-        relay.register(room(connection), connection, wantsHost(connection) && canHost(room(connection)));
+        String surveyId = room(connection);
+        boolean member = isMember(surveyId);
+        if (!member && !mayListen(connection, surveyId)) {
+            connection.closeAndAwait(new CloseReason(CollabSocket.FORBIDDEN, "forbidden"));
+            return;
+        }
+        relay.register(surveyId, connection, wantsHost(connection) && member);
+    }
+
+    /** Anyone may follow a published survey's results, given its access code when it has one. */
+    private boolean mayListen(WebSocketConnection connection, String surveyId) {
+        var published = surveys.findByIdOptional(surveyId)
+            .filter(s -> s.status == SurveyStatus.PUBLISHED).isPresent();
+        if (!published) return false;
+        var handshake = connection.handshakeRequest();
+        try {
+            accessCodes.requireAccess(surveyId,
+                handshake.header("X-Access-Token"), handshake.header("X-Resume-Token"));
+            return true;
+        } catch (ForbiddenAccessException e) {
+            return false;
+        }
     }
 
     @OnClose
@@ -49,7 +81,7 @@ public class ResultsSocket {
     }
 
     /** Lobby check-ins go to members of the survey only; anyone else asking for the role just listens. */
-    private boolean canHost(String surveyId) {
+    private boolean isMember(String surveyId) {
         if (identity.isAnonymous()) return false;
         try {
             surveyService.requireReadable(identity.getPrincipal().getName(), surveyId);

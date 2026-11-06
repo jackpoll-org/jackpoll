@@ -103,7 +103,8 @@ public final class FileContentValidator {
         String lower = decodeCharacterReferences(text).toLowerCase(Locale.ROOT);
         if (!lower.contains("<svg")) return false;
         if (SCRIPT_ELEMENT.matcher(lower).find() || lower.replaceAll("\\s", "").contains("javascript:")
-            || lower.contains("<!entity")) return false;
+            || lower.contains("<!entity")
+            || lower.contains("<?xml-stylesheet") || lower.contains("xsl:")) return false;
         if (lower.matches("(?s).*[\\s/\"']on[a-z]+\\s*=.*")) return false;
         return true;
     }

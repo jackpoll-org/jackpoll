@@ -201,4 +201,74 @@ class ResponseResourceTest {
             .when().get(BASE + "/" + surveyId + "/responses")
             .then().statusCode(200).body("data.size()", is(2));
     }
+
+    private String choiceSurvey(String settings) {
+        String id = given().contentType(ContentType.JSON).body("{\"title\":\"Choices\"}")
+            .when().post(BASE).then().statusCode(201).extract().path("data.id");
+        String p = id.substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("""
+                {"title":"Choices","status":"published","settings":%2$s,
+                 "questions":[{"id":"q-%1$s","type":"multiple-choice","title":"Pick","required":false,
+                   "order":0,"points":1,"correctAnswers":["a-%1$s"],
+                   "options":[{"id":"a-%1$s","label":"A"},{"id":"b-%1$s","label":"B"}]}]}
+                """.formatted(p, settings))
+            .when().put(BASE + "/" + id).then().statusCode(200);
+        return id;
+    }
+
+    @Test
+    @TestSecurity(user = "owner-dupes")
+    void repeatedAnswersCountOnceAndUnknownChoicesAreRejected() {
+        String id = choiceSurvey("{}");
+        String p = id.substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"q-" + p + "\",\"value\":\"a-" + p + "\"},"
+                + "{\"questionId\":\"q-" + p + "\",\"value\":\"a-" + p + "\"}]}")
+            .when().post(BASE + "/" + id + "/responses")
+            .then().statusCode(201).body("data.answers.size()", is(1));
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"q-" + p + "\",\"value\":\"<b>made up</b>\"}]}")
+            .when().post(BASE + "/" + id + "/responses")
+            .then().statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "owner-hidden-score")
+    void scoreStaysHiddenWhenAnswersAreNeverShown() {
+        String id = choiceSurvey("{\"isQuiz\":true,\"showCorrectAnswers\":\"never\"}");
+        String p = id.substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"q-" + p + "\",\"value\":\"a-" + p + "\"}]}")
+            .when().post(BASE + "/" + id + "/responses")
+            .then().statusCode(201).body("data.score", org.hamcrest.Matchers.nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "owner-type-swap")
+    void freeTextNeverShowsUpAsAnOptionAfterATypeChange() {
+        String id = given().contentType(ContentType.JSON).body("{\"title\":\"Swap\"}")
+            .when().post(BASE).then().statusCode(201).extract().path("data.id");
+        String p = id.substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("""
+                {"title":"Swap","status":"published","settings":{},
+                 "questions":[{"id":"q-%s","type":"short-answer","title":"Secret","required":false,"order":0}]}
+                """.formatted(p))
+            .when().put(BASE + "/" + id).then().statusCode(200);
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"q-" + p + "\",\"value\":\"my secret\"}]}")
+            .when().post(BASE + "/" + id + "/responses").then().statusCode(201);
+        given().contentType(ContentType.JSON)
+            .body("""
+                {"title":"Swap","status":"published","settings":{},
+                 "questions":[{"id":"q-%1$s","type":"multiple-choice","title":"Secret","required":false,"order":0,
+                   "options":[{"id":"o-%1$s","label":"A"}]}]}
+                """.formatted(p))
+            .when().put(BASE + "/" + id).then().statusCode(200);
+
+        given().when().get(BASE + "/" + id + "/results")
+            .then().statusCode(200)
+            .body("data.questions[0].optionCounts.keySet()", org.hamcrest.Matchers.not(hasItem("my secret")));
+    }
 }
