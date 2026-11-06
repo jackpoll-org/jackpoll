@@ -70,7 +70,7 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
   },
   "multiple-choice": {
     type: "multiple-choice",
-    label: "Multiple choice",
+    label: "Single choice",
     labelKey: "qtype.multiple-choice",
     icon: CircleDot,
     createDefaults: () => ({ options: [createOption("Option 1")] }),
@@ -79,7 +79,7 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
   },
   checkboxes: {
     type: "checkboxes",
-    label: "Checkboxes",
+    label: "Multiple choice",
     labelKey: "qtype.checkboxes",
     icon: ListChecks,
     createDefaults: () => ({ options: [createOption("Option 1")] }),
@@ -97,7 +97,7 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
   },
   "multiple-choice-grid": {
     type: "multiple-choice-grid",
-    label: "Multiple choice grid",
+    label: "Single choice grid",
     labelKey: "qtype.multiple-choice-grid",
     icon: Grid3x3,
     createDefaults: () => ({
@@ -109,7 +109,7 @@ export const QUESTION_TYPES: Record<QuestionType, QuestionTypeDefinition> = {
   },
   "checkbox-grid": {
     type: "checkbox-grid",
-    label: "Checkbox grid",
+    label: "Multiple choice grid",
     labelKey: "qtype.checkbox-grid",
     icon: LayoutGrid,
     createDefaults: () => ({

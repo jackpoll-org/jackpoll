@@ -258,6 +258,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
           <QuestionQuizEditor
             question={question}
             onChange={(patch) => updateQuestion(question.id, patch)}
+            liveMode={survey.settings.liveMode === true}
           />
         )}
 

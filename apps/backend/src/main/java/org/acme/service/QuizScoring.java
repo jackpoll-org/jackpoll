@@ -58,11 +58,37 @@ public final class QuizScoring {
     public static int score(Survey survey, Map<String, Object> answers) {
         int total = 0;
         for (var q : survey.questions) {
-            if (isScorable(q) && isCorrect(q, answers.get(q.id))) {
-                total += pointsFor(q);
-            }
+            total += autoPoints(q, answers.get(q.id));
         }
         return total;
+    }
+
+    public static boolean usesPartialCredit(Question q) {
+        return q.type == QuestionType.CHECKBOXES && q.settings != null
+            && Boolean.TRUE.equals(q.settings.get("partialCredit"));
+    }
+
+    public static int autoPoints(Question q, Object value) {
+        if (!isScorable(q)) return 0;
+        if (usesPartialCredit(q)) return partialCredit(q, value);
+        return isCorrect(q, value) ? pointsFor(q) : 0;
+    }
+
+    private static int partialCredit(Question q, Object value) {
+        if (!(value instanceof List<?> list)) return 0;
+        var correct = new HashSet<>(q.correctAnswers);
+        var selected = new HashSet<String>();
+        for (var item : list) {
+            if (item instanceof String s) selected.add(s);
+        }
+        int hits = 0;
+        int misses = 0;
+        for (var s : selected) {
+            if (correct.contains(s)) hits++;
+            else misses++;
+        }
+        int net = Math.max(0, hits - misses);
+        return pointsFor(q) * net / correct.size();
     }
 
     public static boolean isCorrect(Question q, Object value) {

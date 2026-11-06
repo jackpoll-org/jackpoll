@@ -39,6 +39,11 @@ public final class ResponseDtos {
     /** Grades to set on one response (public #6). */
     public record GradeRequest(@NotNull @Size(max = 500) List<@Valid @NotNull GradeDto> grades) {}
 
+    public record QuestionGradeDto(@NotNull @Size(max = 36) String responseId, Integer points) {}
+
+    public record QuestionGradeRequest(
+        @NotNull @Size(max = 1000) List<@Valid @NotNull QuestionGradeDto> grades) {}
+
     public record ReviewRequest(
         @Min(-1000) @Max(1000) Integer bonusPoints,
         @Size(max = 5000) String feedback

@@ -63,7 +63,11 @@ function AcceptedAnswersEditor({
 }
 
 /** Quiz config for a question: points + correct answer(s) (issue #10). */
-export function QuestionQuizEditor({ question, onChange }: QuestionEditorProps) {
+export function QuestionQuizEditor({
+  question,
+  onChange,
+  liveMode = false,
+}: QuestionEditorProps & { liveMode?: boolean }) {
   const { t } = useTranslation();
   const correct = question.correctAnswers ?? [];
 
@@ -252,6 +256,23 @@ export function QuestionQuizEditor({ question, onChange }: QuestionEditorProps) 
         <span className="text-sm font-medium">{t("builder.quiz.correctAnswer")}</span>
         {answerConfig()}
       </div>
+      {question.type === "checkboxes" && !liveMode && (
+        <div className="grid gap-1">
+          <div className="flex items-center gap-2">
+            <Switch
+              id={`partial-${question.id}`}
+              checked={question.settings?.partialCredit === true}
+              onCheckedChange={(c) =>
+                onChange({ settings: { ...(question.settings ?? {}), partialCredit: c } })
+              }
+            />
+            <Label htmlFor={`partial-${question.id}`} className="font-normal">
+              {t("builder.quiz.partialCredit")}
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("builder.quiz.partialCreditHint")}</p>
+        </div>
+      )}
       {question.type === "short-answer" && correct.length === 0 && (
         <>
           {manualGradingToggle()}

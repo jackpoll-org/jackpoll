@@ -6,6 +6,7 @@ import java.time.LocalDate;
 
 import org.acme.dto.ApiResponse;
 import org.acme.dto.ResponseDtos.GradeRequest;
+import org.acme.dto.ResponseDtos.QuestionGradeRequest;
 import org.acme.dto.ResponseDtos.ReviewRequest;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
@@ -122,6 +123,19 @@ public class ResponseResource {
     ) {
         ResponseDto dto = responseService.grade(ownerId(), id, responseId, req.grades());
         return Response.ok(ApiResponse.ok(dto)).build();
+    }
+
+    @PUT
+    @Path("/{id}/questions/{questionId}/grades")
+    @Authenticated
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response gradeQuestion(
+        @PathParam("id") String id,
+        @PathParam("questionId") String questionId,
+        @Valid @NotNull QuestionGradeRequest req
+    ) {
+        var graded = responseService.gradeQuestion(ownerId(), id, questionId, req.grades());
+        return Response.ok(ApiResponse.ok(graded)).build();
     }
 
     @PUT

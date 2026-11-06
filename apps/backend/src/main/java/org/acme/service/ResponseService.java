@@ -14,6 +14,7 @@ import java.util.UUID;
 import org.acme.dto.ResponseDtos.AnswerDto;
 import org.acme.dto.ResponseDtos.FileRefDto;
 import org.acme.dto.ResponseDtos.GradeDto;
+import org.acme.dto.ResponseDtos.QuestionGradeDto;
 import org.acme.dto.ResponseDtos.QuestionResultDto;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.ResponseEditView;
@@ -639,28 +640,68 @@ public class ResponseService {
 
         var questions = new HashMap<String, Question>();
         for (var q : survey.questions) questions.put(q.id, q);
-        var answers = new HashMap<String, ResponseAnswer>();
-        for (var a : response.answers) answers.put(a.questionId, a);
 
         var now = Instant.now();
         for (var g : grades) {
-            var q = questions.get(g.questionId());
-            if (q == null || !(QuizScoring.isManuallyGraded(q) || overridable && QuizScoring.isScorable(q))) {
-                throw badRequest("This question can't be graded manually.");
-            }
-            var answer = answers.get(g.questionId());
-            if (answer == null || isBlankAnswer(answer.value)) {
-                throw badRequest("There is no answer to grade for this question.");
-            }
-            int max = QuizScoring.pointsFor(q);
-            if (g.points() != null && (g.points() < 0 || g.points() > max)) {
-                throw badRequest("Points must be between 0 and " + max + ".");
-            }
-            answer.awardedPoints = g.points();
-            answer.gradedAt = g.points() != null ? now : null;
+            setGrade(requireGradableQuestion(questions.get(g.questionId()), overridable),
+                response, g.points(), now);
         }
         applyManualGrades(survey, response);
         return toDto(response, survey, true, false, true);
+    }
+
+    @Transactional
+    public void rescore(Survey survey) {
+        if (survey.settings == null || !survey.settings.isQuiz || survey.settings.liveMode) return;
+        for (var response : responseRepository.list("surveyId", survey.id)) {
+            var values = new HashMap<String, Object>();
+            for (var a : response.answers) values.put(a.questionId, a.value);
+            response.autoScore = QuizScoring.score(survey, values);
+            applyManualGrades(survey, response);
+        }
+    }
+
+    @Transactional
+    public List<ResponseDto> gradeQuestion(
+        String userId, String surveyId, String questionId, List<QuestionGradeDto> grades) {
+        var survey = surveyService.requireEditable(userId, surveyId);
+        if (survey.settings == null || !survey.settings.isQuiz) {
+            throw badRequest("Grading is only available for quizzes.");
+        }
+        var question = requireGradableQuestion(
+            survey.questions.stream().filter(q -> q.id.equals(questionId)).findFirst().orElse(null),
+            !survey.settings.liveMode);
+
+        var now = Instant.now();
+        var graded = new ArrayList<ResponseDto>();
+        for (var g : grades) {
+            var response = requireGradableResponse(survey, g.responseId());
+            setGrade(question, response, g.points(), now);
+            applyManualGrades(survey, response);
+            graded.add(toDto(response, survey, true, false, true));
+        }
+        return graded;
+    }
+
+    private static Question requireGradableQuestion(Question q, boolean overridable) {
+        if (q == null || !(QuizScoring.isManuallyGraded(q) || overridable && QuizScoring.isScorable(q))) {
+            throw badRequest("This question can't be graded manually.");
+        }
+        return q;
+    }
+
+    private static void setGrade(Question q, SurveyResponse response, Integer points, Instant now) {
+        var answer = response.answers.stream()
+            .filter(a -> a.questionId.equals(q.id))
+            .findFirst()
+            .filter(a -> !isBlankAnswer(a.value))
+            .orElseThrow(() -> badRequest("There is no answer to grade for this question."));
+        int max = QuizScoring.pointsFor(q);
+        if (points != null && (points < 0 || points > max)) {
+            throw badRequest("Points must be between 0 and " + max + ".");
+        }
+        answer.awardedPoints = points;
+        answer.gradedAt = points != null ? now : null;
     }
 
     @Transactional
@@ -1155,7 +1196,7 @@ public class ResponseService {
     }
 
     private static int autoPoints(Question q, Object value) {
-        return QuizScoring.isCorrect(q, value) ? QuizScoring.pointsFor(q) : 0;
+        return QuizScoring.autoPoints(q, value);
     }
 
     /** An owner who never shows correct answers doesn't hand out the score either:
@@ -1381,7 +1422,7 @@ public class ResponseService {
 
     private static final java.security.SecureRandom EDIT_RANDOM = new java.security.SecureRandom();
     private static final String RESULT_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-    private static final int RESULT_CODE_LENGTH = 8;
+    private static final int RESULT_CODE_LENGTH = 6;
 
     private static String randomEditToken() {
         byte[] bytes = new byte[32];

@@ -414,6 +414,11 @@ export interface GradeInput {
   points: number | null;
 }
 
+export interface QuestionGradeInput {
+  responseId: string;
+  points: number | null;
+}
+
 export interface SubmitResponseRequest {
   durationMs?: number;
   answers: AnswerInput[];

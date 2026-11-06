@@ -1,5 +1,13 @@
 import type { Question, SurveyResponseDto } from "@/app/types/survey";
 
+const UNGROUPED_TYPES = new Set<Question["type"]>(["file-upload", "signature"]);
+
+export interface AnswerGroup {
+  key: string;
+  value: unknown;
+  responses: SurveyResponseDto[];
+}
+
 // Manual grading (public #6). Mirrors QuizScoring.isManuallyGraded / pointsFor
 // on the backend, which is the source of truth for scores.
 
@@ -45,5 +53,36 @@ export function nextPendingIndex(responses: SurveyResponseDto[], from: number): 
 }
 
 export function formatResultCode(code: string): string {
-  return code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+  if (code.length === 8) return `${code.slice(0, 4)}-${code.slice(4)}`;
+  if (code.length === 6) return `${code.slice(0, 3)}-${code.slice(3)}`;
+  return code;
+}
+
+export function answerKey(question: Question, value: unknown): string {
+  if (typeof value === "string") return value.trim().replace(/\s+/g, " ");
+  if (Array.isArray(value)) return JSON.stringify(value.map(String).toSorted());
+  return JSON.stringify(value);
+}
+
+export function groupAnswers(question: Question, responses: SurveyResponseDto[]): AnswerGroup[] {
+  const groups = new Map<string, AnswerGroup>();
+  for (const response of responses) {
+    const answer = response.answers.find((a) => a.questionId === question.id);
+    const value = answer?.value;
+    if (!hasAnswer(value)) continue;
+    const key = UNGROUPED_TYPES.has(question.type)
+      ? `response:${response.id}`
+      : `${answerKey(question, value)}|${answer?.autoPoints ?? ""}`;
+    const group = groups.get(key);
+    if (group) group.responses.push(response);
+    else groups.set(key, { key, value, responses: [response] });
+  }
+  return [...groups.values()].toSorted((a, b) => b.responses.length - a.responses.length);
+}
+
+export function sharedPoints(question: Question, responses: SurveyResponseDto[]): number | null | "mixed" {
+  const points = responses.map(
+    (r) => r.answers.find((a) => a.questionId === question.id)?.awardedPoints ?? null,
+  );
+  return points.every((p) => p === points[0]) ? points[0] : "mixed";
 }

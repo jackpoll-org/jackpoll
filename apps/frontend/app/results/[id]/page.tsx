@@ -46,7 +46,7 @@ export default function StudentResultPage() {
                   autoCapitalize="characters"
                   maxLength={32}
                   className="font-mono uppercase tracking-widest"
-                  placeholder="ABCD-EFGH"
+                  placeholder="ABC-DEF"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                 />

@@ -8,6 +8,7 @@ import org.acme.dto.ResponseDtos.RespondedRequest;
 import org.acme.dto.ResponseDtos.ResultLookupRequest;
 import org.acme.dto.SpamDtos.BeginResponse;
 import org.acme.exception.RateLimitedException;
+import org.acme.exception.ResourceNotFoundException;
 import org.acme.service.AccessCodeService;
 import org.acme.service.AnalyticsService;
 import org.acme.service.DraftService;
@@ -60,6 +61,7 @@ public class PublicSurveyResource {
     RateLimiterService rateLimiter;
 
     private static final int RESULT_LOOKUPS_PER_MINUTE = 10;
+    private static final int RESULT_MISSES_PER_HOUR = 60;
 
     @GET
     @Path("/{id}")
@@ -145,10 +147,17 @@ public class PublicSurveyResource {
         @Context HttpServerRequest http
     ) {
         var ip = ClientIp.of(forwardedFor, http);
-        if (!rateLimiter.allow("result-code|" + (ip == null ? "unknown" : ip), RESULT_LOOKUPS_PER_MINUTE, 60)) {
+        var missKey = "result-miss|" + id;
+        if (!rateLimiter.allow("result-code|" + ClientIp.bucket(ip), RESULT_LOOKUPS_PER_MINUTE, 60)
+            || rateLimiter.exhausted(missKey, RESULT_MISSES_PER_HOUR, 3600)) {
             throw new RateLimitedException("Too many attempts. Please wait a moment and try again.");
         }
-        return Response.ok(ApiResponse.ok(responseService.studentResult(id, req.code()))).build();
+        try {
+            return Response.ok(ApiResponse.ok(responseService.studentResult(id, req.code()))).build();
+        } catch (ResourceNotFoundException e) {
+            rateLimiter.allow(missKey, RESULT_MISSES_PER_HOUR, 3600);
+            throw e;
+        }
     }
 
     /** Spam protection (issue #31): Altcha proof-of-work challenge for the widget. */

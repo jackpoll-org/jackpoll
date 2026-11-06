@@ -55,6 +55,50 @@ class QuizScoringTest {
     }
 
     @Test
+    void partialCredit_correctChoicesAddWrongOnesSubtractNeverBelowZero() {
+        var question = q("q1", QuestionType.CHECKBOXES, 3, List.of("a", "b", "c"));
+        question.settings = Map.of("partialCredit", true);
+        assertEquals(3, QuizScoring.autoPoints(question, List.of("a", "b", "c")));
+        assertEquals(2, QuizScoring.autoPoints(question, List.of("a", "b")));
+        assertEquals(1, QuizScoring.autoPoints(question, List.of("a", "b", "x")));
+        assertEquals(0, QuizScoring.autoPoints(question, List.of("a", "x", "y")));
+        assertEquals(0, QuizScoring.autoPoints(question, List.of("x")));
+        assertEquals(2, QuizScoring.autoPoints(question, List.of("a", "a", "b")));
+        assertEquals(0, QuizScoring.autoPoints(question, "a"));
+        assertEquals(0, QuizScoring.autoPoints(question, null));
+    }
+
+    @Test
+    void partialCredit_scalesToTheQuestionsPoints() {
+        var question = q("q1", QuestionType.CHECKBOXES, 4, List.of("a", "b"));
+        question.settings = Map.of("partialCredit", true);
+        assertEquals(2, QuizScoring.autoPoints(question, List.of("a")));
+        assertEquals(4, QuizScoring.autoPoints(question, List.of("a", "b")));
+        assertEquals(2, QuizScoring.score(survey(question), Map.of("q1", List.of("a", "b", "z"))));
+    }
+
+    @Test
+    void partialCredit_roundsDownSoFullPointsNeedACompleteAnswer() {
+        var onePoint = q("q1", QuestionType.CHECKBOXES, 1, List.of("a", "b"));
+        onePoint.settings = Map.of("partialCredit", true);
+        assertEquals(0, QuizScoring.autoPoints(onePoint, List.of("a")));
+        assertEquals(0, QuizScoring.autoPoints(onePoint, List.of("a", "b", "x")));
+        assertEquals(1, QuizScoring.autoPoints(onePoint, List.of("a", "b")));
+
+        var threePoints = q("q2", QuestionType.CHECKBOXES, 3, List.of("a", "b"));
+        threePoints.settings = Map.of("partialCredit", true);
+        assertEquals(1, QuizScoring.autoPoints(threePoints, List.of("a")));
+        assertEquals(3, QuizScoring.autoPoints(threePoints, List.of("a", "b")));
+    }
+
+    @Test
+    void withoutPartialCreditCheckboxesStayAllOrNothing() {
+        var question = q("q1", QuestionType.CHECKBOXES, 3, List.of("a", "b", "c"));
+        assertEquals(0, QuizScoring.autoPoints(question, List.of("a", "b")));
+        assertEquals(3, QuizScoring.score(survey(question), Map.of("q1", List.of("c", "b", "a"))));
+    }
+
+    @Test
     void isCorrect_shortAnswerIsCaseInsensitive() {
         var question = q("q1", QuestionType.SHORT_ANSWER, 1, List.of("Paris"));
         assertTrue(QuizScoring.isCorrect(question, " paris "));

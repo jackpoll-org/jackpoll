@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  ListChecks,
   SkipForward,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ import {
 } from "@/app/lib/survey/grading";
 import type { Question, SurveyResponseDto, UploadedFile } from "@/app/types/survey";
 import { ReviewCard } from "./grading-review-card";
+import { ChoiceAnswer } from "./choice-answer";
 
 interface GradingViewProps {
   surveyId: string;
@@ -111,6 +113,7 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
   const pendingIndex = nextPendingIndex(ordered, index);
   const isQuiz = survey.data.settings.isQuiz;
   const liveMode = survey.data.settings.liveMode === true;
+  const firstGradable = questions.find((q) => isGradable(q, liveMode));
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8">
@@ -151,6 +154,18 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
           >
             <SkipForward className="size-4" /> {t("grading.nextUngraded")}
           </Button>
+          {isQuiz && firstGradable && (
+            <Button asChild variant="ghost" size="sm">
+              <Link
+                href={
+                  `/surveys/${surveyId}/results/grade-question/${firstGradable.id}` +
+                  (sessionId ? `?session=${encodeURIComponent(sessionId)}` : "")
+                }
+              >
+                <ListChecks className="size-4" /> {t("grading.byQuestion.start")}
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -268,6 +283,8 @@ function AnswerCard({
           <p className="text-sm text-muted-foreground">{t("grading.noAnswer")}</p>
         ) : question.type === "file-upload" || question.type === "signature" ? (
           <FileList files={answer?.value as UploadedFile[]} />
+        ) : question.type === "checkboxes" ? (
+          <ChoiceAnswer question={question} value={answer?.value} />
         ) : (
           <p className="text-sm break-words whitespace-pre-wrap">
             {formatAnswer(question, answer?.value)}
@@ -278,7 +295,7 @@ function AnswerCard({
   );
 }
 
-function FileList({ files }: { files: UploadedFile[] }) {
+export function FileList({ files }: { files: UploadedFile[] }) {
   const { t } = useTranslation();
   return (
     <ul className="grid gap-2">
@@ -332,7 +349,7 @@ function PointsInput({
   const invalid = parsed === "invalid";
 
   function save() {
-    if (parsed === "invalid" || parsed === saved) return;
+    if (grade.isPending || parsed === "invalid" || parsed === saved) return;
     grade.mutate(
       { responseId, grades: [{ questionId, points: parsed }] },
       {

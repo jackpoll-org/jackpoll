@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  answerKey,
   formatResultCode,
+  groupAnswers,
+  sharedPoints,
   hasAnswer,
   isGradable,
   isManuallyGraded,
@@ -41,7 +44,8 @@ describe("isGradable", () => {
 });
 
 describe("formatResultCode", () => {
-  it("splits eight-character codes for readability", () => {
+  it("splits result codes for readability", () => {
+    expect(formatResultCode("ABCDEF")).toBe("ABC-DEF");
     expect(formatResultCode("ABCDEFGH")).toBe("ABCD-EFGH");
     expect(formatResultCode("ABC")).toBe("ABC");
   });
@@ -77,5 +81,50 @@ describe("nextPendingIndex", () => {
 
   it("returns -1 when everything is graded", () => {
     expect(nextPendingIndex([r("a"), r("b")], 0)).toBe(-1);
+  });
+});
+
+const resp = (id: string, value: unknown, awardedPoints: number | null = null): SurveyResponseDto =>
+  ({ id, submittedAt: "2026-11-06T10:00:00Z", answers: value === undefined ? [] : [{ questionId: "q", value, awardedPoints }] }) as SurveyResponseDto;
+
+describe("groupAnswers", () => {
+  it("groups identical answers, ignoring extra whitespace but not case", () => {
+    const groups = groupAnswers(q({}), [
+      resp("1", "Primary key"),
+      resp("2", "  Primary   key "),
+      resp("3", "primary key"),
+      resp("4", ""),
+      resp("5", undefined),
+    ]);
+    expect(groups.map((g) => g.responses.map((r) => r.id))).toEqual([["1", "2"], ["3"]]);
+  });
+
+  it("groups checkbox answers regardless of selection order", () => {
+    const question = q({ type: "checkboxes" });
+    expect(answerKey(question, ["b", "a"])).toBe(answerKey(question, ["a", "b"]));
+    expect(groupAnswers(question, [resp("1", ["b", "a"]), resp("2", ["a", "b"])])).toHaveLength(1);
+  });
+
+  it("keeps answers apart that were scored differently", () => {
+    const withPoints = (id: string, value: string, autoPoints: number) =>
+      ({ id, submittedAt: "x", answers: [{ questionId: "q", value, autoPoints }] }) as SurveyResponseDto;
+    const groups = groupAnswers(q({ correctAnswers: ["Primary key"] }), [
+      withPoints("1", "Primary key", 1),
+      withPoints("2", "Primary  key", 0),
+    ]);
+    expect(groups).toHaveLength(2);
+  });
+
+  it("never groups file uploads", () => {
+    const file = [{ key: "k", url: "", filename: "a.pdf" }];
+    expect(groupAnswers(q({ type: "file-upload" }), [resp("1", file), resp("2", file)])).toHaveLength(2);
+  });
+});
+
+describe("sharedPoints", () => {
+  it("returns the common grade or mixed", () => {
+    expect(sharedPoints(q({}), [resp("1", "x", 2), resp("2", "x", 2)])).toBe(2);
+    expect(sharedPoints(q({}), [resp("1", "x"), resp("2", "x")])).toBeNull();
+    expect(sharedPoints(q({}), [resp("1", "x", 2), resp("2", "x", 1)])).toBe("mixed");
   });
 });

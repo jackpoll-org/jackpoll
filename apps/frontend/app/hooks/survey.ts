@@ -22,6 +22,7 @@ import {
   markAllNotificationsReadApi,
   deleteResponseApi,
   gradeResponseApi,
+  gradeQuestionApi,
   reviewResponseApi,
   hasRespondedApi,
   getStudentResultApi,
@@ -81,6 +82,7 @@ import type {
   CreateSurveyRequest,
   CreateWebhookRequest,
   GradeInput,
+  QuestionGradeInput,
   ReviewInput,
   NotificationPreferences,
   SaveDraftRequest,
@@ -949,6 +951,18 @@ export function useGradeResponse(surveyId: string) {
     mutationFn: async ({ responseId, grades }: { responseId: string; grades: GradeInput[] }) => {
       const res = await gradeResponseApi(surveyId, responseId, grades);
       if (!res.success || !res.data) throw new Error(localizeServerError(res.error ?? "Failed to save grade"));
+      return res.data;
+    },
+    onSuccess: () => invalidateResponseData(queryClient, surveyId),
+  });
+}
+
+export function useGradeQuestion(surveyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ questionId, grades }: { questionId: string; grades: QuestionGradeInput[] }) => {
+      const res = await gradeQuestionApi(surveyId, questionId, grades);
+      if (!res.success || !res.data) throw new Error(res.error ?? "Failed to save grades");
       return res.data;
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),

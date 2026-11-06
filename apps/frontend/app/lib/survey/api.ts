@@ -28,6 +28,7 @@ import type {
   SurveyAnalytics,
   SurveyResponseDto,
   GradeInput,
+  QuestionGradeInput,
   ReviewInput,
   StudentResult,
   LiveSession,
@@ -793,6 +794,17 @@ export async function deleteResponseApi(
   return request<null>(SURVEY_ENDPOINTS.response(surveyId, responseId), {
     method: "DELETE",
   });
+}
+
+export async function gradeQuestionApi(
+  surveyId: string,
+  questionId: string,
+  grades: QuestionGradeInput[],
+): Promise<ApiResponse<SurveyResponseDto[]>> {
+  return request<SurveyResponseDto[]>(
+    `${SURVEY_ENDPOINTS.detail(surveyId)}/questions/${encodeURIComponent(questionId)}/grades`,
+    { method: "PUT", body: JSON.stringify({ grades }) },
+  );
 }
 
 /** Award points to a response's manually graded answers (public #6). */

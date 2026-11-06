@@ -44,6 +44,9 @@ public class SurveyService {
     SurveyMapper mapper;
 
     @Inject
+    ResponseService responseService;
+
+    @Inject
     org.acme.repository.FolderRepository folders;
 
     @Inject
@@ -128,6 +131,7 @@ public class SurveyService {
             ensurePublishable(req);
         }
         var previous = survey.settings;
+        var scoringBefore = scoringSignature(survey);
         mapper.applyUpdate(survey, req);
         if (!owner && survey.settings != null) {
             survey.settings.ogShowOwner = previous == null ? null : previous.ogShowOwner;
@@ -141,6 +145,22 @@ public class SurveyService {
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
         repository.persist(survey);
+        if (!scoringBefore.equals(scoringSignature(survey))) {
+            responseService.rescore(survey);
+        }
+    }
+
+    private static String scoringSignature(Survey survey) {
+        if (survey.settings == null || !survey.settings.isQuiz) return "";
+        var signature = new StringBuilder(String.valueOf(survey.settings.liveMode));
+        for (var q : survey.questions) {
+            var settings = q.settings != null ? q.settings : java.util.Map.<String, Object>of();
+            signature.append('|').append(q.id).append(':').append(q.type).append(':').append(q.points)
+                .append(':').append(q.correctAnswers).append(':').append(q.caseSensitiveAnswers)
+                .append(':').append(settings.get("partialCredit")).append(':').append(settings.get("tolerance"))
+                .append(':').append(settings.get("manualGrading"));
+        }
+        return signature.toString();
     }
 
     /** Reject a publish that still has blank question titles or option labels. */

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ClipboardCheck, Eye, FileDown, Trash2 } from "lucide-react";
+import { ClipboardCheck, Eye, FileDown, ListChecks, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadResponsePdfApi } from "@/app/lib/survey/api";
 import { Button } from "@/app/components/ui/button";
@@ -47,6 +47,7 @@ import { formatAnswer } from "@/app/lib/survey/export";
 import { useTranslation } from "@/app/i18n/context";
 import type { Survey, SurveyResponseDto } from "@/app/types/survey";
 import { isAnswerable } from "@/app/lib/survey/content-block";
+import { isGradable } from "@/app/lib/survey/grading";
 
 type PassFilter = "all" | "passed" | "failed";
 
@@ -81,6 +82,11 @@ export function ResponsesPanel({
     all
       .toSorted((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
       .find((r) => r.gradingPending) ?? null;
+  const firstGradableQuestion = survey.settings.isQuiz
+    ? (survey.questions
+        .filter((q) => isGradable(q, survey.settings.liveMode === true))
+        .toSorted((a, b) => a.order - b.order)[0] ?? null)
+    : null;
   const filtered = all.filter((r) => {
     const t = new Date(r.submittedAt).getTime();
     if (from && t < new Date(from).getTime()) return false;
@@ -155,6 +161,19 @@ export function ResponsesPanel({
               <Link href={gradeHref(firstToGrade.id)}>
                 <ClipboardCheck className="size-4" />
                 {t("grading.start")}
+              </Link>
+            </Button>
+          )}
+          {firstGradableQuestion && all.length > 0 && (
+            <Button asChild variant="outline">
+              <Link
+                href={
+                  `/surveys/${survey.id}/results/grade-question/${firstGradableQuestion.id}` +
+                  (sessionId ? `?session=${encodeURIComponent(sessionId)}` : "")
+                }
+              >
+                <ListChecks className="size-4" />
+                {t("grading.byQuestion.start")}
               </Link>
             </Button>
           )}

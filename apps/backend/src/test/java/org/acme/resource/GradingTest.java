@@ -194,7 +194,7 @@ class GradingTest {
             .extract();
         String responseId = created.path("data.id");
         String code = created.path("data.resultCode");
-        org.junit.jupiter.api.Assertions.assertEquals(8, code.length());
+        org.junit.jupiter.api.Assertions.assertEquals(6, code.length());
         grade(quiz, responseId, quiz.essay(), 5).statusCode(200);
         review(quiz, responseId, "{\"feedback\":\"Great\"}").statusCode(200);
 
@@ -304,6 +304,75 @@ class GradingTest {
 
         grade(quiz, responseId, quiz.mc(), 0).statusCode(200).body("data.score", is(0));
         grade(quiz, responseId, quiz.mc(), "null").statusCode(200).body("data.score", is(1));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void gradesOneQuestionAcrossSubmissionsInOneGo() {
+        var quiz = createQuiz();
+        String first = submit(quiz, "Same answer").extract().path("data.id");
+        String second = submit(quiz, "Same answer").extract().path("data.id");
+        String url = SURVEYS + "/" + quiz.id() + "/questions/" + quiz.essay() + "/grades";
+
+        given().contentType(ContentType.JSON)
+            .body("{\"grades\":[{\"responseId\":\"" + first + "\",\"points\":3},"
+                + "{\"responseId\":\"" + second + "\",\"points\":3}]}")
+            .when().put(url)
+            .then().statusCode(200)
+            .body("data.size()", is(2))
+            .body("data[0].score", is(4))
+            .body("data[1].score", is(4));
+
+        given().contentType(ContentType.JSON)
+            .body("{\"grades\":[{\"responseId\":\"" + first + "\",\"points\":5},"
+                + "{\"responseId\":\"" + second + "\",\"points\":9}]}")
+            .when().put(url)
+            .then().statusCode(400);
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data.findAll { it.id == '" + first + "' }[0].score", is(4));
+
+        given().contentType(ContentType.JSON)
+            .body("{\"grades\":[{\"responseId\":\"nope\",\"points\":1}]}")
+            .when().put(url).then().statusCode(404);
+        given().contentType(ContentType.JSON).body("{\"grades\":[]}")
+            .when().put(SURVEYS + "/" + quiz.id() + "/questions/unknown/grades").then().statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "stranger")
+    void cannotGradeQuestionsOfSomeoneElsesSurvey() {
+        given().contentType(ContentType.JSON).body("{\"grades\":[]}")
+            .when().put(SURVEYS + "/not-mine/questions/q/grades")
+            .then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void storedScoresFollowWhenPartialCreditIsSwitchedOn() {
+        String id = given().contentType(ContentType.JSON).body("{\"title\":\"Checkboxes\"}")
+            .when().post(SURVEYS).then().statusCode(201).extract().path("data.id");
+        String p = id.substring(0, 8);
+        String survey = """
+            {"title":"Checkboxes","status":"published","settings":{"isQuiz":true,"allowMultipleResponses":true},
+             "questions":[{"id":"cb-%1$s","type":"checkboxes","title":"Pick","required":false,"order":0,
+               "points":2,"correctAnswers":["a-%1$s","b-%1$s"],"settings":{"partialCredit":%2$s},
+               "options":[{"id":"a-%1$s","label":"A"},{"id":"b-%1$s","label":"B"},{"id":"c-%1$s","label":"C"}]}]}
+            """;
+        given().contentType(ContentType.JSON).body(survey.formatted(p, "false"))
+            .when().put(SURVEYS + "/" + id).then().statusCode(200);
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"cb-" + p + "\",\"value\":[\"a-" + p + "\"]}]}")
+            .when().post(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(201).body("data.score", is(0));
+
+        given().contentType(ContentType.JSON).body(survey.formatted(p, "true"))
+            .when().put(SURVEYS + "/" + id).then().statusCode(200);
+
+        given().when().get(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(200)
+            .body("data[0].score", is(1))
+            .body("data[0].answers[0].autoPoints", is(1));
     }
 
     @Test
