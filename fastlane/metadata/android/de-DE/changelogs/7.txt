@@ -1,0 +1,4 @@
+• Neuer Quiz-Editor: Punkte direkt an Frage und Antworten, richtige Antworten in der Optionsliste markieren und „Mehrere einfügen“ für schnelle Optionen
+• Mehrseitige Umfragen behalten wieder alle Seiten
+• Beim Serverwechsel wird die gespeicherte Offline-Anmeldung entfernt
+• App-Daten landen nicht mehr in Geräte-Backups

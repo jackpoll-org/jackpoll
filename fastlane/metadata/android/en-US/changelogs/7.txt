@@ -1,0 +1,4 @@
+• New quiz editor: points next to each question and answer, correct answers marked right in the option list, and "paste several" for quick options
+• Multi-page surveys keep all their pages again
+• Switching servers removes the saved offline login
+• App data is no longer included in device backups
