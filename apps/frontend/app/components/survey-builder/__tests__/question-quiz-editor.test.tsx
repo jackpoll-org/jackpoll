@@ -52,3 +52,40 @@ describe("QuestionQuizEditor partial credit", () => {
     expect(screen.queryByRole("switch", { name: "builder.quiz.partialCredit" })).toBeNull();
   });
 });
+
+describe("QuestionQuizEditor points per answer", () => {
+  it("hides partial credit once options have their own points and can go back", () => {
+    const onChange = vi.fn();
+    const scored = { ...checkboxes, settings: { other: true, optionPoints: { a: 1, b: -1 } } } as Question;
+    render(<QuestionQuizEditor question={scored} onChange={onChange} />);
+    expect(screen.queryByRole("switch", { name: "builder.quiz.partialCredit" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "builder.quiz.resetOptionPoints" }));
+    expect(onChange).toHaveBeenCalledWith({ settings: { other: true } });
+  });
+
+  it("scores a ranking's order on request", () => {
+    const onChange = vi.fn();
+    const ranking = { ...checkboxes, type: "ranking", settings: {} } as unknown as Question;
+    render(<QuestionQuizEditor question={ranking} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("switch", { name: "builder.quiz.scoreOrder" }));
+    expect(onChange).toHaveBeenCalledWith({ settings: { scoreOrder: true } });
+  });
+
+  it("gives an accepted short answer its own points", () => {
+    const onChange = vi.fn();
+    const short = {
+      ...checkboxes,
+      type: "short-answer",
+      options: undefined,
+      correctAnswers: ["Berlin", "Berlin, Germany"],
+      settings: {},
+    } as unknown as Question;
+    render(<QuestionQuizEditor question={short} onChange={onChange} />);
+    fireEvent.change(screen.getAllByLabelText("builder.quiz.pointsFor")[1], { target: { value: "1" } });
+    expect(onChange).toHaveBeenCalledWith({
+      correctAnswers: ["Berlin", "Berlin, Germany"],
+      settings: { answerPoints: { "Berlin, Germany": 1 } },
+    });
+  });
+});
+

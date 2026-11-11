@@ -30,7 +30,9 @@ import { useTranslation } from "@/app/i18n/context";
 import { CollabTextInput } from "./collab-text-input";
 import { QuestionValidationEditor } from "./question-validation-editor";
 import { QuestionLogicEditor } from "./question-logic-editor";
-import { QuestionQuizEditor } from "./question-quiz-editor";
+import { QuestionQuizEditor, QuizPointsField, hasQuizPoints } from "./question-quiz-editor";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/app/components/ui/collapsible";
+import { getValidationRules } from "@/app/lib/survey/validation";
 import { ResultChartSelect } from "./result-chart-select";
 import { isAnswerable } from "@/app/lib/survey/content-block";
 
@@ -226,6 +228,9 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {survey.settings.isQuiz && answerable && hasQuizPoints(question) && (
+            <QuizPointsField question={question} onChange={(patch) => updateQuestion(question.id, patch)} />
+          )}
         </div>
         {titleMissing && (
           <p className="text-sm text-destructive">
@@ -241,19 +246,6 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
           isQuiz={survey.settings.isQuiz}
         />
 
-        {answerable && (
-          <QuestionValidationEditor
-            question={question}
-            onChange={(patch) => updateQuestion(question.id, patch)}
-          />
-        )}
-
-        <QuestionLogicEditor
-          question={question}
-          precedingQuestions={precedingQuestions}
-          onChange={(patch) => updateQuestion(question.id, patch)}
-        />
-
         {survey.settings.isQuiz && answerable && (
           <QuestionQuizEditor
             question={question}
@@ -264,73 +256,97 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
 
         <Separator />
 
-        <div className="flex flex-wrap items-center justify-end gap-4">
-          {sections.length > 0 && (
-            <div className="mr-auto flex items-center gap-2">
-              <Label className="text-sm font-normal">{t("builder.question.pageLabel")}</Label>
-              <Select
-                value={question.sectionId ?? "__none__"}
-                onValueChange={(v) =>
-                  setQuestionSection(question.id, v === "__none__" ? null : v)
-                }
-              >
-                <SelectTrigger className="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">
-                    {t("builder.page.numbered", { n: "1" })}
-                  </SelectItem>
-                  {sections.map((s, i) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.title?.trim() || t("builder.page.numbered", { n: String(i + 2) })}
+        <Collapsible defaultOpen={hasLogic(question) || getValidationRules(question).length > 0}>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="group -ml-2 text-muted-foreground">
+                <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                {t("builder.question.more")}
+              </Button>
+            </CollapsibleTrigger>
+            {sections.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-normal">{t("builder.question.pageLabel")}</Label>
+                <Select
+                  value={question.sectionId ?? "__none__"}
+                  onValueChange={(v) =>
+                    setQuestionSection(question.id, v === "__none__" ? null : v)
+                  }
+                >
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">
+                      {t("builder.page.numbered", { n: "1" })}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                    {sections.map((s, i) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.title?.trim() || t("builder.page.numbered", { n: String(i + 2) })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <CollapsibleContent className="grid gap-4 pt-3">
+            {answerable && (
+              <QuestionValidationEditor
+                question={question}
+                onChange={(patch) => updateQuestion(question.id, patch)}
+              />
+            )}
 
-          {answerable && (
-            <ResultChartSelect
+            <QuestionLogicEditor
               question={question}
+              precedingQuestions={precedingQuestions}
               onChange={(patch) => updateQuestion(question.id, patch)}
             />
-          )}
 
-          {survey.settings.showLiveResults && liveResultsApplicable(question.type) && (
-            <div className="flex items-center gap-2">
-              <Label
-                htmlFor={`live-${question.id}`}
-                className="text-sm font-normal"
-              >
-                {t("builder.showInLiveResults")}
-              </Label>
-              <Switch
-                id={`live-${question.id}`}
-                checked={question.showInLiveResults ?? true}
-                onCheckedChange={(checked) =>
-                  updateQuestion(question.id, { showInLiveResults: checked })
-                }
-              />
-            </div>
-          )}
+            <div className="flex flex-wrap items-center justify-end gap-4">
+              {answerable && (
+                <ResultChartSelect
+                  question={question}
+                  onChange={(patch) => updateQuestion(question.id, patch)}
+                />
+              )}
 
-          {answerable && (
-            <div className="flex items-center gap-2">
-              <Label htmlFor={`required-${question.id}`} className="text-sm font-normal">
-                {t("builder.required")}
-              </Label>
-              <Switch
-                id={`required-${question.id}`}
-                checked={question.required}
-                onCheckedChange={(checked) =>
-                  updateQuestion(question.id, { required: checked })
-                }
-              />
+              {survey.settings.showLiveResults && liveResultsApplicable(question.type) && (
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor={`live-${question.id}`}
+                    className="text-sm font-normal"
+                  >
+                    {t("builder.showInLiveResults")}
+                  </Label>
+                  <Switch
+                    id={`live-${question.id}`}
+                    checked={question.showInLiveResults ?? true}
+                    onCheckedChange={(checked) =>
+                      updateQuestion(question.id, { showInLiveResults: checked })
+                    }
+                  />
+                </div>
+              )}
+
+              {answerable && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`required-${question.id}`} className="text-sm font-normal">
+                    {t("builder.required")}
+                  </Label>
+                  <Switch
+                    id={`required-${question.id}`}
+                    checked={question.required}
+                    onCheckedChange={(checked) =>
+                      updateQuestion(question.id, { required: checked })
+                    }
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );

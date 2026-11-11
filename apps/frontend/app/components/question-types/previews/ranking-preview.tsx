@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import type { Option } from "@/app/types/survey";
 import type { QuestionPreviewProps } from "../types";
 import { useTranslation } from "@/app/i18n/context";
+import { scoresOrder } from "@/app/lib/survey/grading";
+import { shuffled } from "../helpers";
 
 /** Preview / answer renderer for ranking questions (drag options into order). */
 export function RankingPreview({
@@ -46,7 +48,7 @@ export function RankingPreview({
   // A ranking always shows a full order, so record the default once — keeps the
   // stored answer in sync and satisfies a required question.
   useEffect(() => {
-    if (interactive && !Array.isArray(value)) onChange?.(ordered);
+    if (interactive && !Array.isArray(value)) onChange?.(scoresOrder(question) ? shuffled(ordered) : ordered);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

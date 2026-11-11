@@ -2,6 +2,7 @@ package org.acme.mapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.acme.dto.SurveyDtos.OptionDto;
@@ -17,6 +18,7 @@ import org.acme.entity.Section;
 import org.acme.entity.Survey;
 import org.acme.entity.SurveySettings;
 import org.acme.entity.User;
+import org.acme.service.QuizScoring;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -58,7 +60,7 @@ public class SurveyMapper {
             s.description,
             s.status,
             toSettingsDto(s.settings),
-            s.questions.stream().map(q -> toQuestionDto(q, includeAnswers)).toList(),
+            s.questions.stream().map(q -> toQuestionDto(q, includeAnswers, isQuiz(s))).toList(),
             toSectionDtos(s.sections),
             s.tags != null ? s.tags : java.util.List.of(),
             s.folderId,
@@ -135,7 +137,11 @@ public class SurveyMapper {
         );
     }
 
-    private QuestionDto toQuestionDto(Question q, boolean includeAnswers) {
+    private static boolean isQuiz(Survey s) {
+        return s.settings != null && s.settings.isQuiz;
+    }
+
+    private QuestionDto toQuestionDto(Question q, boolean includeAnswers, boolean quiz) {
         return new QuestionDto(
             q.id,
             q.type,
@@ -143,11 +149,11 @@ public class SurveyMapper {
             q.description,
             q.required,
             q.order,
-            optionsOfKind(q, OptionKind.OPTION),
+            includeAnswers || !quiz ? optionsOfKind(q, OptionKind.OPTION) : respondentOptions(q),
             optionsOfKind(q, OptionKind.ROW),
             optionsOfKind(q, OptionKind.COLUMN),
-            q.settings,
-            q.points,
+            includeAnswers ? q.settings : withoutAnswerKey(q.settings),
+            includeAnswers ? q.points : QuizScoring.respondentPoints(q),
             includeAnswers ? q.correctAnswers : null,
             q.caseSensitiveAnswers,
             q.showInLiveResults,
@@ -160,6 +166,26 @@ public class SurveyMapper {
         return sections.stream()
             .map(s -> new SectionDto(s.id, s.title, s.description, s.order, s.visibleIf))
             .toList();
+    }
+
+    private static Map<String, Object> withoutAnswerKey(Map<String, Object> settings) {
+        if (settings == null || (!settings.containsKey("optionPoints") && !settings.containsKey("answerPoints"))) {
+            return settings;
+        }
+        var copy = new java.util.HashMap<>(settings);
+        copy.remove("optionPoints");
+        copy.remove("answerPoints");
+        return copy;
+    }
+
+    private static final java.security.SecureRandom SHUFFLE = new java.security.SecureRandom();
+
+    private List<OptionDto> respondentOptions(Question q) {
+        var options = optionsOfKind(q, OptionKind.OPTION);
+        if (options == null || options.size() < 2 || !QuizScoring.scoresOrder(q)) return options;
+        var shuffled = new ArrayList<>(options);
+        java.util.Collections.shuffle(shuffled, SHUFFLE);
+        return shuffled;
     }
 
     private List<OptionDto> optionsOfKind(Question q, OptionKind kind) {

@@ -14,6 +14,26 @@ export function createOption(label: string): Option {
   return { id: newId(), label };
 }
 
+export function shuffled<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** Options for each non-empty line; blank existing options are replaced, others kept. */
+export function addOptionLines(options: Option[], text: string): Option[] {
+  const added = text.split("\n").flatMap((line) => {
+    const label = line.trim();
+    return label ? [createOption(label)] : [];
+  });
+  if (added.length === 0) return options;
+  const kept = options.filter((o) => o.label.trim() !== "");
+  return [...kept, ...added];
+}
+
 /** Immutably update the label of the option with the given id. */
 export function updateOptionLabel(
   options: Option[],

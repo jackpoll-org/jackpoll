@@ -45,6 +45,8 @@ curl -s -X PUT https://app.jackpoll.org/api/surveys/<survey-id> \
 
 `PUT /surveys/{id}` replaces the whole survey, so send every question you want to keep. Leave out `settings` or `sections` to keep the stored ones; each question's `sectionId` puts it on that page. Set `"status": "published"` to open it for responses. Close the survey in the Jackpoll editor while an agent changes it; otherwise the editor's autosave can overwrite the agent's changes.
 
+In a quiz, a question's `points` and `correctAnswers` score it. For finer scoring, set in the question's `settings`: `optionPoints` (option id → points, also negative; single choice gives the chosen option's points, multiple choice adds them up, never below 0), `answerPoints` (accepted short answer → points) or `scoreOrder: true` on a `ranking` question (the option order is the correct order; respondents see it shuffled). These values are never sent to respondents.
+
 Question types: `short-answer`, `long-answer`, `multiple-choice`, `checkboxes`, `dropdown`, `multiple-choice-grid`, `checkbox-grid`, `rating-grid`, `file-upload`, `slider`, `rating`, `date`, `ranking`, `signature`, `wordcloud`, `content` (text/image block without an answer).
 
 ## 3. Let your agent read the API description

@@ -14,11 +14,13 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import type { ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import type { Option } from "@/app/types/survey";
 import {
+  addOptionLines,
   createOption,
   removeOption,
   reorderOptions,
@@ -27,6 +29,7 @@ import {
 } from "../helpers";
 import { useTranslation } from "@/app/i18n/context";
 import { SortableOptionRow } from "./sortable-option-row";
+import { BulkOptionsDialog } from "./bulk-options-dialog";
 
 interface OptionListEditorProps {
   label: string;
@@ -37,6 +40,8 @@ interface OptionListEditorProps {
   itemNoun?: string;
   /** Show a per-option quota input (single-select choices, #38). */
   showCapacity?: boolean;
+  renderLeading?: (option: Option, index: number) => ReactNode;
+  renderTrailing?: (option: Option, index: number) => ReactNode;
 }
 
 /**
@@ -51,12 +56,14 @@ export function OptionListEditor({
   addLabel,
   itemNoun,
   showCapacity = false,
+  renderLeading,
+  renderTrailing,
 }: OptionListEditorProps) {
   const { t } = useTranslation();
   const noun = itemNoun ?? t("qedit.noun.option");
   const addText = addLabel ?? t("qedit.addOption");
   function handleAdd() {
-    onChange([...options, createOption(`${noun} ${options.length + 1}`)]);
+    onChange([...options, createOption("")]);
   }
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -73,12 +80,14 @@ export function OptionListEditor({
       <span className="text-sm font-medium">{label}</span>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={options.map((o) => o.id)} strategy={verticalListSortingStrategy}>
-          {options.map((option) => (
+          {options.map((option, index) => (
             <SortableOptionRow key={option.id} id={option.id} label={option.label || noun}>
+              {renderLeading?.(option, index)}
               <Input
                 value={option.label}
                 onChange={(e) => onChange(updateOptionLabel(options, option.id, e.target.value))}
-                placeholder={t("qedit.optionLabel", { noun })}
+                placeholder={`${noun} ${index + 1}`}
+                aria-label={t("qedit.optionLabel", { noun })}
               />
               {showCapacity && (
                 <Input
@@ -99,6 +108,7 @@ export function OptionListEditor({
                   }
                 />
               )}
+              {renderTrailing?.(option, index)}
               <Button
                 type="button"
                 variant="ghost"
@@ -113,11 +123,12 @@ export function OptionListEditor({
           ))}
         </SortableContext>
       </DndContext>
-      <div>
+      <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" onClick={handleAdd}>
           <Plus className="size-4" />
           {addText}
         </Button>
+        <BulkOptionsDialog onAdd={(text) => onChange(addOptionLines(options, text))} />
       </div>
     </div>
   );

@@ -981,7 +981,7 @@ public class ResponseService {
     /** Server-side guard: free-text and file-upload answers are never exposed. */
     private static boolean liveAllowed(Survey survey, Question q) {
         if (survey.settings == null || !survey.settings.showLiveResults) return false;
-        if (!q.type.isAnswerable()) return false;
+        if (!q.type.isAnswerable() || (survey.settings.isQuiz && QuizScoring.scoresOrder(q))) return false;
         switch (q.type) {
             case SHORT_ANSWER, LONG_ANSWER, FILE_UPLOAD, SIGNATURE, DATE -> {
                 return false;

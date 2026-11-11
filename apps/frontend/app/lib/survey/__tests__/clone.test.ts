@@ -81,4 +81,12 @@ describe("cloneContent", () => {
     expect(sections[0].visibleIf!.conditions[0].value).toBe(questions[0].options![0].id);
     expect(questions[1].sectionId).toBe("reflexion");
   });
+
+  it("moves per-option quiz points to the copied options", () => {
+    const source = sourceQuestions();
+    source[0].settings = { optionPoints: { o1: 2, o2: -1 } };
+    const [copy] = cloneContent(source).questions;
+    const [yes, no] = copy.options!;
+    expect(copy.settings!.optionPoints).toEqual({ [yes.id]: 2, [no.id]: -1 });
+  });
 });

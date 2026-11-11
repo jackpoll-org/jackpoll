@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { scoresOrder } from "@/app/lib/survey/grading";
 import Image from "next/image";
 import Link from "next/link";
 import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, X } from "lucide-react";
@@ -375,7 +376,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
           <div className="mx-auto min-h-0 w-full max-w-xl flex-1 overflow-y-auto">
             <Leaderboard surveyId={survey.id} limit={5} />
           </div>
-        ) : game && (question.options?.length ?? 0) > 0 ? (
+        ) : game && (question.options?.length ?? 0) > 0 && !scoresOrder(question) ? (
           <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto">
             <GameAnswerTiles
               question={question}

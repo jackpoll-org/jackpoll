@@ -158,9 +158,18 @@ public class SurveyService {
             signature.append('|').append(q.id).append(':').append(q.type).append(':').append(q.points)
                 .append(':').append(q.correctAnswers).append(':').append(q.caseSensitiveAnswers)
                 .append(':').append(settings.get("partialCredit")).append(':').append(settings.get("tolerance"))
-                .append(':').append(settings.get("manualGrading"));
+                .append(':').append(settings.get("manualGrading"))
+                .append(':').append(sortedKeys(settings.get("optionPoints")))
+                .append(':').append(sortedKeys(settings.get("answerPoints")))
+                .append(':').append(QuizScoring.scoresOrder(q)
+                    ? q.options.stream().map(o -> o.kind + "/" + o.id).toList()
+                    : "");
         }
         return signature.toString();
+    }
+
+    private static Object sortedKeys(Object value) {
+        return value instanceof java.util.Map<?, ?> map ? new java.util.TreeMap<>(map) : value;
     }
 
     /** Reject a publish that still has blank question titles or option labels. */

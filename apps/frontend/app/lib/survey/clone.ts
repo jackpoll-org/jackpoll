@@ -7,6 +7,7 @@ import type { LogicRule, Option, Question, Section } from "@/app/types/survey";
  * References to other ids are remapped so the copy is fully independent:
  * - choice/grid option ids,
  * - quiz correct-answer option ids,
+ * - per-option quiz points,
  * - conditional-logic conditions of questions and sections (referenced
  *   questionId and option value).
  * Sections keep their ids, so each question stays on its page.
@@ -54,7 +55,17 @@ export function cloneContent(
       const correctAnswers =
         q.correctAnswers?.map((ca) => optionIdMap.get(ca) ?? ca) ?? null;
       const rule = getLogicRule(q);
-      const settings = rule ? withLogicRule(q, remapRule(rule)) : q.settings;
+      const withRule = rule ? withLogicRule(q, remapRule(rule)) : q.settings;
+      const points = withRule?.optionPoints;
+      const settings =
+        points && typeof points === "object"
+          ? {
+              ...withRule,
+              optionPoints: Object.fromEntries(
+                Object.entries(points).map(([id, p]) => [optionIdMap.get(id) ?? id, p]),
+              ),
+            }
+          : withRule;
       return { ...q, correctAnswers, settings };
     }),
     sections: sections.map((s) => (s.visibleIf ? { ...s, visibleIf: remapRule(s.visibleIf) } : s)),
