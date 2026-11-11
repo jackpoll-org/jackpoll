@@ -9,6 +9,7 @@ import { Spinner } from "@/app/components/ui/spinner";
 import { RespondentThemeToggle } from "@/app/components/survey-player/respondent-theme-toggle";
 import { surveyBackgroundStyle } from "@/app/components/survey-player/branding-frame";
 import { useTranslation } from "@/app/i18n/context";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 
 /**
  * Public response page reached via a shareable link slug (issue #16).
@@ -41,6 +42,7 @@ export default function ShareLinkPage() {
             </Link>
           )}
         </div>
+        <LegalLinks />
       </div>
     );
   }

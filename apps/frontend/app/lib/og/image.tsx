@@ -23,8 +23,13 @@ export async function pageMetadata(page: Page): Promise<Metadata> {
   return { title: t(`og.${page}.title`), description: t(`og.${page}.description`) };
 }
 
-export function surveyMetadata(survey: Survey | null): Metadata {
-  return survey ? { title: survey.title, description: survey.description || null } : {};
+export function surveyMetadata(survey: Survey | null, jsonHref?: string): Metadata {
+  if (!survey) return {};
+  return {
+    title: survey.title,
+    description: survey.description || null,
+    ...(jsonHref && { alternates: { types: { "application/json": jsonHref } } }),
+  };
 }
 
 let assets: Promise<Buffer[]> | undefined;

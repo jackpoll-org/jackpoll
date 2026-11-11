@@ -10,6 +10,9 @@ import { PwaRegister } from "@/app/components/pwa-register";
 import { DeepLinks } from "@/app/components/native/deep-links";
 import { OfflineSync } from "@/app/components/offline-sync";
 import { OfflineBanner } from "@/app/components/offline-banner";
+import { InstanceLegalProvider } from "@/app/components/legal/instance-legal-context";
+import { LegalLinks } from "@/app/components/legal/legal-links";
+import { instanceLegal } from "@/app/lib/legal/instance";
 import { DEFAULT_THEME, type ThemePreset, type ThemeRadius, type ThemeScale, type ThemeContentLayout } from "@/app/lib/themes";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
@@ -123,12 +126,17 @@ export default async function RootLayout({
         >
           <ActiveThemeProvider initialTheme={themeSettings}>
             <I18nProvider initialLocale={initialLocale}>
-              <OfflineBanner />
-              <AuthProvider>{children}</AuthProvider>
-              <PwaRegister />
-              <DeepLinks />
-              <OfflineSync />
-              <Toaster position="top-center" richColors />
+              <InstanceLegalProvider value={instanceLegal()}>
+                <OfflineBanner />
+                <AuthProvider>{children}</AuthProvider>
+                <noscript>
+                  <LegalLinks />
+                </noscript>
+                <PwaRegister />
+                <DeepLinks />
+                <OfflineSync />
+                <Toaster position="top-center" richColors />
+              </InstanceLegalProvider>
             </I18nProvider>
           </ActiveThemeProvider>
         </ThemeProvider>

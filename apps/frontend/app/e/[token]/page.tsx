@@ -8,6 +8,7 @@ import { Spinner } from "@/app/components/ui/spinner";
 import { useTranslation } from "@/app/i18n/context";
 import type { AnswerValue } from "@/app/lib/survey/validation";
 import type { AnswerInput } from "@/app/types/survey";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 
 /**
  * Edit-after-submission page (issue #40): re-opens an already submitted response
@@ -46,6 +47,7 @@ export default function EditResponsePage() {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">{t("edit.linkUnavailable")}</p>
+        <LegalLinks />
       </div>
     );
   }
@@ -56,6 +58,7 @@ export default function EditResponsePage() {
         <p className="text-sm text-muted-foreground">
           {t("player.linkUnavailable")}
         </p>
+        <LegalLinks />
       </div>
     );
   }

@@ -28,6 +28,7 @@ import { trackEvent } from "@/app/lib/survey/track";
 import { LiveResultsSummary } from "./live-results-summary";
 import { LiveParticipant } from "@/app/components/live/live-participant";
 import { BrandingHeader, PoweredBy, brandingStyle } from "./branding-frame";
+import { useInstanceLegal } from "@/app/components/legal/instance-legal-context";
 import { SurveyLogo } from "@/app/components/live/survey-logo";
 import { SaveLaterDialog } from "./save-later-dialog";
 import { AltchaWidget } from "./altcha-widget";
@@ -131,6 +132,7 @@ export function SurveyPlayer({
   editToken?: string;
 }) {
   const { t, locale } = useTranslation();
+  const instancePrivacy = useInstanceLegal().links.privacy;
   // Multilingual content (issue #37): resolve a content language and render a
   // translated copy of the survey. Ids stay canonical so answers/results align.
   const [contentLang, setContentLang] = useState<string | undefined>(() =>
@@ -852,6 +854,20 @@ export function SurveyPlayer({
         <div className="grid gap-2 rounded-md border bg-muted/30 p-3 text-sm">
           {privacyNotice && (
             <p className="whitespace-pre-wrap text-muted-foreground">{privacyNotice}</p>
+          )}
+          {instancePrivacy && (
+            <p className="text-xs text-muted-foreground">
+              {t("privacy.respondentInfo")}{" "}
+              <a
+                href={instancePrivacy}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {t("legal.privacy")}
+              </a>
+              .
+            </p>
           )}
           {requireConsent && (
             <label

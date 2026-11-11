@@ -54,3 +54,17 @@ The full OpenAPI description is at `https://app.jackpoll.org/api/openapi` (YAML,
 > Use the Jackpoll API described at https://app.jackpoll.org/api/openapi. My API key is in the JACKPOLL_KEY environment variable. Create a quiz with ten questions about …
 
 Never paste the key into a shared prompt or commit it to a repository; keep it in an environment variable or your agent's secret store.
+
+## 4. Read a published survey without a key
+
+Published surveys can be read without an API key, for previews, archiving and clients that don't run JavaScript:
+
+```bash
+# By share-link slug (the part after /s/)
+curl -s https://app.jackpoll.org/api/public/links/<slug>
+
+# By survey id (the embed URL /embed/<id>)
+curl -s https://app.jackpoll.org/api/public/surveys/<survey-id>
+```
+
+Both return the survey's title, description, sections and questions as JSON. Unpublished surveys return `404`. Surveys that are closed, not open yet, or behind an access code return `403`. Quiz answers are never included. Each public survey page links to its JSON with `<link rel="alternate" type="application/json">` and also carries the questions as plain HTML for clients without JavaScript.

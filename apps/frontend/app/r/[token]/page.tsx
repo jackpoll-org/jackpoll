@@ -8,6 +8,7 @@ import { Spinner } from "@/app/components/ui/spinner";
 import { useTranslation } from "@/app/i18n/context";
 import type { AnswerValue } from "@/app/lib/survey/validation";
 import type { AnswerInput } from "@/app/types/survey";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 
 /**
  * Resume page (issue #26): restores a saved draft by its token and reopens the
@@ -45,6 +46,7 @@ export default function ResumeDraftPage() {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">{t("draft.expired")}</p>
+        <LegalLinks />
       </div>
     );
   }
@@ -55,6 +57,7 @@ export default function ResumeDraftPage() {
         <p className="text-sm text-muted-foreground">
           {t("player.linkUnavailable")}
         </p>
+        <LegalLinks />
       </div>
     );
   }

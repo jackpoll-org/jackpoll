@@ -18,6 +18,7 @@ import {
 import { LanguageSwitcher } from "@/app/components/common/language-switcher";
 import { RespondentThemeToggle } from "@/app/components/survey-player/respondent-theme-toggle";
 import { surveyBackgroundStyle } from "@/app/components/survey-player/branding-frame";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 import { useTranslation } from "@/app/i18n/context";
 import type { Survey } from "@/app/types/survey";
 
@@ -118,6 +119,7 @@ export default function JoinPage() {
           </form>
         </CardContent>
       </Card>
+      <LegalLinks />
     </div>
   );
 }

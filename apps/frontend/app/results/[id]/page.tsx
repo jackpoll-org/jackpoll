@@ -11,6 +11,7 @@ import { RespondentThemeToggle } from "@/app/components/survey-player/respondent
 import { StudentResultView } from "@/app/components/survey-player/student-result";
 import { useStudentResult } from "@/app/hooks/survey";
 import { useTranslation } from "@/app/i18n/context";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 
 export default function StudentResultPage() {
   const params = useParams<{ id: string }>();
@@ -62,6 +63,7 @@ export default function StudentResultPage() {
             </CardContent>
           </Card>
         )}
+        <LegalLinks />
       </div>
     </div>
   );

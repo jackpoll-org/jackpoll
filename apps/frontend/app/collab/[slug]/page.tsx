@@ -11,6 +11,7 @@ import { loadStoredName, makeGuestUser, storeName } from "@/app/lib/collab/ident
 import { Spinner } from "@/app/components/ui/spinner";
 import type { Survey, UpdateSurveyRequest } from "@/app/types/survey";
 import { localizeServerError } from "@/app/i18n/server-errors";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 
 /**
  * Passwordless collaborative editing via a link slug (issue #22). Anyone with
@@ -65,6 +66,7 @@ export default function CollabPage() {
         <p className="text-sm text-muted-foreground">
           {error instanceof Error ? error.message : "This link is not available."}
         </p>
+        <LegalLinks />
       </div>
     );
   }
@@ -73,6 +75,9 @@ export default function CollabPage() {
     <div className="min-h-svh bg-background">
       <NamePromptDialog open={needsName} onSubmit={handleName} />
       <SurveyBuilder survey={survey} save={save} ownerActions={false} />
+      <div className="pb-6">
+        <LegalLinks />
+      </div>
     </div>
   );
 }

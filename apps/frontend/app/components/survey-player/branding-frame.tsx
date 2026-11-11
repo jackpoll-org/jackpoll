@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { CSSProperties } from "react";
 import { useTranslation } from "@/app/i18n/context";
 import type { Survey } from "@/app/types/survey";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 
 /** Override the theme accent for a branded public surface (issue #30). */
 export function brandingStyle(survey: Survey): CSSProperties | undefined {
@@ -59,6 +60,7 @@ export function PoweredBy({ survey }: { survey: Survey }) {
   return (
     <div className="grid gap-1 pt-2 text-center text-xs text-muted-foreground">
       {survey.settings.showPoweredBy && <p>{t("player.poweredBy")}</p>}
+      <LegalLinks />
     </div>
   );
 }

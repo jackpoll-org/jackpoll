@@ -20,6 +20,7 @@ import { NavUser } from "@/app/components/common/nav-user";
 import { SidebarSurveys } from "@/app/components/common/sidebar-surveys";
 import { SidebarFolders } from "@/app/components/common/sidebar-folders";
 import { useTranslation } from "@/app/i18n/context";
+import { LegalNav } from "@/app/components/legal/legal-nav";
 
 /** Returns true when the current pathname matches (or is nested under) href. */
 export function isNavItemActive(pathname: string, href: string): boolean {
@@ -81,6 +82,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <LegalNav className="flex flex-wrap justify-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden" />
         <NavUser />
       </SidebarFooter>
     </Sidebar>

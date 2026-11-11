@@ -82,6 +82,8 @@ These are what the [self-host stacks](https://github.com/jackpoll-org/jackpoll-s
 
 Scripts and AI agents can manage surveys with a personal API key. See [docs/api.md](docs/api.md).
 
+Running a public instance? Set up your legal notice and privacy policy as described in [docs/self-hosting-legal.md](docs/self-hosting-legal.md).
+
 ## License
 
 MIT.

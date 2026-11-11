@@ -1197,6 +1197,7 @@ export const en = {
   "player.submitAnother": "Submit another response",
   "player.poweredBy": "Powered by Jackpoll",
   "player.linkUnavailable": "This link is not available.",
+  "player.noscript": "Turn on JavaScript to answer this survey.",
   "player.stepOf": "Step {current} of {total}",
 
   // ── Save & Resume (issue #26) ────────────────────────────────────
@@ -2541,6 +2542,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "player.submitAnother": "Weitere Antwort senden",
   "player.poweredBy": "Bereitgestellt von Jackpoll",
   "player.linkUnavailable": "Dieser Link ist nicht verfügbar.",
+  "player.noscript": "Aktiviere JavaScript, um diese Umfrage zu beantworten.",
   "player.stepOf": "Schritt {current} von {total}",
 
   "draft.saved": "Fortschritt gespeichert",

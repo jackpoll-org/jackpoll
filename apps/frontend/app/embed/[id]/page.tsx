@@ -5,6 +5,7 @@ import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
 import { usePublicSurvey } from "@/app/hooks/survey";
 import { Spinner } from "@/app/components/ui/spinner";
 import { useTranslation } from "@/app/i18n/context";
+import { LegalLinks } from "@/app/components/legal/legal-links";
 
 /**
  * Public, chrome-free survey view for iframe embedding (issue #7). Renders a
@@ -29,6 +30,7 @@ export default function EmbedPage() {
         <p className="text-sm text-muted-foreground">
           {t("embed.unavailable")}
         </p>
+        <LegalLinks />
       </div>
     );
   }
