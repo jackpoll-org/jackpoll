@@ -13,10 +13,12 @@ import {
 import { LoginForm } from "@/app/components/auth/login-form";
 import { InstanceBox } from "@/app/components/native/instance-box";
 import { useTranslation } from "@/app/i18n/context";
+import { useRegistrationEnabled } from "@/app/components/auth/registration-context";
 import { safeInternalPath } from "@/app/lib/auth/redirect";
 
 function LoginPageContent() {
   const { t } = useTranslation();
+  const canRegister = useRegistrationEnabled();
   const searchParams = useSearchParams();
   // Only honour same-origin relative paths — never an attacker-supplied
   // absolute/protocol-relative URL (open-redirect guard).
@@ -33,12 +35,14 @@ function LoginPageContent() {
           </CardHeader>
           <CardContent>
             <LoginForm redirectTo={redirect} expired={expired} />
-            <div className="mt-4 text-center text-sm">
-              {t("auth.page.login.noAccount")}{" "}
-              <Link href="/register" className="underline underline-offset-4">
-                {t("auth.signUp")}
-              </Link>
-            </div>
+            {canRegister && (
+              <div className="mt-4 text-center text-sm">
+                {t("auth.page.login.noAccount")}{" "}
+                <Link href="/register" className="underline underline-offset-4">
+                  {t("auth.signUp")}
+                </Link>
+              </div>
+            )}
             <div className="mt-2 border-t pt-3 text-center text-sm">
               <Link href="/join" className="font-medium underline underline-offset-4">
                 {t("auth.joinByCode")}

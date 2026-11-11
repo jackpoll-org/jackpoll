@@ -12,23 +12,29 @@ import {
 import { RegisterForm } from "@/app/components/auth/register-form";
 import { InstanceBox } from "@/app/components/native/instance-box";
 import { useTranslation } from "@/app/i18n/context";
+import { useRegistrationEnabled } from "@/app/components/auth/registration-context";
 
 export default function RegisterPage() {
   const { t } = useTranslation();
+  const open = useRegistrationEnabled();
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
       <div className="mx-auto w-full max-w-sm">
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">{t("auth.page.register.title")}</CardTitle>
+            <CardTitle className="text-2xl">
+              {open ? t("auth.page.register.title") : t("auth.page.register.closedTitle")}
+            </CardTitle>
             <CardDescription>
-              {t("auth.page.register.desc")}
+              {open ? t("auth.page.register.desc") : t("auth.page.register.closedDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Suspense>
-              <RegisterForm />
-            </Suspense>
+            {open && (
+              <Suspense>
+                <RegisterForm />
+              </Suspense>
+            )}
             <div className="mt-4 text-center text-sm">
               {t("auth.page.register.hasAccount")}{" "}
               <Link href="/login" className="underline underline-offset-4">

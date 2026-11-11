@@ -13,6 +13,8 @@ import { OfflineBanner } from "@/app/components/offline-banner";
 import { InstanceLegalProvider } from "@/app/components/legal/instance-legal-context";
 import { LegalLinks } from "@/app/components/legal/legal-links";
 import { instanceLegal } from "@/app/lib/legal/instance";
+import { RegistrationProvider } from "@/app/components/auth/registration-context";
+import { registrationEnabled } from "@/app/lib/auth/registration";
 import { DEFAULT_THEME, type ThemePreset, type ThemeRadius, type ThemeScale, type ThemeContentLayout } from "@/app/lib/themes";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
@@ -96,7 +98,7 @@ export default async function RootLayout({
     bodyAttributes["data-hide-brand"] = "";
   }
 
-  const initialLocale = await serverLocale();
+  const [initialLocale, canRegister] = await Promise.all([serverLocale(), registrationEnabled()]);
 
   return (
     <html
@@ -127,15 +129,17 @@ export default async function RootLayout({
           <ActiveThemeProvider initialTheme={themeSettings}>
             <I18nProvider initialLocale={initialLocale}>
               <InstanceLegalProvider value={instanceLegal()}>
-                <OfflineBanner />
-                <AuthProvider>{children}</AuthProvider>
-                <noscript>
-                  <LegalLinks />
-                </noscript>
-                <PwaRegister />
-                <DeepLinks />
-                <OfflineSync />
-                <Toaster position="top-center" richColors />
+                <RegistrationProvider enabled={canRegister}>
+                  <OfflineBanner />
+                  <AuthProvider>{children}</AuthProvider>
+                  <noscript>
+                    <LegalLinks />
+                  </noscript>
+                  <PwaRegister />
+                  <DeepLinks />
+                  <OfflineSync />
+                  <Toaster position="top-center" richColors />
+                </RegistrationProvider>
               </InstanceLegalProvider>
             </I18nProvider>
           </ActiveThemeProvider>

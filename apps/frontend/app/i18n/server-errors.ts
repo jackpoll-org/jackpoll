@@ -54,6 +54,7 @@ const EXACT_DE: Record<string, string> = {
   "Please reload the page to keep playing.": "Bitte lade die Seite neu, um weiterzuspielen.",
   "Please wait a minute before sending another test.": "Bitte warte eine Minute, bevor du einen weiteren Test sendest.",
   "Registration failed. Please try again later.": "Die Registrierung ist fehlgeschlagen. Bitte versuche es später erneut.",
+  "Registration is disabled on this instance.": "Auf dieser Instanz können keine neuen Konten angelegt werden.",
   "Request body too large": "Die Anfrage ist zu groß.",
   "Response not found.": "Antwort nicht gefunden.",
   "Sign in to preview this survey.": "Melde dich an, um diese Umfrage in der Vorschau zu sehen.",

@@ -115,6 +115,9 @@ public class AuthResource {
     @ConfigProperty(name = "app.debug-tools-enabled", defaultValue = "false")
     boolean debugToolsEnabled;
 
+    @ConfigProperty(name = "app.registration-enabled", defaultValue = "true")
+    boolean registrationEnabled;
+
     @POST
     @Path("/register")
     @PermitAll
@@ -127,6 +130,11 @@ public class AuthResource {
         @HeaderParam("Accept-Language") String acceptLanguage,
         @Context io.vertx.core.http.HttpServerRequest http
     ) {
+        if (!registrationEnabled) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity(ApiResponse.error("Registration is disabled on this instance."))
+                .build();
+        }
         enforceAuthRateLimit("register", forwardedFor, http, req.email());
         var result = authService.register(req, acceptLanguage);
         if (!result.success()) {
@@ -467,7 +475,7 @@ public class AuthResource {
     public Response getOidcConfig() {
         var config = new AuthDtos.OidcConfig(
             keycloakUrl, keycloakRealm, keycloakClientId,
-            emailVerificationRequired, debugToolsEnabled);
+            emailVerificationRequired, debugToolsEnabled, registrationEnabled);
         return Response.ok(ApiResponse.ok(config)).build();
     }
 }

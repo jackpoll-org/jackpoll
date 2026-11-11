@@ -143,6 +143,7 @@ public final class AuthDtos {
         String realm,
         String clientId,
         boolean emailVerificationRequired,
-        boolean debugToolsEnabled
+        boolean debugToolsEnabled,
+        boolean registrationEnabled
     ) {}
 }

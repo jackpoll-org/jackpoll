@@ -20,9 +20,11 @@ import { useAuthContext } from "@/app/components/auth/auth-provider";
 import { useLogout } from "@/app/hooks/auth";
 import { useIsClient } from "@/app/hooks/use-is-client";
 import { useTranslation } from "@/app/i18n/context";
+import { useRegistrationEnabled } from "@/app/components/auth/registration-context";
 
 export function UserMenu() {
   const { t } = useTranslation();
+  const canRegister = useRegistrationEnabled();
   const { user, isLoading } = useAuthContext();
   const logout = useLogout();
   const router = useRouter();
@@ -55,9 +57,11 @@ export function UserMenu() {
             {t("auth.signIn")}
           </Button>
         </Link>
-        <Link href="/register">
-          <Button size="sm">{t("auth.signUp")}</Button>
-        </Link>
+        {canRegister && (
+          <Link href="/register">
+            <Button size="sm">{t("auth.signUp")}</Button>
+          </Link>
+        )}
       </div>
     );
   }

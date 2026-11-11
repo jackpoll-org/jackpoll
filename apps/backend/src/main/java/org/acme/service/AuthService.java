@@ -37,6 +37,9 @@ public class AuthService {
     @ConfigProperty(name = "app.email-verification-required", defaultValue = "true")
     boolean emailVerificationRequired;
 
+    @ConfigProperty(name = "app.registration-enabled", defaultValue = "true")
+    boolean registrationEnabled;
+
     /** Minimum gap between display-name changes (issue #profile-abuse). */
     @ConfigProperty(name = "survey.profile.name-change.min-interval-days", defaultValue = "7")
     int nameChangeMinIntervalDays;
@@ -115,7 +118,7 @@ public class AuthService {
         }
         // Valid credentials but unverified: send a fresh code so the user can
         // finish verifying without a separate resend step.
-        if (KeycloakService.EMAIL_NOT_VERIFIED.equals(result.error())) {
+        if (registrationEnabled && KeycloakService.EMAIL_NOT_VERIFIED.equals(result.error())) {
             emailCodeService.issue(req.email(), EmailCode.PURPOSE_VERIFY);
         }
         return result;
@@ -127,6 +130,9 @@ public class AuthService {
      *  and the local user. */
     @Transactional
     public ApiResponse<Void> verifyEmail(AuthDtos.VerifyEmailRequest req) {
+        if (!registrationEnabled) {
+            return ApiResponse.error("Registration is disabled on this instance.");
+        }
         if (!emailCodeService.verify(req.email(), EmailCode.PURPOSE_VERIFY, req.code())) {
             return ApiResponse.error("Invalid or expired code. Please try again.");
         }
@@ -141,6 +147,7 @@ public class AuthService {
     /** Re-send a verification code. Always reports success (no account
      *  enumeration); only actually sends for a known, still-unverified user. */
     public ApiResponse<Void> resendVerification(String email) {
+        if (!registrationEnabled) return ApiResponse.ok(null);
         userRepository.findByEmail(email.trim().toLowerCase())
             .filter(u -> !u.emailVerified)
             .ifPresent(u -> emailCodeService.issue(email, EmailCode.PURPOSE_VERIFY));
@@ -249,10 +256,11 @@ public class AuthService {
         if (!result.success()) {
             return result;
         }
-        // Reaching the inbox proves the address; ensure the account is verified.
-        keycloakService.setEmailVerified(req.email());
+        // Reaching the inbox proves the address; ensure the account is verified,
+        // unless registration is closed: then only the operator activates accounts.
+        if (registrationEnabled) keycloakService.setEmailVerified(req.email());
         userRepository.findByEmail(req.email().trim().toLowerCase()).ifPresent(u -> {
-            u.emailVerified = true;
+            if (registrationEnabled) u.emailVerified = true;
             u.updatedAt = Instant.now();
             apiKeyService.deleteAllForUser(u.id);
         });
