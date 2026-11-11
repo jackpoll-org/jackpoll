@@ -34,6 +34,7 @@ public class TemplateService {
         template.description = req.description();
         template.questions = req.questions();
         template.settings = req.settings();
+        template.sections = req.sections();
         repository.persist(template);
         return toDto(template);
     }
@@ -63,6 +64,7 @@ public class TemplateService {
             t.description,
             t.questions,
             t.settings,
+            t.sections,
             t.updatedAt != null ? t.updatedAt.toString() : null);
     }
 }

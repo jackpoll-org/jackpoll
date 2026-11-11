@@ -43,7 +43,7 @@ curl -s -X PUT https://app.jackpoll.org/api/surveys/<survey-id> \
   }'
 ```
 
-`PUT /surveys/{id}` replaces the whole survey, so send every question you want to keep. Set `"status": "published"` to open it for responses. Close the survey in the Jackpoll editor while an agent changes it; otherwise the editor's autosave can overwrite the agent's changes.
+`PUT /surveys/{id}` replaces the whole survey, so send every question you want to keep. Leave out `settings` or `sections` to keep the stored ones; each question's `sectionId` puts it on that page. Set `"status": "published"` to open it for responses. Close the survey in the Jackpoll editor while an agent changes it; otherwise the editor's autosave can overwrite the agent's changes.
 
 Question types: `short-answer`, `long-answer`, `multiple-choice`, `checkboxes`, `dropdown`, `multiple-choice-grid`, `checkbox-grid`, `rating-grid`, `file-upload`, `slider`, `rating`, `date`, `ranking`, `signature`, `wordcloud`, `content` (text/image block without an answer).
 

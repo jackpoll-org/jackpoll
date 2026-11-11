@@ -1,15 +1,20 @@
 import { newId } from "@/app/components/question-types/helpers";
 import { getLogicRule, withLogicRule } from "@/app/lib/survey/logic";
-import type { Option, Question } from "@/app/types/survey";
+import type { LogicRule, Option, Question, Section } from "@/app/types/survey";
 
 /**
  * Deep-copy a survey's questions with fresh ids and sequential order (issue #27).
  * References to other ids are remapped so the copy is fully independent:
  * - choice/grid option ids,
  * - quiz correct-answer option ids,
- * - conditional-logic conditions (referenced questionId and option value).
+ * - conditional-logic conditions of questions and sections (referenced
+ *   questionId and option value).
+ * Sections keep their ids, so each question stays on its page.
  */
-export function cloneQuestions(questions: Question[]): Question[] {
+export function cloneContent(
+  questions: Question[],
+  sections: Section[] = [],
+): { questions: Question[]; sections: Section[] } {
   const questionIdMap = new Map<string, string>();
   const optionIdMap = new Map<string, string>();
 
@@ -22,7 +27,15 @@ export function cloneQuestions(questions: Question[]): Question[] {
     });
   };
 
-  // Pass 1: new ids for questions and their options/rows/columns.
+  const remapRule = (rule: LogicRule): LogicRule => ({
+    ...rule,
+    conditions: rule.conditions.map((c) => ({
+      ...c,
+      questionId: questionIdMap.get(c.questionId) ?? c.questionId,
+      value: c.value != null ? optionIdMap.get(c.value) ?? c.value : c.value,
+    })),
+  });
+
   const cloned = questions.map((q, index) => {
     const id = newId();
     questionIdMap.set(q.id, id);
@@ -36,22 +49,14 @@ export function cloneQuestions(questions: Question[]): Question[] {
     };
   });
 
-  // Pass 2: remap correct answers and conditional-logic references.
-  return cloned.map((q) => {
-    const correctAnswers =
-      q.correctAnswers?.map((ca) => optionIdMap.get(ca) ?? ca) ?? null;
-
-    let settings = q.settings;
-    const rule = getLogicRule(q);
-    if (rule) {
-      const conditions = rule.conditions.map((c) => ({
-        ...c,
-        questionId: questionIdMap.get(c.questionId) ?? c.questionId,
-        value: c.value != null ? optionIdMap.get(c.value) ?? c.value : c.value,
-      }));
-      settings = withLogicRule(q, { ...rule, conditions });
-    }
-
-    return { ...q, correctAnswers, settings };
-  });
+  return {
+    questions: cloned.map((q) => {
+      const correctAnswers =
+        q.correctAnswers?.map((ca) => optionIdMap.get(ca) ?? ca) ?? null;
+      const rule = getLogicRule(q);
+      const settings = rule ? withLogicRule(q, remapRule(rule)) : q.settings;
+      return { ...q, correctAnswers, settings };
+    }),
+    sections: sections.map((s) => (s.visibleIf ? { ...s, visibleIf: remapRule(s.visibleIf) } : s)),
+  };
 }

@@ -52,6 +52,28 @@ class TemplateResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "owner-3")
+    void keepsTheTemplatesPages() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {
+                  "name": "Paged",
+                  "questions": [{"id":"q1","type":"short-answer","title":"Fazit","required":false,"order":0,"sectionId":"reflexion"}],
+                  "sections": [{"id":"reflexion","title":"Reflexion","order":0}]
+                }
+                """)
+            .when().post(BASE)
+            .then().statusCode(201)
+            .body("data.sections[0].title", is("Reflexion"));
+
+        given().when().get(BASE)
+            .then().statusCode(200)
+            .body("data[0].sections[0].id", is("reflexion"))
+            .body("data[0].questions[0].sectionId", is("reflexion"));
+    }
+
+    @Test
     @TestSecurity(user = "owner-2")
     void cannotModifyOthersTemplate() {
         given()

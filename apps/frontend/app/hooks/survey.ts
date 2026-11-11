@@ -76,7 +76,7 @@ import {
   notificationsKeys,
   surveyKeys,
 } from "@/app/lib/survey/constants";
-import { cloneQuestions } from "@/app/lib/survey/clone";
+import { cloneContent } from "@/app/lib/survey/clone";
 import type {
   AddCollaboratorRequest,
   CreateSurveyRequest,
@@ -452,7 +452,7 @@ export function useDuplicateSurvey() {
         description: created.description,
         status: "draft",
         settings: source.settings,
-        questions: cloneQuestions(source.questions),
+        ...cloneContent(source.questions, source.sections),
       });
       if (!updateRes.success || !updateRes.data) {
         throw new Error(localizeServerError(updateRes.error ?? "Failed to duplicate survey"));

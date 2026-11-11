@@ -15,7 +15,8 @@ public final class TemplateDtos {
         @NotBlank @Size(max = 255) String name,
         String description,
         Object questions,
-        Object settings
+        Object settings,
+        Object sections
     ) {}
 
     public record UpdateTemplateRequest(
@@ -29,6 +30,7 @@ public final class TemplateDtos {
         String description,
         Object questions,
         Object settings,
+        Object sections,
         String updatedAt
     ) {}
 }

@@ -181,7 +181,6 @@ public class SurveyMapper {
         // An update that sends no settings keeps the stored ones rather than resetting them.
         s.settings = req.settings() == null && previous != null ? previous : fromSettingsDto(req.settings());
         keepPreviewSettings(previous, s.settings);
-        s.sections = fromSectionDtos(req.sections());
         // Multilingual content (issue #37) — stored verbatim; ids stay stable.
         s.languages = req.languages() != null ? req.languages() : new ArrayList<>();
         s.defaultLanguage = req.defaultLanguage();
@@ -226,6 +225,27 @@ public class SurveyMapper {
 
         s.questions.clear();
         s.questions.addAll(orderedQuestions);
+        var sections = req.sections() == null ? s.sections : fromSectionDtos(req.sections());
+        s.sections = withReferencedSections(sections, s.questions);
+    }
+
+    private static List<Section> withReferencedSections(List<Section> sections, List<Question> questions) {
+        var out = new ArrayList<Section>(sections != null ? sections : List.of());
+        var known = new java.util.HashSet<String>();
+        var nextOrder = 0;
+        for (var section : out) {
+            known.add(section.id);
+            nextOrder = Math.max(nextOrder, section.order + 1);
+        }
+        for (var q : questions) {
+            if (q.sectionId != null && known.add(q.sectionId)) {
+                var section = new Section();
+                section.id = q.sectionId;
+                section.order = nextOrder++;
+                out.add(section);
+            }
+        }
+        return out;
     }
 
     private SurveySettings fromSettingsDto(SurveySettingsDto d) {

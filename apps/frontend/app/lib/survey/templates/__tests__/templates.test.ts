@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   curatedTemplates,
-  instantiateTemplateQuestions,
+  instantiateTemplate,
 } from "@/app/lib/survey/templates";
 
 describe("curated templates", () => {
@@ -23,8 +23,8 @@ describe("curated templates", () => {
 
   it("instantiates with fresh, unique ids and sequential order", () => {
     const template = curatedTemplates("en")[0];
-    const a = instantiateTemplateQuestions(template);
-    const b = instantiateTemplateQuestions(template);
+    const a = instantiateTemplate(template).questions;
+    const b = instantiateTemplate(template).questions;
 
     // order is 0..n-1
     expect(a.map((q) => q.order)).toEqual(a.map((_, i) => i));
@@ -37,11 +37,22 @@ describe("curated templates", () => {
 
   it("remaps quiz correct answers to the new option ids", () => {
     const quiz = curatedTemplates("en").find((t) => t.id === "quiz-round")!;
-    const questions = instantiateTemplateQuestions(quiz);
+    const questions = instantiateTemplate(quiz).questions;
     const mc = questions[0];
     // correct answer references one of the freshly generated option ids
     expect(mc.options!.map((o) => o.id)).toContain(mc.correctAnswers![0]);
     // text-based correct answer is preserved
     expect(questions[1].correctAnswers).toEqual(["4"]);
+  });
+
+  it("brings a saved template's pages along", () => {
+    const template = {
+      ...curatedTemplates("en")[0],
+      sections: [{ id: "page-2", title: "Reflexion", order: 0 }],
+    };
+    template.questions = template.questions.map((q, i) => ({ ...q, sectionId: i === 0 ? "page-2" : null }));
+    const { questions, sections } = instantiateTemplate(template);
+    expect(sections).toEqual(template.sections);
+    expect(questions[0].sectionId).toBe("page-2");
   });
 });

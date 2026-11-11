@@ -41,6 +41,10 @@ public class Template extends PanacheEntityBase {
     @Column(columnDefinition = "jsonb")
     public Object settings;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    public Object sections;
+
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
 

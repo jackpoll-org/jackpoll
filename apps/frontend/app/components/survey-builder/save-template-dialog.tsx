@@ -38,6 +38,7 @@ export function SaveTemplateDialog() {
         description: description.trim() || undefined,
         questions: survey.questions,
         settings: survey.settings,
+        sections: survey.sections,
       });
       toast.success(t("template.saved"));
       setOpen(false);

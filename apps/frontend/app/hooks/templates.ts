@@ -23,6 +23,7 @@ function toTemplate(dto: CustomTemplateDto): SurveyTemplate {
     source: "custom",
     settings: dto.settings ?? undefined,
     questions: dto.questions ?? [],
+    sections: Array.isArray(dto.sections) ? dto.sections : [],
   };
 }
 

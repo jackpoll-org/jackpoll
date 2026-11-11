@@ -1,4 +1,4 @@
-import type { Question, SurveySettings } from "@/app/types/survey";
+import type { Question, Section, SurveySettings } from "@/app/types/survey";
 
 /** A reusable survey blueprint (curated catalog or user-saved, issues #17/#20). */
 export interface SurveyTemplate {
@@ -11,6 +11,7 @@ export interface SurveyTemplate {
   /** Optional survey-level settings applied when the template is used. */
   settings?: Partial<SurveySettings>;
   questions: Question[];
+  sections?: Section[];
 }
 
 /** Payload to save a survey as a custom template (issue #20). */
@@ -19,6 +20,7 @@ export interface CreateTemplateInput {
   description?: string;
   questions: Question[];
   settings?: SurveySettings;
+  sections?: Section[];
 }
 
 /** Raw custom-template record from the backend. */
@@ -28,5 +30,6 @@ export interface CustomTemplateDto {
   description?: string | null;
   questions: Question[];
   settings?: SurveySettings | null;
+  sections?: Section[] | null;
   updatedAt: string;
 }

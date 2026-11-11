@@ -20,7 +20,7 @@ import { useDeleteTemplate } from "@/app/hooks/templates";
 import { updateSurveyApi } from "@/app/lib/survey/api";
 import {
   curatedTemplates,
-  instantiateTemplateQuestions,
+  instantiateTemplate,
   type SurveyTemplate,
 } from "@/app/lib/survey/templates";
 import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
@@ -135,7 +135,7 @@ export function TemplatePickerDialog({
         description: survey.description,
         status: survey.status,
         settings: { ...survey.settings, ...(template.settings ?? {}) },
-        questions: instantiateTemplateQuestions(template),
+        ...instantiateTemplate(template),
       });
       if (!res.success) throw new Error(res.error ?? tr("templates.applyFailed"));
       router.push(`/surveys/${survey.id}/edit`);
