@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -357,12 +357,16 @@ function PointsInput({
   const grade = useGradeResponse(surveyId);
   const [text, setText] = useState(initial == null ? "" : String(initial));
   const [saved, setSaved] = useState(initial);
+  const [dirty, setDirty] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const parsed = parsePoints(text, max);
   const invalid = parsed === "invalid";
 
   function save() {
-    if (grade.isPending || parsed === "invalid" || parsed === saved) return;
+    if (!dirty || grade.isPending || parsed === "invalid") return;
+    setDirty(false);
+    if (parsed === saved) return;
     grade.mutate(
       { responseId, grades: [{ questionId, points: parsed }] },
       {
@@ -370,11 +374,16 @@ function PointsInput({
           setSaved(parsed);
           setJustSaved(true);
         },
-        onError: (err) =>
-          toast.error(err instanceof Error ? err.message : t("grading.saveFailed")),
+        onError: (err) => {
+          setDirty(true);
+          setFailed(true);
+          toast.error(err instanceof Error ? err.message : t("grading.saveFailed"));
+        },
       },
     );
   }
+
+  useSaveAfterPause(text, dirty && !grade.isPending && !failed, save);
 
   const id = `points-${responseId}-${questionId}`;
   return (
@@ -396,6 +405,8 @@ function PointsInput({
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            setDirty(true);
+            setFailed(false);
             setJustSaved(false);
           }}
           onBlur={save}
@@ -423,6 +434,22 @@ function PointsInput({
     </div>
   );
 }
+
+/**
+ * Saves points a short while after the last change, so clicking the arrows is
+ * enough. Waits while a save is running and stops after a failed one, which
+ * blur or Enter then retries.
+ */
+export function useSaveAfterPause(text: string, enabled: boolean, save: () => void) {
+  const saveNow = useEffectEvent(save);
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setTimeout(saveNow, POINTS_SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [text, enabled]);
+}
+
+const POINTS_SAVE_DELAY_MS = 800;
 
 /** "" clears the grade (null); otherwise a whole number within 0..max. */
 export function parsePoints(text: string, max: number): number | null | "invalid" {

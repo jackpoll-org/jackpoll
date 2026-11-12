@@ -108,6 +108,44 @@ describe("GradingView", () => {
     );
   });
 
+  it("saves points changed with the arrows without leaving the field", () => {
+    vi.useFakeTimers();
+    try {
+      render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      const field = screen.getAllByLabelText("grading.points")[0];
+      fireEvent.change(field, { target: { value: "3" } });
+      expect(mutate).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(1000));
+
+      expect(mutate).toHaveBeenCalledTimes(1);
+      fireEvent.blur(field);
+      expect(mutate).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries a failed save on blur, not on its own", () => {
+    vi.useFakeTimers();
+    try {
+      render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      const field = screen.getAllByLabelText("grading.points")[0];
+      fireEvent.change(field, { target: { value: "3" } });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(mutate).toHaveBeenCalledTimes(1);
+
+      act(() => mutate.mock.calls[0][1].onError(new Error("offline")));
+      act(() => vi.advanceTimersByTime(5000));
+      expect(mutate).toHaveBeenCalledTimes(1);
+
+      fireEvent.blur(field);
+      expect(mutate).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not save points above the maximum", () => {
     render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
     const input = screen.getAllByLabelText("grading.points")[0];

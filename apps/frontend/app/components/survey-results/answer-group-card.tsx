@@ -20,7 +20,7 @@ import { maxPointsFor, sharedPoints, type AnswerGroup } from "@/app/lib/survey/g
 import type { Question, UploadedFile } from "@/app/types/survey";
 import { AnswerFeedbackField } from "./answer-feedback-field";
 import { ChoiceAnswer } from "./choice-answer";
-import { FileList, parsePoints } from "./grading-view";
+import { FileList, parsePoints, useSaveAfterPause } from "./grading-view";
 
 interface AnswerGroupCardProps {
   surveyId: string;
@@ -56,7 +56,7 @@ export function AnswerGroupCard({
           {t("grading.byQuestion.count", { n: String(ids.length) })}
         </Badge>
         <PointsField
-          key={`${group.key}-${String(shared)}`}
+          key={group.key}
           surveyId={surveyId}
           question={question}
           responseIds={ids}
@@ -96,7 +96,7 @@ export function AnswerGroupCard({
                       {studentLabel(response.id)}
                     </Link>
                     <PointsField
-                      key={`${response.id}-${String(points)}`}
+                      key={response.id}
                       surveyId={surveyId}
                       question={question}
                       responseIds={[response.id]}
@@ -137,21 +137,40 @@ function PointsField({ surveyId, question, responseIds, initial, placeholder, la
   const grade = useGradeQuestion(surveyId);
   const max = maxPointsFor(question);
   const [text, setText] = useState(initial == null ? "" : String(initial));
+  const [shownInitial, setShownInitial] = useState(initial);
+  const [saved, setSaved] = useState(initial);
   const [dirty, setDirty] = useState(false);
+  const [failed, setFailed] = useState(false);
   const parsed = parsePoints(text, max);
   const invalid = parsed === "invalid";
 
+  if (initial !== shownInitial) {
+    setShownInitial(initial);
+    setSaved(initial);
+    if (!dirty) setText(initial == null ? "" : String(initial));
+  }
+
   function save() {
-    if (!dirty || grade.isPending || parsed === "invalid" || parsed === initial) return;
+    if (!dirty || grade.isPending || parsed === "invalid") return;
     setDirty(false);
+    if (parsed === saved) return;
     grade.mutate(
       { questionId: question.id, grades: responseIds.map((responseId) => ({ responseId, points: parsed })) },
       {
-        onSuccess: () => toast.success(t("grading.byQuestion.saved", { n: String(responseIds.length) })),
-        onError: (err) => toast.error(err instanceof Error ? err.message : t("grading.saveFailed")),
+        onSuccess: () => {
+          setSaved(parsed);
+          toast.success(t("grading.byQuestion.saved", { n: String(responseIds.length) }));
+        },
+        onError: (err) => {
+          setDirty(true);
+          setFailed(true);
+          toast.error(err instanceof Error ? err.message : t("grading.saveFailed"));
+        },
       },
     );
   }
+
+  useSaveAfterPause(text, dirty && !grade.isPending && !failed, save);
 
   return (
     <div className="grid gap-1">
@@ -171,6 +190,7 @@ function PointsField({ surveyId, question, responseIds, initial, placeholder, la
           onChange={(e) => {
             setText(e.target.value);
             setDirty(true);
+            setFailed(false);
           }}
           onBlur={save}
           onKeyDown={(e) => {

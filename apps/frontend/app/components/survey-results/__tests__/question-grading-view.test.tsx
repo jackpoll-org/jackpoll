@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { Survey, SurveyResponseDto } from "@/app/types/survey";
 
 const replace = vi.fn();
 const gradeMutate = vi.fn();
 const feedbackMutate = vi.fn();
 let responses: SurveyResponseDto[] = [];
+let gradePending = false;
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
 vi.mock("next/link", () => ({
@@ -32,7 +33,7 @@ const survey = {
 vi.mock("@/app/hooks/survey", () => ({
   useSurvey: () => ({ data: survey, isLoading: false }),
   useResponses: () => ({ data: responses, isLoading: false }),
-  useGradeQuestion: () => ({ mutate: gradeMutate }),
+  useGradeQuestion: () => ({ mutate: gradeMutate, isPending: gradePending }),
   useAnswerFeedback: () => ({ mutateAsync: feedbackMutate }),
 }));
 
@@ -50,6 +51,7 @@ describe("QuestionGradingView", () => {
   beforeEach(() => {
     replace.mockReset();
     gradeMutate.mockReset();
+    gradePending = false;
     feedbackMutate.mockReset();
     feedbackMutate.mockResolvedValue([]);
     responses = [
@@ -94,6 +96,90 @@ describe("QuestionGradingView", () => {
       responseIds: ["1", "2"],
       feedback: "Also say what a row is.",
     });
+  });
+
+  it("saves points changed with the arrows without leaving the field", () => {
+    vi.useFakeTimers();
+    try {
+      render(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+      fireEvent.change(screen.getByLabelText("grading.byQuestion.pointsForAll"), { target: { value: "2" } });
+      expect(gradeMutate).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(1000));
+
+      expect(gradeMutate).toHaveBeenCalledTimes(1);
+      expect(gradeMutate.mock.calls[0][0]).toEqual({
+        questionId: "essay",
+        grades: [
+          { responseId: "1", points: 2 },
+          { responseId: "2", points: 2 },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("waits for a running save, then saves the newer points", () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+      const field = () => screen.getByLabelText("grading.byQuestion.pointsForAll");
+      fireEvent.change(field(), { target: { value: "2" } });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(gradeMutate).toHaveBeenCalledTimes(1);
+
+      gradePending = true;
+      view.rerender(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+      fireEvent.change(field(), { target: { value: "3" } });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(gradeMutate).toHaveBeenCalledTimes(1);
+
+      gradePending = false;
+      view.rerender(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+      act(() => vi.advanceTimersByTime(1000));
+      expect(gradeMutate).toHaveBeenCalledTimes(2);
+      expect(gradeMutate.mock.calls[1][0].grades[0].points).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps points being typed when fresh data arrives", () => {
+    const view = render(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+    const field = () => screen.getByLabelText("grading.byQuestion.pointsForAll") as HTMLInputElement;
+    fireEvent.change(field(), { target: { value: "4" } });
+
+    responses = [
+      response("1", "Identifies a row", "Ada", 2),
+      response("2", "Identifies a row", undefined, 2),
+      response("3", "Links tables", "Bob", 4),
+    ];
+    view.rerender(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+
+    expect(field().value).toBe("4");
+  });
+
+  it("follows the server again after the points are put back unchanged", () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+      const field = () => screen.getByLabelText("grading.byQuestion.pointsForAll") as HTMLInputElement;
+      fireEvent.change(field(), { target: { value: "1" } });
+      fireEvent.change(field(), { target: { value: "" } });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(gradeMutate).not.toHaveBeenCalled();
+
+      responses = [
+        response("1", "Identifies a row", "Ada", 5),
+        response("2", "Identifies a row", undefined, 5),
+        response("3", "Links tables", "Bob", 4),
+      ];
+      view.rerender(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+      expect(field().value).toBe("5");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not resave a group whose points were not touched", () => {
