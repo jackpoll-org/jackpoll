@@ -113,7 +113,9 @@ class RetentionServiceTest {
             r.submittedAt = Instant.now().minus(60, ChronoUnit.DAYS);
             r.respondentName = "Ada";
             r.answers.add(answer(r, text.id, "Ada Lovelace"));
-            r.answers.add(answer(r, rating.id, 5));
+            var rated = answer(r, rating.id, 5);
+            rated.feedback = "Ada, why so low?";
+            r.answers.add(rated);
             responseRepo.persist(r);
         });
 
@@ -124,6 +126,7 @@ class RetentionServiceTest {
             assertNull(kept.respondentName);
             assertEquals(1, kept.answers.size());
             assertEquals(rating.id, kept.answers.get(0).questionId);
+            assertNull(kept.answers.get(0).feedback);
         });
     }
 

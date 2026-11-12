@@ -569,6 +569,7 @@ public class ResponseService {
                 if (old != null && java.util.Objects.equals(old.value, a.value())) {
                     answer.awardedPoints = old.awardedPoints;
                     answer.gradedAt = old.gradedAt;
+                    answer.feedback = old.feedback;
                 }
                 response.answers.add(answer);
                 values.put(a.questionId(), a.value());
@@ -693,6 +694,35 @@ public class ResponseService {
         return graded;
     }
 
+    @Transactional
+    public List<ResponseDto> answerFeedback(
+        String userId, String surveyId, String questionId, List<String> responseIds, String feedback) {
+        var survey = surveyService.requireEditable(userId, surveyId);
+        if (survey.settings != null && survey.settings.liveMode) {
+            throw badRequest("Players don't see feedback in live quizzes.");
+        }
+        var question = survey.questions.stream()
+            .filter(q -> q.id.equals(questionId) && q.type.isAnswerable())
+            .findFirst()
+            .orElseThrow(() -> badRequest("There is no such question to comment on."));
+        String text = feedback != null && !feedback.isBlank() ? feedback.strip() : null;
+        var updated = new ArrayList<ResponseDto>();
+        for (var responseId : responseIds) {
+            var response = requireGradableResponse(survey, responseId);
+            answerTo(question, response).feedback = text;
+            updated.add(toDto(response, survey, true, false, true));
+        }
+        return updated;
+    }
+
+    private static ResponseAnswer answerTo(Question q, SurveyResponse response) {
+        return response.answers.stream()
+            .filter(a -> a.questionId.equals(q.id))
+            .findFirst()
+            .filter(a -> !isBlankAnswer(a.value))
+            .orElseThrow(() -> badRequest("There is no answer to grade for this question."));
+    }
+
     private static Question requireGradableQuestion(Question q, boolean overridable) {
         if (q == null || !(QuizScoring.isManuallyGraded(q) || overridable && QuizScoring.isScorable(q))) {
             throw badRequest("This question can't be graded manually.");
@@ -701,11 +731,7 @@ public class ResponseService {
     }
 
     private static void setGrade(Question q, SurveyResponse response, Integer points, Instant now) {
-        var answer = response.answers.stream()
-            .filter(a -> a.questionId.equals(q.id))
-            .findFirst()
-            .filter(a -> !isBlankAnswer(a.value))
-            .orElseThrow(() -> badRequest("There is no answer to grade for this question."));
+        var answer = answerTo(q, response);
         int max = QuizScoring.pointsFor(q);
         if (points != null && (points < 0 || points > max)) {
             throw badRequest("Points must be between 0 and " + max + ".");
@@ -897,6 +923,7 @@ public class ResponseService {
                 r.feedback = null;
                 r.resultCode = null;
                 r.answers.removeIf(a -> identifying.contains(a.questionId));
+                r.answers.forEach(a -> a.feedback = null);
             }
         } else {
             var capped = cappedOptionIds(survey);
@@ -1246,7 +1273,7 @@ public class ResponseService {
             .map(a -> {
                 var q = questions.get(a.questionId);
                 return new AnswerDto(a.questionId, a.value, reveal ? a.awardedPoints : null,
-                    q != null ? autoPoints(q, a.value) : null);
+                    q != null ? autoPoints(q, a.value) : null, reveal ? a.feedback : null);
             })
             .toList();
         boolean showScore = reveal || scoreVisible(survey);

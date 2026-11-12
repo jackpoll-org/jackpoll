@@ -33,6 +33,7 @@ import {
   nextPendingIndex,
 } from "@/app/lib/survey/grading";
 import type { Question, SurveyResponseDto, UploadedFile } from "@/app/types/survey";
+import { AnswerFeedbackField } from "./answer-feedback-field";
 import { ReviewCard } from "./grading-review-card";
 import { ChoiceAnswer } from "./choice-answer";
 
@@ -183,6 +184,7 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
           question={q}
           response={response}
           gradable={isQuiz && isGradable(q, liveMode)}
+          commentable={isQuiz && !liveMode}
         />
       ))}
 
@@ -241,11 +243,13 @@ function AnswerCard({
   question,
   response,
   gradable,
+  commentable,
 }: {
   surveyId: string;
   question: Question;
   response: SurveyResponseDto;
   gradable: boolean;
+  commentable: boolean;
 }) {
   const { t } = useTranslation();
   const answer = response.answers.find((a) => a.questionId === question.id);
@@ -278,7 +282,7 @@ function AnswerCard({
           <Badge variant="outline">{t("grading.autoScored")}</Badge>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="grid gap-4">
         {!answered ? (
           <p className="text-sm text-muted-foreground">{t("grading.noAnswer")}</p>
         ) : question.type === "file-upload" || question.type === "signature" ? (
@@ -289,6 +293,15 @@ function AnswerCard({
           <p className="text-sm break-words whitespace-pre-wrap">
             {formatAnswer(question, answer?.value)}
           </p>
+        )}
+        {commentable && answered && (
+          <AnswerFeedbackField
+            surveyId={surveyId}
+            questionId={question.id}
+            responseIds={[response.id]}
+            initial={answer?.feedback ?? ""}
+            label={t("grading.answerFeedback")}
+          />
         )}
       </CardContent>
     </Card>

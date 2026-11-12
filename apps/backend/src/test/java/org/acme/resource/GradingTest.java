@@ -389,4 +389,82 @@ class GradingTest {
             .when().put(SURVEYS + "/not-mine/responses/y/grades")
             .then().statusCode(404);
     }
+    private static io.restassured.response.ValidatableResponse feedback(
+        Quiz quiz, String questionId, String responseId, String text) {
+        return given().contentType(ContentType.JSON)
+            .body(java.util.Map.of("responseIds", java.util.List.of(responseId), "feedback", text))
+            .when().put(SURVEYS + "/" + quiz.id() + "/questions/" + questionId + "/feedback")
+            .then();
+    }
+
+    private static String essayOf(Quiz quiz, String field) {
+        return "data.response.answers.find { it.questionId == '" + quiz.essay() + "' }." + field;
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void feedbackPerAnswerLeavesPointsAloneAndReachesTheStudentAfterRelease() {
+        var quiz = createQuiz(", \"studentResults\": true");
+        var created = submit(quiz, "Essay").extract();
+        String responseId = created.path("data.id");
+        String code = created.path("data.resultCode");
+        String token = created.path("data.editToken");
+        String essay = "data[0].answers.find { it.questionId == '" + quiz.essay() + "' }.";
+
+        grade(quiz, responseId, quiz.essay(), 4).statusCode(200);
+        feedback(quiz, quiz.essay(), responseId, "  Name the foreign key.  ").statusCode(200)
+            .body(essay + "feedback", is("Name the foreign key."))
+            .body(essay + "awardedPoints", is(4));
+        grade(quiz, responseId, quiz.essay(), 5).statusCode(200);
+        feedback(quiz, quiz.mc(), responseId, "Right.").statusCode(200);
+
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":["
+                + "{\"questionId\":\"" + quiz.mc() + "\",\"value\":\"" + quiz.right() + "\"},"
+                + "{\"questionId\":\"" + quiz.essay() + "\",\"value\":\"Essay\"}]}")
+            .when().put(EDIT + "/" + token)
+            .then().statusCode(200);
+
+        lookup(quiz, code).statusCode(404);
+        releaseResults(quiz);
+        lookup(quiz, code).statusCode(200)
+            .body(essayOf(quiz, "feedback"), is("Name the foreign key."))
+            .body(essayOf(quiz, "awardedPoints"), is(5));
+
+        feedback(quiz, quiz.essay(), responseId, " ").statusCode(200)
+            .body(essay + "feedback", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void rejectsInvalidAnswerFeedback() {
+        var quiz = createQuiz();
+        String responseId = given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"" + quiz.mc() + "\",\"value\":\"" + quiz.right() + "\"}]}")
+            .when().post(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(201).extract().path("data.id");
+
+        feedback(quiz, quiz.essay(), responseId, "Nothing to comment on").statusCode(400);
+        feedback(quiz, "nope", responseId, "Unknown question").statusCode(400);
+        feedback(quiz, quiz.mc(), "missing", "Unknown response").statusCode(404);
+        feedback(quiz, quiz.mc(), responseId, "x".repeat(2001)).statusCode(422);
+
+        releaseResults(quiz, ", \"liveMode\": true");
+        feedback(quiz, quiz.mc(), responseId, "Not shown to players").statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "stranger")
+    void cannotGiveFeedbackOnSomeoneElsesSurvey() {
+        given().contentType(ContentType.JSON).body("{\"responseIds\":[\"y\"],\"feedback\":\"Hi\"}")
+            .when().put(SURVEYS + "/not-mine/questions/q/feedback")
+            .then().statusCode(404);
+    }
+
+    @Test
+    void answerFeedbackRequiresSignIn() {
+        given().contentType(ContentType.JSON).body("{\"responseIds\":[\"y\"],\"feedback\":\"Hi\"}")
+            .when().put(SURVEYS + "/x/questions/q/feedback")
+            .then().statusCode(401);
+    }
 }

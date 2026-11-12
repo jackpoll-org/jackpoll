@@ -86,10 +86,16 @@ function AnswerRow({ question, answer }: { question: Question; answer?: AnswerIn
           </span>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="grid gap-3">
         <p className="text-sm break-words whitespace-pre-wrap">
           {answered ? formatAnswer(question, answer?.value) : t("grading.noAnswer")}
         </p>
+        {answer?.feedback && (
+          <div className="grid gap-1 rounded-lg border p-3">
+            <p className="text-sm font-medium">{t("studentResult.answerFeedback")}</p>
+            <p className="text-sm break-words whitespace-pre-wrap">{answer.feedback}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

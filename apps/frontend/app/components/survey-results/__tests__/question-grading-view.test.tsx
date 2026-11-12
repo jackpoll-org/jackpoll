@@ -4,6 +4,7 @@ import type { Survey, SurveyResponseDto } from "@/app/types/survey";
 
 const replace = vi.fn();
 const gradeMutate = vi.fn();
+const feedbackMutate = vi.fn();
 let responses: SurveyResponseDto[] = [];
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
@@ -32,6 +33,7 @@ vi.mock("@/app/hooks/survey", () => ({
   useSurvey: () => ({ data: survey, isLoading: false }),
   useResponses: () => ({ data: responses, isLoading: false }),
   useGradeQuestion: () => ({ mutate: gradeMutate }),
+  useAnswerFeedback: () => ({ mutateAsync: feedbackMutate }),
 }));
 
 import { QuestionGradingView } from "../question-grading-view";
@@ -48,6 +50,8 @@ describe("QuestionGradingView", () => {
   beforeEach(() => {
     replace.mockReset();
     gradeMutate.mockReset();
+    feedbackMutate.mockReset();
+    feedbackMutate.mockResolvedValue([]);
     responses = [
       response("1", "Identifies a row", "Ada"),
       response("2", "Identifies a row", undefined),
@@ -76,6 +80,20 @@ describe("QuestionGradingView", () => {
       },
       expect.anything(),
     );
+  });
+
+  it("gives the same feedback to every answer in a group", () => {
+    render(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+
+    const field = screen.getByLabelText("grading.byQuestion.feedbackForAll");
+    fireEvent.change(field, { target: { value: "Also say what a row is." } });
+    fireEvent.blur(field);
+
+    expect(feedbackMutate).toHaveBeenCalledWith({
+      questionId: "essay",
+      responseIds: ["1", "2"],
+      feedback: "Also say what a row is.",
+    });
   });
 
   it("does not resave a group whose points were not touched", () => {

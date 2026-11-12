@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { Survey, SurveyResponseDto } from "@/app/types/survey";
 
 const replace = vi.fn();
 const mutate = vi.fn();
 const reviewMutate = vi.fn();
+const feedbackMutate = vi.fn();
 let responses: SurveyResponseDto[] = [];
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
@@ -46,6 +47,7 @@ vi.mock("@/app/hooks/survey", () => ({
   useResponses: () => ({ data: responses, isLoading: false }),
   useGradeResponse: () => ({ mutate }),
   useReviewResponse: () => ({ mutate: reviewMutate, isPending: false }),
+  useAnswerFeedback: () => ({ mutateAsync: feedbackMutate }),
 }));
 
 import { GradingView, parsePoints } from "../grading-view";
@@ -73,6 +75,8 @@ describe("GradingView", () => {
     replace.mockReset();
     mutate.mockReset();
     reviewMutate.mockReset();
+    feedbackMutate.mockReset();
+    feedbackMutate.mockResolvedValue([]);
     responses = [
       response("b", "2026-09-24T10:05:00Z"),
       response("a", "2026-09-24T10:00:00Z", { gradingPending: false, score: 4 }),
@@ -130,6 +134,8 @@ describe("GradingView overrides and review", () => {
   beforeEach(() => {
     mutate.mockReset();
     reviewMutate.mockReset();
+    feedbackMutate.mockReset();
+    feedbackMutate.mockResolvedValue([]);
     responses = [
       response("b", "2026-09-24T10:05:00Z", {
         answers: [{ questionId: "sql", value: "Structured Query Language", autoPoints: 0 }],
@@ -149,6 +155,44 @@ describe("GradingView overrides and review", () => {
       { responseId: "b", grades: [{ questionId: "sql", points: 2 }] },
       expect.anything(),
     );
+  });
+
+  it("saves feedback on one answer when the field loses focus", () => {
+    render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+
+    const field = screen.getByLabelText("grading.answerFeedback");
+    fireEvent.blur(field);
+    expect(feedbackMutate).not.toHaveBeenCalled();
+
+    fireEvent.change(field, { target: { value: "  Spell out the acronym.  " } });
+    fireEvent.blur(field);
+    expect(feedbackMutate).toHaveBeenCalledWith({
+      questionId: "sql",
+      responseIds: ["b"],
+      feedback: "Spell out the acronym.",
+    });
+  });
+
+  it("saves feedback typed while an earlier save was still running", async () => {
+    let finishFirst: (value: unknown) => void = () => {};
+    feedbackMutate.mockImplementationOnce(() => new Promise((resolve) => (finishFirst = resolve)));
+    const view = render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+    const field = screen.getByLabelText("grading.answerFeedback");
+
+    fireEvent.change(field, { target: { value: "Spell" } });
+    fireEvent.blur(field);
+    fireEvent.change(field, { target: { value: "Spell it out." } });
+    fireEvent.blur(field);
+    expect(feedbackMutate).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+    await act(async () => finishFirst([]));
+    expect(feedbackMutate).toHaveBeenCalledTimes(2);
+    expect(feedbackMutate.mock.calls[1][0]).toEqual({
+      questionId: "sql",
+      responseIds: ["b"],
+      feedback: "Spell it out.",
+    });
   });
 
   it("saves bonus points and feedback", () => {

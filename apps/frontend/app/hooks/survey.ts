@@ -23,6 +23,7 @@ import {
   deleteResponseApi,
   gradeResponseApi,
   gradeQuestionApi,
+  answerFeedbackApi,
   reviewResponseApi,
   hasRespondedApi,
   getStudentResultApi,
@@ -963,6 +964,26 @@ export function useGradeQuestion(surveyId: string) {
     mutationFn: async ({ questionId, grades }: { questionId: string; grades: QuestionGradeInput[] }) => {
       const res = await gradeQuestionApi(surveyId, questionId, grades);
       if (!res.success || !res.data) throw new Error(res.error ?? "Failed to save grades");
+      return res.data;
+    },
+    onSuccess: () => invalidateResponseData(queryClient, surveyId),
+  });
+}
+
+export function useAnswerFeedback(surveyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      questionId,
+      responseIds,
+      feedback,
+    }: {
+      questionId: string;
+      responseIds: string[];
+      feedback: string;
+    }) => {
+      const res = await answerFeedbackApi(surveyId, questionId, responseIds, feedback);
+      if (!res.success || !res.data) throw new Error(localizeServerError(res.error ?? "Failed to save feedback"));
       return res.data;
     },
     onSuccess: () => invalidateResponseData(queryClient, surveyId),

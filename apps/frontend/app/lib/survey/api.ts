@@ -819,6 +819,18 @@ export async function gradeResponseApi(
   });
 }
 
+export async function answerFeedbackApi(
+  surveyId: string,
+  questionId: string,
+  responseIds: string[],
+  feedback: string,
+): Promise<ApiResponse<SurveyResponseDto[]>> {
+  return request<SurveyResponseDto[]>(
+    `${SURVEY_ENDPOINTS.detail(surveyId)}/questions/${encodeURIComponent(questionId)}/feedback`,
+    { method: "PUT", body: JSON.stringify({ responseIds, feedback }) },
+  );
+}
+
 export async function reviewResponseApi(
   surveyId: string,
   responseId: string,

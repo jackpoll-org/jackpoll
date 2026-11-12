@@ -18,6 +18,7 @@ import { useTranslation } from "@/app/i18n/context";
 import { formatAnswer } from "@/app/lib/survey/export";
 import { maxPointsFor, sharedPoints, type AnswerGroup } from "@/app/lib/survey/grading";
 import type { Question, UploadedFile } from "@/app/types/survey";
+import { AnswerFeedbackField } from "./answer-feedback-field";
 import { ChoiceAnswer } from "./choice-answer";
 import { FileList, parsePoints } from "./grading-view";
 
@@ -27,13 +28,25 @@ interface AnswerGroupCardProps {
   group: AnswerGroup;
   studentLabel: (responseId: string) => string;
   studentHref: (responseId: string) => string;
+  commentable: boolean;
 }
 
-export function AnswerGroupCard({ surveyId, question, group, studentLabel, studentHref }: AnswerGroupCardProps) {
+export function AnswerGroupCard({
+  surveyId,
+  question,
+  group,
+  studentLabel,
+  studentHref,
+  commentable,
+}: AnswerGroupCardProps) {
   const { t } = useTranslation();
   const ids = group.responses.map((r) => r.id);
   const shared = sharedPoints(question, group.responses);
   const autoPoints = group.responses[0]?.answers.find((a) => a.questionId === question.id)?.autoPoints ?? null;
+  const feedbacks = new Set(
+    group.responses.map((r) => r.answers.find((a) => a.questionId === question.id)?.feedback ?? ""),
+  );
+  const sharedFeedback = feedbacks.size === 1 ? [...feedbacks][0] : null;
 
   return (
     <Card>
@@ -54,6 +67,17 @@ export function AnswerGroupCard({ surveyId, question, group, studentLabel, stude
       </CardHeader>
       <CardContent className="grid gap-3">
         <GroupAnswer question={question} value={group.value} />
+        {commentable && (
+          <AnswerFeedbackField
+            key={ids.join()}
+            surveyId={surveyId}
+            questionId={question.id}
+            responseIds={ids}
+            initial={sharedFeedback ?? ""}
+            label={ids.length > 1 ? t("grading.byQuestion.feedbackForAll") : t("grading.answerFeedback")}
+            placeholder={sharedFeedback == null ? t("grading.byQuestion.mixed") : undefined}
+          />
+        )}
         <Collapsible>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="w-fit gap-1 px-2">

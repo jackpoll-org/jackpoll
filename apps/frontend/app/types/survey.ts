@@ -406,6 +406,7 @@ export interface AnswerInput {
   /** Teacher-awarded points on a manually graded answer (public #6); read-only. */
   awardedPoints?: number | null;
   autoPoints?: number | null;
+  feedback?: string | null;
 }
 
 /** Points for one manually graded answer; null clears the grade (public #6). */

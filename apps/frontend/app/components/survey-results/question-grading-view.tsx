@@ -132,6 +132,7 @@ export function QuestionGradingView({ surveyId, questionId, sessionId }: Questio
           group={group}
           studentLabel={studentLabel}
           studentHref={studentHref}
+          commentable={survey.data?.settings.liveMode !== true}
         />
       ))}
 

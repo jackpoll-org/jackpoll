@@ -43,4 +43,7 @@ public class ResponseAnswer extends PanacheEntityBase {
 
     @Column(name = "graded_at")
     public Instant gradedAt;
+
+    @Column(name = "feedback", columnDefinition = "TEXT")
+    public String feedback;
 }

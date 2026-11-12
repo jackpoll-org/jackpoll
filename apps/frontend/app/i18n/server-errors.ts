@@ -60,6 +60,8 @@ const EXACT_DE: Record<string, string> = {
   "Sign in to preview this survey.": "Melde dich an, um diese Umfrage in der Vorschau zu sehen.",
   "The password is incorrect.": "Das Passwort ist falsch.",
   "There is no answer to grade for this question.": "Für diese Frage gibt es keine Antwort zum Bewerten.",
+  "There is no such question to comment on.": "Diese Frage gibt es nicht.",
+  "Players don't see feedback in live quizzes.": "In Live-Quizzen sehen die Teilnehmenden kein Feedback.",
   "This collaboration link has expired.": "Dieser Mitarbeits-Link ist abgelaufen.",
   "This link has expired.": "Dieser Link ist abgelaufen.",
   "This question can't be graded manually.": "Diese Frage kann nicht manuell bewertet werden.",

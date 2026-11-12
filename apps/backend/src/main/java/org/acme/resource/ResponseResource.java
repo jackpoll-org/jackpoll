@@ -5,6 +5,7 @@ import java.util.List;
 import java.time.LocalDate;
 
 import org.acme.dto.ApiResponse;
+import org.acme.dto.ResponseDtos.AnswerFeedbackRequest;
 import org.acme.dto.ResponseDtos.GradeRequest;
 import org.acme.dto.ResponseDtos.QuestionGradeRequest;
 import org.acme.dto.ResponseDtos.ReviewRequest;
@@ -141,6 +142,19 @@ public class ResponseResource {
     ) {
         var graded = responseService.gradeQuestion(ownerId(), id, questionId, req.grades());
         return ApiResponse.ok(graded);
+    }
+
+    @PUT
+    @Path("/{id}/questions/{questionId}/feedback")
+    @Authenticated
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ApiResponse<List<ResponseDto>> answerFeedback(
+        @PathParam("id") String id,
+        @PathParam("questionId") String questionId,
+        @Valid @NotNull AnswerFeedbackRequest req
+    ) {
+        return ApiResponse.ok(
+            responseService.answerFeedback(ownerId(), id, questionId, req.responseIds(), req.feedback()));
     }
 
     @PUT

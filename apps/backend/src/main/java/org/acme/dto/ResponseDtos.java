@@ -30,7 +30,8 @@ public final class ResponseDtos {
         Object value,
         // Teacher-awarded points (public #6); output only, ignored on submit.
         Integer awardedPoints,
-        Integer autoPoints
+        Integer autoPoints,
+        String feedback
     ) {}
 
     /** Points for one manually graded answer; null clears the grade. */
@@ -43,6 +44,11 @@ public final class ResponseDtos {
 
     public record QuestionGradeRequest(
         @NotNull @Size(max = 1000) List<@Valid @NotNull QuestionGradeDto> grades) {}
+
+    public record AnswerFeedbackRequest(
+        @NotNull @Size(max = 1000) List<@NotNull @Size(max = 36) String> responseIds,
+        @Size(max = 2000) String feedback
+    ) {}
 
     public record ReviewRequest(
         @Min(-1000) @Max(1000) Integer bonusPoints,
