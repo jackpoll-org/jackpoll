@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Braces, ChevronDown, ChevronUp, GitBranch, GripVertical, Trash2 } from "lucide-react";
+import { Braces, ChevronDown, ChevronUp, GitBranch, GripVertical } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/app/components/ui/card";
 import {
   DropdownMenu,
@@ -30,6 +30,7 @@ import { useTranslation } from "@/app/i18n/context";
 import { CollabTextInput } from "./collab-text-input";
 import { QuestionValidationEditor } from "./question-validation-editor";
 import { QuestionLogicEditor } from "./question-logic-editor";
+import { DeleteQuestionButton } from "./delete-question-button";
 import { QuestionQuizEditor, QuizPointsField, hasQuizPoints } from "./question-quiz-editor";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/app/components/ui/collapsible";
 import { getValidationRules } from "@/app/lib/survey/validation";
@@ -160,15 +161,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
             >
               <ChevronDown className="size-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={t("builder.question.delete")}
-              className="text-muted-foreground hover:text-destructive"
-              onClick={() => removeQuestion(question.id)}
-            >
-              <Trash2 className="size-4" />
-            </Button>
+            <DeleteQuestionButton question={question} onDelete={() => removeQuestion(question.id)} />
           </div>
         </div>
 
