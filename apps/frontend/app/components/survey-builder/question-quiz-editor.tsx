@@ -14,6 +14,7 @@ import {
   POINTS_LIMIT,
   answerPoints,
   basePoints,
+  isAutoScored,
   isManuallyGraded,
   maxPointsFor,
   optionPoints,
@@ -33,7 +34,7 @@ const SCORABLE = new Set<Question["type"]>([
 
 /** Whether the question carries a points value in a quiz. */
 export function hasQuizPoints(question: Question): boolean {
-  return SCORABLE.has(question.type) || question.type === "long-answer" || question.type === "file-upload";
+  return (SCORABLE.has(question.type) && isAutoScored(question)) || isManuallyGraded(question);
 }
 
 /** Points next to the question title; read-only when the points come from its answers. */
@@ -293,9 +294,9 @@ export function QuestionQuizEditor({
       {correct.every((c) => c.trim() === "") && (
         <>
           <ManualGradingToggle question={question} onChange={onChange} />
-          {isManuallyGraded(question) && (
-            <p className="text-xs text-muted-foreground">{t("builder.quiz.manualHint")}</p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            {isManuallyGraded(question) ? t("builder.quiz.manualHint") : t("builder.quiz.needsKeyOrManual")}
+          </p>
         </>
       )}
     </div>

@@ -4,7 +4,7 @@ import type { Question } from "@/app/types/survey";
 
 vi.mock("@/app/i18n/context", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 
-import { QuestionQuizEditor } from "../question-quiz-editor";
+import { QuestionQuizEditor, hasQuizPoints } from "../question-quiz-editor";
 
 const checkboxes = {
   id: "q",
@@ -89,3 +89,40 @@ describe("QuestionQuizEditor points per answer", () => {
   });
 });
 
+
+describe("hasQuizPoints", () => {
+  const upload = (settings: Record<string, unknown>) =>
+    ({ id: "u", type: "file-upload", title: "Upload", required: false, order: 0, points: 10, settings }) as unknown as Question;
+
+  it("hides points on a file upload that is not graded manually", () => {
+    expect(hasQuizPoints(upload({}))).toBe(false);
+  });
+
+  it("shows points on a file upload that is graded manually", () => {
+    expect(hasQuizPoints(upload({ manualGrading: true }))).toBe(true);
+  });
+
+  const shortAnswer = (patch: Record<string, unknown>) =>
+    ({ id: "s", type: "short-answer", title: "Name it", required: false, order: 0, points: 3, ...patch }) as unknown as Question;
+
+  it("shows points on a short answer only once it has an answer key or is graded manually", () => {
+    expect(hasQuizPoints(shortAnswer({}))).toBe(false);
+    expect(hasQuizPoints(shortAnswer({ correctAnswers: [" "] }))).toBe(false);
+    expect(hasQuizPoints(shortAnswer({ correctAnswers: ["SQL"] }))).toBe(true);
+    expect(hasQuizPoints(shortAnswer({ settings: { manualGrading: true } }))).toBe(true);
+  });
+
+  it("shows points on sliders and rankings only once they are scored", () => {
+    const q = (type: string, patch: Record<string, unknown>) =>
+      ({ id: "x", type, title: "Q", required: false, order: 0, ...patch }) as unknown as Question;
+    expect(hasQuizPoints(q("slider", {}))).toBe(false);
+    expect(hasQuizPoints(q("slider", { correctAnswers: ["7"] }))).toBe(true);
+    expect(hasQuizPoints(q("ranking", {}))).toBe(false);
+    expect(hasQuizPoints(q("ranking", { settings: { scoreOrder: true } }))).toBe(true);
+  });
+
+  it("shows points on a choice question only once a correct option is marked", () => {
+    expect(hasQuizPoints({ ...checkboxes, correctAnswers: [] } as Question)).toBe(false);
+    expect(hasQuizPoints(checkboxes)).toBe(true);
+  });
+});
