@@ -10,6 +10,7 @@ import org.acme.dto.ResponseDtos.QuestionGradeRequest;
 import org.acme.dto.ResponseDtos.ReviewRequest;
 import org.acme.dto.ResponseDtos.ResponseDto;
 import org.acme.dto.ResponseDtos.SubmitResponseRequest;
+import org.acme.dto.ResponseDtos.SurveyResultsDto;
 import org.acme.service.AccessCodeService;
 import org.acme.service.CollabLinkService;
 import org.acme.service.ExportService;
@@ -34,6 +35,11 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.jboss.resteasy.reactive.ResponseStatus;
 
 @Path("/surveys")
 @Produces(MediaType.APPLICATION_JSON)
@@ -72,7 +78,9 @@ public class ResponseResource {
     @Path("/{id}/responses")
     @PermitAll
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response submit(
+    @ResponseStatus(201)
+    @APIResponse(responseCode = "201", description = "Created", content = @Content(schema = @Schema(ref = "ApiResponseResponseDto")))
+    public ApiResponse<ResponseDto> submit(
         @PathParam("id") String id,
         @Valid SubmitResponseRequest req,
         @jakarta.ws.rs.HeaderParam("X-Forwarded-For") String forwardedFor,
@@ -88,10 +96,7 @@ public class ResponseResource {
         String ip = ClientIp.of(forwardedFor, http);
         rateLimiter.requirePublicWrite("submit", id, ip);
         accessCodes.requireAccess(id);
-        var created = responseService.submit(id, req, ip);
-        return Response.status(Response.Status.CREATED)
-            .entity(ApiResponse.ok(created))
-            .build();
+        return ApiResponse.ok(responseService.submit(id, req, ip));
     }
 
 
@@ -99,7 +104,7 @@ public class ResponseResource {
     @GET
     @Path("/{id}/responses")
     @Authenticated
-    public Response list(
+    public ApiResponse<List<ResponseDto>> list(
         @PathParam("id") String id,
         @QueryParam("from") String from,
         @QueryParam("to") String to,
@@ -108,7 +113,7 @@ public class ResponseResource {
     ) {
         List<ResponseDto> data = responseService.list(ownerId(), id, from, to, preview, session);
         var meta = new ApiResponse.Meta(data.size(), 0, data.size());
-        return Response.ok(ApiResponse.ok(data, meta)).build();
+        return ApiResponse.ok(data, meta);
     }
 
     /** Award points to manually graded answers (public #6) — owner/editors. */
@@ -116,69 +121,69 @@ public class ResponseResource {
     @Path("/{id}/responses/{responseId}/grades")
     @Authenticated
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response grade(
+    public ApiResponse<ResponseDto> grade(
         @PathParam("id") String id,
         @PathParam("responseId") String responseId,
         @Valid @NotNull GradeRequest req
     ) {
         ResponseDto dto = responseService.grade(ownerId(), id, responseId, req.grades());
-        return Response.ok(ApiResponse.ok(dto)).build();
+        return ApiResponse.ok(dto);
     }
 
     @PUT
     @Path("/{id}/questions/{questionId}/grades")
     @Authenticated
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response gradeQuestion(
+    public ApiResponse<List<ResponseDto>> gradeQuestion(
         @PathParam("id") String id,
         @PathParam("questionId") String questionId,
         @Valid @NotNull QuestionGradeRequest req
     ) {
         var graded = responseService.gradeQuestion(ownerId(), id, questionId, req.grades());
-        return Response.ok(ApiResponse.ok(graded)).build();
+        return ApiResponse.ok(graded);
     }
 
     @PUT
     @Path("/{id}/responses/{responseId}/review")
     @Authenticated
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response review(
+    public ApiResponse<ResponseDto> review(
         @PathParam("id") String id,
         @PathParam("responseId") String responseId,
         @Valid @NotNull ReviewRequest req
     ) {
         ResponseDto dto = responseService.review(ownerId(), id, responseId, req.bonusPoints(), req.feedback());
-        return Response.ok(ApiResponse.ok(dto)).build();
+        return ApiResponse.ok(dto);
     }
 
     /** Delete one response — owner only. */
     @DELETE
     @Path("/{id}/responses/{responseId}")
     @Authenticated
-    public Response deleteResponse(
+    public ApiResponse<Void> deleteResponse(
         @PathParam("id") String id,
         @PathParam("responseId") String responseId
     ) {
         responseService.deleteResponse(ownerId(), id, responseId);
-        return Response.ok(ApiResponse.ok(null)).build();
+        return ApiResponse.ok(null);
     }
 
     /** Clear all responses for a survey — owner only. */
     @DELETE
     @Path("/{id}/responses")
     @Authenticated
-    public Response clearResponses(@PathParam("id") String id) {
+    public ApiResponse<Void> clearResponses(@PathParam("id") String id) {
         responseService.clearResponses(ownerId(), id);
-        return Response.ok(ApiResponse.ok(null)).build();
+        return ApiResponse.ok(null);
     }
 
     /** Delete just the preview/test submissions for a survey — owner only (#). */
     @DELETE
     @Path("/{id}/responses/preview")
     @Authenticated
-    public Response deletePreview(@PathParam("id") String id) {
+    public ApiResponse<Long> deletePreview(@PathParam("id") String id) {
         long deleted = responseService.deletePreviewResponses(ownerId(), id);
-        return Response.ok(ApiResponse.ok(deleted)).build();
+        return ApiResponse.ok(deleted);
     }
 
     /** Aggregated dashboard results — owner only. {@code preview=true} includes
@@ -186,13 +191,12 @@ public class ResponseResource {
     @GET
     @Path("/{id}/results")
     @Authenticated
-    public Response results(
+    public ApiResponse<SurveyResultsDto> results(
         @PathParam("id") String id,
         @QueryParam("preview") @jakarta.ws.rs.DefaultValue("false") boolean preview,
         @QueryParam("session") String session
     ) {
-        return Response.ok(ApiResponse.ok(
-            responseService.results(ownerId(), id, preview, session))).build();
+        return ApiResponse.ok(responseService.results(ownerId(), id, preview, session));
     }
 
     /** Formatted Excel (.xlsx) export of responses — owner only (issue #32). */

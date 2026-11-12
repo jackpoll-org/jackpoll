@@ -20,7 +20,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.jboss.resteasy.reactive.ResponseStatus;
 
 @Path("/folders")
 @Authenticated
@@ -38,30 +42,29 @@ public class FolderResource {
     }
 
     @GET
-    public Response list() {
-        List<FolderDto> data = folderService.list(ownerId());
-        return Response.ok(ApiResponse.ok(data)).build();
+    public ApiResponse<List<FolderDto>> list() {
+        return ApiResponse.ok(folderService.list(ownerId()));
     }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response create(@Valid FolderRequest req) {
-        return Response.status(Response.Status.CREATED)
-            .entity(ApiResponse.ok(folderService.create(ownerId(), req)))
-            .build();
+    @ResponseStatus(201)
+    @APIResponse(responseCode = "201", description = "Created", content = @Content(schema = @Schema(ref = "ApiResponseFolderDto")))
+    public ApiResponse<FolderDto> create(@Valid FolderRequest req) {
+        return ApiResponse.ok(folderService.create(ownerId(), req));
     }
 
     @PUT
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response rename(@PathParam("id") String id, @Valid FolderRequest req) {
-        return Response.ok(ApiResponse.ok(folderService.rename(ownerId(), id, req))).build();
+    public ApiResponse<FolderDto> rename(@PathParam("id") String id, @Valid FolderRequest req) {
+        return ApiResponse.ok(folderService.rename(ownerId(), id, req));
     }
 
     @DELETE
     @Path("/{id}")
-    public Response delete(@PathParam("id") String id) {
+    public ApiResponse<Void> delete(@PathParam("id") String id) {
         folderService.delete(ownerId(), id);
-        return Response.ok(ApiResponse.ok(null)).build();
+        return ApiResponse.ok(null);
     }
 }

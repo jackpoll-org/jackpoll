@@ -2,6 +2,7 @@ package org.acme.resource;
 
 import org.acme.dto.ApiResponse;
 import org.acme.dto.SurveyDtos.CreateSurveyRequest;
+import org.acme.dto.SurveyDtos.SurveyDto;
 import org.acme.dto.SurveyDtos.UpdateSurveyRequest;
 import org.acme.service.SurveyService;
 
@@ -22,7 +23,13 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+
+import java.util.List;
+
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.jboss.resteasy.reactive.ResponseStatus;
 
 @Path("/surveys")
 @Authenticated
@@ -44,60 +51,59 @@ public class SurveyResource {
     }
 
     @GET
-    public Response list(
+    public ApiResponse<List<SurveyDto>> list(
         @QueryParam("page") @DefaultValue("0") @Min(0) int page,
         @QueryParam("limit") @DefaultValue("20") @Min(1) @Max(100) int limit
     ) {
         var owner = ownerId();
         var data = surveyService.list(owner, page, limit);
         var meta = new ApiResponse.Meta(surveyService.count(owner), page, limit);
-        return Response.ok(ApiResponse.ok(data, meta)).build();
+        return ApiResponse.ok(data, meta);
     }
 
     @GET
     @Path("/{id}")
-    public Response get(@PathParam("id") String id) {
-        return Response.ok(ApiResponse.ok(surveyService.get(ownerId(), id))).build();
+    public ApiResponse<SurveyDto> get(@PathParam("id") String id) {
+        return ApiResponse.ok(surveyService.get(ownerId(), id));
     }
 
     @POST
-    public Response create(@Valid CreateSurveyRequest req) {
-        var created = surveyService.create(ownerId(), req);
-        return Response.status(Response.Status.CREATED)
-            .entity(ApiResponse.ok(created))
-            .build();
+    @ResponseStatus(201)
+    @APIResponse(responseCode = "201", description = "Created", content = @Content(schema = @Schema(ref = "ApiResponseSurveyDto")))
+    public ApiResponse<SurveyDto> create(@Valid CreateSurveyRequest req) {
+        return ApiResponse.ok(surveyService.create(ownerId(), req));
     }
 
     @PUT
     @Path("/{id}")
-    public Response update(@PathParam("id") String id, @Valid UpdateSurveyRequest req) {
+    public ApiResponse<SurveyDto> update(@PathParam("id") String id, @Valid UpdateSurveyRequest req) {
         apiKeyGuard.checkUpdate(ownerId(), id, req.settings());
-        return Response.ok(ApiResponse.ok(surveyService.update(ownerId(), id, req))).build();
+        return ApiResponse.ok(surveyService.update(ownerId(), id, req));
     }
 
     /** Lightweight tags/folder update from the dashboard (issue #33). */
     @PUT
     @Path("/{id}/organize")
-    public Response organize(
+    public ApiResponse<SurveyDto> organize(
         @PathParam("id") String id,
         org.acme.dto.SurveyDtos.OrganizeRequest req
     ) {
-        return Response.ok(ApiResponse.ok(surveyService.organize(ownerId(), id, req))).build();
+        return ApiResponse.ok(surveyService.organize(ownerId(), id, req));
     }
 
     /** Persist the manual drag order of surveys in one folder/root (issue #94). */
     @PUT
     @Path("/reorder")
-    public Response reorder(org.acme.dto.SurveyDtos.ReorderRequest req) {
+    public ApiResponse<Void> reorder(org.acme.dto.SurveyDtos.ReorderRequest req) {
         surveyService.reorder(ownerId(), req);
-        return Response.ok(ApiResponse.ok(null)).build();
+        return ApiResponse.ok(null);
     }
 
     @DELETE
     @Path("/{id}")
-    public Response delete(@PathParam("id") String id) {
+    public ApiResponse<Void> delete(@PathParam("id") String id) {
         apiKeyGuard.checkDelete(ownerId(), id);
         surveyService.delete(ownerId(), id);
-        return Response.ok(ApiResponse.ok(null)).build();
+        return ApiResponse.ok(null);
     }
 }

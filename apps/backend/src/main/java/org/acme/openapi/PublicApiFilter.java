@@ -33,6 +33,5 @@ public class PublicApiFilter implements OASFilter {
             .type(SecurityScheme.Type.HTTP)
             .scheme("bearer")
             .description("A personal API key (jp_...) created under Settings > API keys."));
-        openAPI.setSecurity(List.of(OASFactory.createSecurityRequirement().addScheme(SCHEME)));
     }
 }

@@ -169,6 +169,36 @@ class ApiKeyTest {
     }
 
     @Test
+    void openApiSpecDescribesPayloadsAndSecurity() {
+        String createSurvey = "paths.'/surveys'.post";
+        String getSurvey = "paths.'/surveys/{id}'.get";
+        given().queryParam("format", "json").when().get(API + "/openapi")
+            .then().statusCode(200)
+            .body(createSurvey + ".requestBody.content.'application/json'.schema.'$ref'",
+                is("#/components/schemas/CreateSurveyRequest"))
+            .body(createSurvey + ".responses", hasKey("201"))
+            .body(createSurvey + ".responses.'201'.content.'application/json'.schema.'$ref'",
+                is("#/components/schemas/ApiResponseSurveyDto"))
+            .body(createSurvey + ".security[0]", hasKey("apiKey"))
+            .body(getSurvey + ".responses.'200'.content.'application/json'.schema.'$ref'",
+                is("#/components/schemas/ApiResponseSurveyDto"))
+            .body("paths.'/surveys/{id}'.put.requestBody.content.'application/json'.schema.'$ref'",
+                is("#/components/schemas/UpdateSurveyRequest"))
+            .body("components.schemas.UpdateSurveyRequest.properties", hasKey("questions"))
+            .body("components.schemas.QuestionType.enum", hasItem("short-answer"))
+            .body("components.schemas.SurveyStatus.enum", hasItem("published"))
+            .body("paths.'/folders'.post.responses.'201'.content.'application/json'.schema.'$ref'",
+                is("#/components/schemas/ApiResponseFolderDto"))
+            .body("paths.'/surveys/{id}/responses'.post.responses.'201'.content.'application/json'.schema.'$ref'",
+                is("#/components/schemas/ApiResponseResponseDto"))
+            .body("paths.'/surveys/{id}/responses'.post.security", nullValue())
+            .body("security", nullValue())
+            .body("components.schemas", hasKey("ApiResponseSurveyDto"))
+            .body("components.schemas", hasKey("ApiResponseFolderDto"))
+            .body("components.schemas", hasKey("ApiResponseResponseDto"));
+    }
+
+    @Test
     void surveysOnlyKeyCannotShareResultsOrDeleteResponses() {
         String key = keyFor("agent-limited", false);
         String id = given().auth().oauth2(key).contentType(ContentType.JSON)

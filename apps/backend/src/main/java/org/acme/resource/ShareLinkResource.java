@@ -1,6 +1,7 @@
 package org.acme.resource;
 
 import org.acme.dto.ApiResponse;
+import org.acme.dto.ShareLinkDtos.ShareLinkDto;
 import org.acme.dto.ShareLinkDtos.UpdateShareLinkRequest;
 import org.acme.service.ShareLinkService;
 
@@ -16,7 +17,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 @Path("/surveys/{id}/share-link")
 @Authenticated
@@ -34,19 +34,19 @@ public class ShareLinkResource {
     }
 
     @GET
-    public Response get(@PathParam("id") String surveyId) {
-        return Response.ok(ApiResponse.ok(shareLinkService.get(ownerId(), surveyId))).build();
+    public ApiResponse<ShareLinkDto> get(@PathParam("id") String surveyId) {
+        return ApiResponse.ok(shareLinkService.get(ownerId(), surveyId));
     }
 
     @POST
     @Path("/rotate")
-    public Response rotate(@PathParam("id") String surveyId) {
-        return Response.ok(ApiResponse.ok(shareLinkService.rotate(ownerId(), surveyId))).build();
+    public ApiResponse<ShareLinkDto> rotate(@PathParam("id") String surveyId) {
+        return ApiResponse.ok(shareLinkService.rotate(ownerId(), surveyId));
     }
 
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response update(@PathParam("id") String surveyId, @Valid UpdateShareLinkRequest req) {
-        return Response.ok(ApiResponse.ok(shareLinkService.update(ownerId(), surveyId, req))).build();
+    public ApiResponse<ShareLinkDto> update(@PathParam("id") String surveyId, @Valid UpdateShareLinkRequest req) {
+        return ApiResponse.ok(shareLinkService.update(ownerId(), surveyId, req));
     }
 }
