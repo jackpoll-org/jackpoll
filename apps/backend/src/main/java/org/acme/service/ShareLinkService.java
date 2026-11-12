@@ -88,6 +88,10 @@ public class ShareLinkService {
         links.findBySurvey(surveyId).ifPresent(this::ensureLinkOpen);
     }
 
+    public boolean hasResponseCap(String surveyId) {
+        return links.findBySurvey(surveyId).map(link -> link.maxResponses != null).orElse(false);
+    }
+
     private void ensureLinkOpen(ShareLink link) {
         if (link.expiresAt != null && !link.expiresAt.isBlank()) {
             try {

@@ -55,6 +55,7 @@ class SurveyServiceTest {
         service = new SurveyService();
         service.repository = repository;
         service.collaborators = collaborators;
+        service.audit = mock(AuditService.class);
         respondentTokens = mock(org.acme.repository.RespondentTokenRepository.class);
         service.respondentTokens = respondentTokens;
         service.mapper = new SurveyMapper();

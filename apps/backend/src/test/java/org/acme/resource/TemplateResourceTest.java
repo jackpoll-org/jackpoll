@@ -4,9 +4,13 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
+import java.time.Instant;
+import java.util.UUID;
+import org.acme.entity.Template;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -81,5 +85,35 @@ class TemplateResourceTest {
             .body("{\"name\":\"x\"}")
             .when().put(BASE + "/does-not-exist")
             .then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "template-big")
+    void anOversizedTemplateIsRejected() {
+        given().contentType(ContentType.JSON)
+            .body("{\"name\":\"big\",\"questions\":[\"" + "x".repeat(1_100_000) + "\"]}")
+            .when().post(BASE)
+            .then().statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "template-cap")
+    void theTemplateCountPerUserIsCapped() {
+        QuarkusTransaction.requiringNew().run(() -> {
+            for (int i = 0; i < 100; i++) {
+                var t = new Template();
+                t.id = UUID.randomUUID().toString();
+                t.ownerId = "template-cap";
+                t.name = "t" + i;
+                t.createdAt = Instant.now();
+                t.updatedAt = Instant.now();
+                t.persist();
+            }
+        });
+
+        given().contentType(ContentType.JSON)
+            .body("{\"name\":\"one too many\"}")
+            .when().post(BASE)
+            .then().statusCode(409);
     }
 }

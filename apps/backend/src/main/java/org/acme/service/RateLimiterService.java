@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 import org.acme.exception.RateLimitedException;
 import org.acme.exception.ResourceNotFoundException;
+import org.acme.resource.ClientIp;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -73,6 +74,22 @@ public class RateLimiterService {
         return allowInMemory(key, max, windowSeconds);
     }
 
+    /** True only for the first caller to present {@code key} within {@code ttlSeconds}. */
+    public boolean firstUse(String key, long ttlSeconds) {
+        if ("redis".equalsIgnoreCase(backend) && !redis.isUnsatisfied()) {
+            try {
+                var ds = redis.get();
+                String redisKey = "once:" + key;
+                if (!ds.value(String.class).setnx(redisKey, "1")) return false;
+                ds.key().expire(redisKey, Duration.ofSeconds(ttlSeconds));
+                return true;
+            } catch (Exception e) {
+                LOG.debugf(e, "Redis first-use check failed for %s; falling back", key);
+            }
+        }
+        return allowInMemory("once|" + key, 1, ttlSeconds);
+    }
+
     /** Whether {@code key}'s window is already full, without recording a hit. */
     public boolean exhausted(String key, int max, long windowSeconds) {
         if (max <= 0) return false;
@@ -107,7 +124,7 @@ public class RateLimiterService {
         if (surveyId == null || !UUID_SHAPE.matcher(surveyId).matches()) {
             throw new ResourceNotFoundException("Survey not found: " + surveyId);
         }
-        if (!allow(kind + "|" + surveyId + "|" + org.acme.resource.ClientIp.bucket(ip), publicWriteMax, 60)) {
+        if (!allow(kind + "|" + surveyId + "|" + ClientIp.bucket(ip), publicWriteMax, 60)) {
             throw new RateLimitedException("Too many requests. Please wait a moment and try again.");
         }
     }

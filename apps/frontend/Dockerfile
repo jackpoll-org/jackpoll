@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Dependencies ────────────────────────────────────────────────────
-FROM node:22-alpine AS deps
+FROM node:22-alpine@sha256:8af05ed9012b24a9205075889b231b65b47f8cc299f3034de2b8a864780ee07f AS deps
 # libc6-compat: musl shim some native deps (sharp) expect on Alpine.
 RUN apk add --no-cache libc6-compat
 RUN corepack enable
@@ -12,7 +12,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # ── Build ───────────────────────────────────────────────────────────
-FROM node:22-alpine AS build
+FROM node:22-alpine@sha256:8af05ed9012b24a9205075889b231b65b47f8cc299f3034de2b8a864780ee07f AS build
 RUN apk add --no-cache libc6-compat
 RUN corepack enable
 WORKDIR /app
@@ -27,7 +27,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
 # ── Runtime ─────────────────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM node:22-alpine@sha256:8af05ed9012b24a9205075889b231b65b47f8cc299f3034de2b8a864780ee07f AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

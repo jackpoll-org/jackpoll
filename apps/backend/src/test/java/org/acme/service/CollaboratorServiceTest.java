@@ -66,6 +66,7 @@ class CollaboratorServiceTest {
         service = new CollaboratorService();
         service.surveyService = surveyService;
         service.collaborators = collaborators;
+        service.audit = mock(AuditService.class);
         service.users = users;
         service.surveys = surveys;
         service.pushService = pushService;

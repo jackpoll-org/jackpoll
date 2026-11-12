@@ -33,6 +33,9 @@ public class CollaboratorService {
     SurveyService surveyService;
 
     @Inject
+    AuditService audit;
+
+    @Inject
     CollaboratorRepository collaborators;
 
     @Inject
@@ -87,6 +90,7 @@ public class CollaboratorService {
         if (existing != null) {
             // Re-inviting just updates the role; keep the existing accept state.
             existing.role = req.role();
+            audit.record(ownerId, "collaborator.role", surveyId + "/" + user.id + "=" + req.role());
             return toDto(existing);
         }
 
@@ -97,6 +101,7 @@ public class CollaboratorService {
         collaborator.role = req.role();
         collaborator.status = CollaboratorStatus.PENDING;
         collaborators.persist(collaborator);
+        audit.record(ownerId, "collaborator.add", surveyId + "/" + user.id + "=" + req.role());
 
         // Notify the invitee (best-effort) so they can accept the invitation.
         var owner = users.findByIdOptional(ownerId).orElse(null);
@@ -120,6 +125,7 @@ public class CollaboratorService {
         if (collaborators.findBySurveyAndUser(surveyId, userId).isEmpty()) return;
         notifyRemoved(survey.id, survey.title, ownerId, userId);
         collaborators.deleteBySurveyAndUser(surveyId, userId);
+        audit.record(ownerId, "collaborator.remove", surveyId + "/" + userId);
     }
 
     /** Notify the removed collaborator (called before their row is deleted). */

@@ -40,6 +40,7 @@ import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.OptionRepository;
 import org.acme.repository.ResponseRepository;
 import org.acme.repository.SurveyRepository;
+import org.acme.resource.ClientIp;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -155,13 +156,6 @@ public class ResponseService {
             throw new ForbiddenAccessException("This survey is not accepting responses.");
         }
 
-        // Close time (#16) and response limit (#19).
-        long countBeforeSubmit = responseRepository.countBySurvey(surveyId);
-        SurveyAvailability.ensureOpen(survey, countBeforeSubmit);
-
-        // Share-link expiry / response cap (issue #16).
-        shareLinkService.ensureSurveyAcceptingResponses(surveyId);
-
         // Spam & bot protection (issue #31). A tripped honeypot is faked as
         // success so bots get no signal; other checks throw a generic error.
         boolean honeypotTripped = spamProtection.check(
@@ -174,11 +168,26 @@ public class ResponseService {
                 null, null, null, null);
         }
 
+        boolean live = survey.settings != null && survey.settings.liveMode;
+        boolean capped = survey.settings != null
+            && survey.settings.responseLimit != null && survey.settings.responseLimit > 0;
+        if (!Boolean.TRUE.equals(req.preview()) && !live
+                && (capped || shareLinkService.hasResponseCap(surveyId))) {
+            responseRepository.lockOrThrottle(surveyId + "|response-cap");
+        }
+        // Close time (#16) and response limit (#19).
+        long countBeforeSubmit = responseRepository.countBySurvey(surveyId);
+        SurveyAvailability.ensureOpen(survey, countBeforeSubmit);
+
+        // Share-link expiry / response cap (issue #16).
+        shareLinkService.ensureSurveyAcceptingResponses(surveyId);
+
         // One-response-per-browser guard (issue #31).
         String hashedClientId = null;
         // Live players answer once per question instead (checked below).
         if (survey.settings != null && survey.settings.onePerBrowser && !survey.settings.liveMode) {
             hashedClientId = spamProtection.hashClientId(req.clientId());
+            if (hashedClientId != null) responseRepository.lockOrThrottle(surveyId + "|" + hashedClientId);
             if (hashedClientId != null
                 && responseRepository.existsByClientId(surveyId, hashedClientId)) {
                 throw new org.acme.exception.SpamRejectedException(
@@ -295,6 +304,7 @@ public class ResponseService {
             response.resultCode = newResultCode(surveyId);
         }
 
+        spamProtection.consumeCaptcha(survey.settings, req.captcha());
         responseRepository.persist(response);
         var dto = toDto(response, survey, resultsReleased(survey), true);
 
@@ -419,7 +429,7 @@ public class ResponseService {
     private boolean receiptAllowed(String email, String clientIp) {
         if (email == null || email.isBlank()) return false;
         return rateLimiter.allow("receipt|to|" + email.trim().toLowerCase(), 3, 3600)
-            && rateLimiter.allow("receipt|ip|" + (clientIp == null ? "unknown" : clientIp), 10, 3600);
+            && rateLimiter.allow("receipt|ip|" + ClientIp.bucket(clientIp), 10, 3600);
     }
 
     /** Fire owner notification + respondent receipt without blocking submit. */

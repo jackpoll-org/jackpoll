@@ -32,7 +32,7 @@ class AuthServiceSecurityTest {
         keycloak = mock(KeycloakService.class);
         codes = mock(EmailCodeService.class);
         apiKeys = mock(ApiKeyService.class);
-        auth = new AuthService(users, keycloak, codes, mock(GdprService.class), apiKeys);
+        auth = new AuthService(users, keycloak, codes, mock(GdprService.class), apiKeys, mock(AuditService.class));
         auth.termsVersion = Optional.empty();
         auth.emailVerificationRequired = true;
 

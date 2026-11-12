@@ -83,13 +83,13 @@ public class AuthResource {
         io.vertx.core.http.HttpServerRequest http, String account) {
         String ip = ClientIp.of(forwardedFor, http);
         boolean ipOk = rateLimiter.allow(
-            "auth|" + endpoint + "|ip|" + (ip == null ? "unknown" : ip),
+            "auth|" + endpoint + "|ip|" + ClientIp.bucket(ip),
             authRateLimitMax, authRateLimitWindowSeconds);
         // Guessing endpoints key the account bucket by IP too, so strangers can't
         // lock a user out; their global cap is Keycloak's brute-force guard and
         // EmailCodeService's daily budget.
         String acctKey = account == null ? null : account.trim().toLowerCase()
-            + (GUESS_ENDPOINTS.contains(endpoint) ? "|ip|" + ip : "");
+            + (GUESS_ENDPOINTS.contains(endpoint) ? "|ip|" + ClientIp.bucket(ip) : "");
         boolean acctOk = account == null || account.isBlank() || rateLimiter.allow(
             "auth|" + endpoint + "|acct|" + acctKey,
             authRateLimitMax, authRateLimitWindowSeconds);

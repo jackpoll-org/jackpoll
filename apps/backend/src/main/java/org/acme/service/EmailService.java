@@ -2,6 +2,8 @@ package org.acme.service;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 
@@ -14,6 +16,7 @@ import org.acme.entity.Survey;
 import org.acme.mail.BrandedMailer;
 import org.acme.mail.EmailLayout;
 import org.acme.mail.MailCopy;
+import org.acme.repository.JobRunRepository;
 import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.ResponseRepository;
 import org.acme.repository.SurveyRepository;
@@ -57,6 +60,9 @@ public class EmailService {
 
     @Inject
     ResponseRepository responses;
+
+    @Inject
+    JobRunRepository jobRuns;
 
     @Inject
     NotificationPreferenceRepository notificationPrefs;
@@ -114,6 +120,7 @@ public class EmailService {
 
     @Scheduled(cron = "{survey.mail.digest-cron:0 0 7 * * ?}")
     void sendDailyDigests() {
+        if (!jobRuns.claim("daily-digest", LocalDate.now(ZoneOffset.UTC))) return;
         Instant since = Instant.now().minus(24, ChronoUnit.HOURS);
         for (Survey survey : surveys.listAll()) {
             if (survey.settings == null || !"daily".equals(survey.settings.ownerNotify)) continue;

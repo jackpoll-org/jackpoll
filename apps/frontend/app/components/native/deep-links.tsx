@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
+import { safeInternalPath } from "@/app/lib/auth/redirect";
 
 const LAUNCH_URL_KEY = "handled_launch_url";
 
@@ -15,7 +16,7 @@ export function deepLinkPath(url: string): string | null {
   try {
     const parsed = new URL(url);
     const path = `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    return path && path !== "/" ? path : null;
+    return path !== "/" ? (safeInternalPath(path) ?? null) : null;
   } catch {
     return null;
   }

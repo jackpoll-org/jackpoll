@@ -13,7 +13,7 @@ public final class TemplateDtos {
 
     public record CreateTemplateRequest(
         @NotBlank @Size(max = 255) String name,
-        String description,
+        @Size(max = 5000) String description,
         Object questions,
         Object settings,
         Object sections
@@ -21,7 +21,7 @@ public final class TemplateDtos {
 
     public record UpdateTemplateRequest(
         @NotBlank @Size(max = 255) String name,
-        String description
+        @Size(max = 5000) String description
     ) {}
 
     public record TemplateDto(

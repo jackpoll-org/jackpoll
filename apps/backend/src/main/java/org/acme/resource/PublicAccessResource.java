@@ -47,7 +47,7 @@ public class PublicAccessResource {
         @Context HttpServerRequest http
     ) {
         String ip = ClientIp.of(forwardedFor, http);
-        if (!rateLimiter.allow("access-code|" + (ip == null ? "unknown" : ip), rateLimitMax, rateLimitWindowSeconds)) {
+        if (!rateLimiter.allow("access-code|" + ClientIp.bucket(ip), rateLimitMax, rateLimitWindowSeconds)) {
             throw new RateLimitedException("Too many attempts. Please wait a moment and try again.");
         }
         return Response.ok(ApiResponse.ok(accessCodeService.resolve(req.code()))).build();

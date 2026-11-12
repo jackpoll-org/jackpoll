@@ -7,8 +7,12 @@ import org.acme.dto.TemplateDtos.CreateTemplateRequest;
 import org.acme.dto.TemplateDtos.TemplateDto;
 import org.acme.dto.TemplateDtos.UpdateTemplateRequest;
 import org.acme.entity.Template;
+import org.acme.exception.QuotaExceededException;
 import org.acme.exception.ResourceNotFoundException;
 import org.acme.repository.TemplateRepository;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -18,8 +22,14 @@ import jakarta.transaction.Transactional;
 @ApplicationScoped
 public class TemplateService {
 
+    static final int MAX_TEMPLATES_PER_USER = 100;
+    static final int MAX_TEMPLATE_BYTES = 1_048_576;
+
     @Inject
     TemplateRepository repository;
+
+    @Inject
+    ObjectMapper objectMapper;
 
     public List<TemplateDto> list(String ownerId) {
         return repository.findByOwner(ownerId).stream().map(this::toDto).toList();
@@ -27,6 +37,16 @@ public class TemplateService {
 
     @Transactional
     public TemplateDto create(String ownerId, CreateTemplateRequest req) {
+        if (repository.countByOwner(ownerId) >= MAX_TEMPLATES_PER_USER) {
+            throw new QuotaExceededException("You can save at most " + MAX_TEMPLATES_PER_USER + " templates.");
+        }
+        try {
+            if (objectMapper.writeValueAsBytes(req).length > MAX_TEMPLATE_BYTES) {
+                throw new IllegalArgumentException("This template is too large.");
+            }
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Invalid template.");
+        }
         var template = new Template();
         template.id = UUID.randomUUID().toString();
         template.ownerId = ownerId;

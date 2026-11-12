@@ -10,6 +10,7 @@ import org.acme.exception.ResourceNotFoundException;
 import org.acme.mapper.SurveyMapper;
 import org.acme.repository.AccessCodeRepository;
 import org.acme.repository.AnalyticsRepository;
+import org.acme.repository.AuditEventRepository;
 import org.acme.repository.CollabLinkRepository;
 import org.acme.repository.CollaboratorRepository;
 import org.acme.repository.DeviceTokenRepository;
@@ -40,6 +41,8 @@ import jakarta.transaction.Transactional;
 public class GdprService {
 
     @Inject UserRepository users;
+    @Inject AuditService audit;
+    @Inject AuditEventRepository auditEvents;
     @Inject EntityManager em;
     @Inject ObjectMapper json;
     @Inject SurveyRepository surveys;
@@ -101,6 +104,9 @@ public class GdprService {
             .toList());
         out.put("folders", folders.list("ownerId", userId));
         out.put("templates", templates.list("ownerId", userId));
+        out.put("auditEvents", auditEvents.findByActor(userId).stream()
+            .map(e -> Map.of("action", e.action, "target", String.valueOf(e.target), "at", e.createdAt.toString()))
+            .toList());
         out.put("devices", devices.findByUser(userId).stream()
             .map(d -> Map.of("platform", String.valueOf(d.platform), "registeredAt", String.valueOf(d.createdAt)))
             .toList());
@@ -167,6 +173,7 @@ public class GdprService {
 
         clearUserData(userId);
         users.delete(user);
+        audit.record(userId, "account.delete", null);
 
         // Erase at the identity provider last; a failure here rolls the tx back.
         keycloak.deleteUser(userId);

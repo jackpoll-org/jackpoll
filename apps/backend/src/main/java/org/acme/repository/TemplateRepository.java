@@ -16,6 +16,10 @@ public class TemplateRepository implements PanacheRepositoryBase<Template, Strin
         return list("ownerId", Sort.by("updatedAt").descending(), ownerId);
     }
 
+    public long countByOwner(String ownerId) {
+        return count("ownerId", ownerId);
+    }
+
     public Optional<Template> findByIdAndOwner(String id, String ownerId) {
         return find("id = ?1 and ownerId = ?2", id, ownerId).firstResultOptional();
     }

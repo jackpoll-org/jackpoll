@@ -93,7 +93,7 @@ const nextConfig: NextConfig = {
         // only this origin may frame it. Blocks cross-site clickjacking.
         // API responses are excluded: the proxy sets their policy, and a header
         // set here would override the backend's (e.g. the upload sandbox).
-        source: "/((?!embed|api/).*)",
+        source: "/((?!embed/|embed$|api/).*)",
         headers: SECURITY_HEADERS,
       },
     ];

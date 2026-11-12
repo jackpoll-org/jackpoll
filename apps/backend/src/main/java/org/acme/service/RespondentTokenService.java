@@ -17,6 +17,7 @@ import org.acme.exception.ResourceNotFoundException;
 import org.acme.exception.SurveyIncompleteException;
 import org.acme.repository.RespondentTokenRepository;
 import org.acme.repository.ResponseRepository;
+import org.acme.resource.ClientIp;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -100,7 +101,7 @@ public class RespondentTokenService {
         if (token.isEmpty()) {
             throw new SurveyIncompleteException("Please enter your token before submitting.");
         }
-        var key = "respondent-token|" + survey.id + "|" + (clientIp == null ? "unknown" : clientIp);
+        var key = "respondent-token|" + survey.id + "|" + ClientIp.bucket(clientIp);
         if (!rateLimiter.allow(key, rateLimitMax, rateLimitWindowSeconds)) {
             throw new RateLimitedException("Too many attempts. Please wait a moment and try again.");
         }

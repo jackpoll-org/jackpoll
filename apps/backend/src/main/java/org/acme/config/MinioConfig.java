@@ -18,9 +18,11 @@ public class MinioConfig {
         @ConfigProperty(name = "minio.access-key") String accessKey,
         @ConfigProperty(name = "minio.secret-key") String secretKey
     ) {
-        return MinioClient.builder()
+        MinioClient client = MinioClient.builder()
             .endpoint(url)
             .credentials(accessKey, secretKey)
             .build();
+        client.setTimeout(5_000, 60_000, 60_000);
+        return client;
     }
 }

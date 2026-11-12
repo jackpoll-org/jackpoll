@@ -14,6 +14,7 @@ import org.acme.dto.SpamDtos.AltchaChallenge;
 import org.acme.entity.SurveySettings;
 import org.acme.exception.RateLimitedException;
 import org.acme.exception.SpamRejectedException;
+import org.acme.resource.ClientIp;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -79,7 +80,7 @@ public class SpamProtectionService {
 
     private void enforceRateLimit(String surveyId, String ip) {
         // Distributed-capable limiter (issue #42); memory backend by default.
-        String key = surveyId + "|" + (ip == null ? "unknown" : ip);
+        String key = surveyId + "|" + ClientIp.bucket(ip);
         if (!rateLimiter.allow(key, rateLimitMax, rateLimitWindowSeconds)) {
             throw new RateLimitedException(
                 "Too many submissions. Please wait a moment and try again.");
@@ -163,6 +164,18 @@ public class SpamProtectionService {
             verifyCaptcha(captcha, surveyId);
         }
         return false;
+    }
+
+    /** Spend a verified Altcha solution; called last, so a rejected submit can retry with it. */
+    public void consumeCaptcha(SurveySettings settings, String payloadBase64) {
+        if (settings == null || !settings.requireCaptcha) return;
+        try {
+            String challenge = mapper.readTree(Base64.getDecoder().decode(payloadBase64)).path("challenge").asText();
+            if (rateLimiter.firstUse("altcha|" + challenge, ALTCHA_TTL_SECONDS)) return;
+        } catch (Exception e) {
+            throw spam();
+        }
+        throw spam();
     }
 
     /** Hash a raw client id before storage (never persist the raw value). */

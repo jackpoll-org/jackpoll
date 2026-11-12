@@ -206,6 +206,6 @@ public class EmailCodeService {
         var routing = Arc.container().instance(CurrentVertxRequest.class).get().getCurrent();
         var http = routing == null ? null : routing.request();
         String ip = http == null ? null : ClientIp.of(http.getHeader("X-Forwarded-For"), http);
-        return ip == null ? "unknown" : ip;
+        return ClientIp.bucket(ip);
     }
 }

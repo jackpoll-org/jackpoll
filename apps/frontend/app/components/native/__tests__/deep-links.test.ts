@@ -24,6 +24,10 @@ describe("deepLinkPath", () => {
     expect(deepLinkPath("https://survey.quavon.de")).toBeNull();
   });
 
+  it("returns null for a protocol-relative path that would leave the app", () => {
+    expect(deepLinkPath("https://survey.quavon.de//evil.com")).toBeNull();
+  });
+
   it("returns null for an unparseable url", () => {
     expect(deepLinkPath("not a url")).toBeNull();
   });

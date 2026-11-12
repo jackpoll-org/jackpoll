@@ -28,6 +28,7 @@ public class AuthService {
     private final EmailCodeService emailCodeService;
     private final GdprService gdprService;
     private final ApiKeyService apiKeyService;
+    private final AuditService audit;
 
     /**
      * Whether new accounts must confirm their email before they can sign in.
@@ -50,12 +51,13 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository, KeycloakService keycloakService,
                        EmailCodeService emailCodeService, GdprService gdprService,
-                       ApiKeyService apiKeyService) {
+                       ApiKeyService apiKeyService, AuditService audit) {
         this.userRepository = userRepository;
         this.keycloakService = keycloakService;
         this.emailCodeService = emailCodeService;
         this.gdprService = gdprService;
         this.apiKeyService = apiKeyService;
+        this.audit = audit;
     }
 
     // ── Register (#security email-verify) ─────────────────────────
@@ -229,7 +231,10 @@ public class AuthService {
         }
         var result = keycloakService.changePassword(
             user.email, req.currentPassword(), req.newPassword(), userId);
-        if (result.success()) apiKeyService.deleteAllForUser(userId);
+        if (result.success()) {
+            apiKeyService.deleteAllForUser(userId);
+            audit.record(userId, "account.password_change", null);
+        }
         return result;
     }
 
@@ -263,6 +268,7 @@ public class AuthService {
             if (registrationEnabled) u.emailVerified = true;
             u.updatedAt = Instant.now();
             apiKeyService.deleteAllForUser(u.id);
+            audit.record(u.id, "account.password_reset", null);
         });
         return ApiResponse.ok(null);
     }
@@ -320,7 +326,10 @@ public class AuthService {
     @Transactional
     public ApiResponse<Void> confirmDataDeletion(String email, String code) {
         return withVerifiedUser(email, code, EmailCode.PURPOSE_DELETE_DATA,
-            user -> gdprService.clearUserData(user.id));
+            user -> {
+                gdprService.clearUserData(user.id);
+                audit.record(user.id, "account.data_delete", null);
+            });
     }
 
     // ── Helpers ───────────────────────────────────────────────────

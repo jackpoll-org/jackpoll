@@ -68,16 +68,23 @@ public class BrandedMailer {
      * response to the user whose action triggered the mail.
      */
     public void send(String to, String subject, EmailLayout.Rendered mail) {
+        send(to, subject, mail, null);
+    }
+
+    /** A PDF to attach: the file name the recipient sees and its bytes. */
+    public record Attachment(String fileName, byte[] pdf) {}
+
+    public void send(String to, String subject, EmailLayout.Rendered mail, Attachment attachment) {
         if (async) {
-            MAIL_EXECUTOR.execute(() -> sendQuietly(to, subject, mail));
+            MAIL_EXECUTOR.execute(() -> sendQuietly(to, subject, mail, attachment));
         } else {
-            sendQuietly(to, subject, mail);
+            sendQuietly(to, subject, mail, attachment);
         }
     }
 
-    private void sendQuietly(String to, String subject, EmailLayout.Rendered mail) {
+    private void sendQuietly(String to, String subject, EmailLayout.Rendered mail, Attachment attachment) {
         try {
-            sendChecked(to, subject, mail);
+            sendChecked(to, subject, mail, attachment);
         } catch (Exception e) {
             LOG.warnf("Email send failed (ignored): %s", e.getMessage());
         }
@@ -85,7 +92,13 @@ public class BrandedMailer {
 
     /** Send and let failures propagate, for callers that report the outcome. */
     public void sendChecked(String to, String subject, EmailLayout.Rendered mail) {
-        mailer.send(Mail.withHtml(to, subject(subject), mail.html()).setText(mail.text()));
+        sendChecked(to, subject, mail, null);
+    }
+
+    private void sendChecked(String to, String subject, EmailLayout.Rendered mail, Attachment attachment) {
+        var message = Mail.withHtml(to, subject(subject), mail.html()).setText(mail.text());
+        if (attachment != null) message.addAttachment(attachment.fileName(), attachment.pdf(), "application/pdf");
+        mailer.send(message);
     }
 
     private String subject(String rawSubject) {

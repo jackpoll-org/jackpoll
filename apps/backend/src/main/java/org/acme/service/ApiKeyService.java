@@ -42,6 +42,9 @@ public class ApiKeyService {
     ApiKeyRepository keys;
 
     @Inject
+    AuditService audit;
+
+    @Inject
     UserRepository users;
 
     public List<ApiKeyDto> list(String userId) {
@@ -70,6 +73,7 @@ public class ApiKeyService {
         key.createdAt = Instant.now();
         key.expiresAt = expiresInDays != null ? key.createdAt.plus(Duration.ofDays(expiresInDays)) : null;
         keys.persist(key);
+        audit.record(userId, "api_key.create", key.id);
         return new CreatedApiKeyDto(toDto(key), secret);
     }
 
@@ -79,6 +83,7 @@ public class ApiKeyService {
             .filter(k -> k.userId.equals(userId))
             .orElseThrow(() -> new ResourceNotFoundException("API key not found."));
         keys.delete(key);
+        audit.record(userId, "api_key.delete", keyId);
     }
 
     @Transactional

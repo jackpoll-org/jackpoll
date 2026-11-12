@@ -39,7 +39,7 @@ public class PublicCollabResource {
 
     private void throttle(String forwardedFor, HttpServerRequest http) {
         String ip = ClientIp.of(forwardedFor, http);
-        if (!rateLimiter.allow("collab-link|" + (ip == null ? "unknown" : ip), rateLimitMax, 60)) {
+        if (!rateLimiter.allow("collab-link|" + ClientIp.bucket(ip), rateLimitMax, 60)) {
             throw new RateLimitedException("Too many requests. Please wait a moment and try again.");
         }
     }

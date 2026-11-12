@@ -94,6 +94,28 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
             .getSingleResult();
     }
 
+    /** Like {@link #lockPlayer}, but gives up after a few seconds instead of holding a pooled connection. */
+    public void lockOrThrottle(String key) {
+        var em = getEntityManager();
+        em.createNativeQuery("set local lock_timeout = '3s'").executeUpdate();
+        try {
+            em.createNativeQuery("select 1 from (select pg_advisory_xact_lock(hashtext(?1))) l")
+                .setParameter(1, key)
+                .getSingleResult();
+        } catch (jakarta.persistence.PersistenceException e) {
+            if (!lockNotAvailable(e)) throw e;
+            throw new org.acme.exception.RateLimitedException("Too many submissions right now. Please try again.");
+        }
+        em.createNativeQuery("set local lock_timeout to default").executeUpdate();
+    }
+
+    private static boolean lockNotAvailable(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof java.sql.SQLException sql && "55P03".equals(sql.getSQLState())) return true;
+        }
+        return false;
+    }
+
     public boolean playerAnswered(
             String surveyId, String sessionId, String clientId, java.util.Collection<String> questionIds) {
         if (questionIds.isEmpty()) return false;

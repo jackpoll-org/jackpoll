@@ -70,6 +70,9 @@ public class WebhookService {
     @Inject
     PinnedHttpClient pinnedHttp;
 
+    @Inject
+    AuditService audit;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Inject
@@ -123,6 +126,7 @@ public class WebhookService {
         hook.enabled = req.enabled();
         hook.secret = randomSecret();
         webhooks.persist(hook);
+        audit.record(ownerId, "webhook.create", surveyId + "/" + hook.id);
         return toDto(hook);
     }
 
@@ -132,6 +136,7 @@ public class WebhookService {
         var hook = webhooks.findByIdAndSurvey(webhookId, surveyId)
             .orElseThrow(() -> new ResourceNotFoundException("Webhook not found"));
         webhooks.delete(hook);
+        audit.record(ownerId, "webhook.delete", surveyId + "/" + webhookId);
     }
 
     /** Send a sample "ping" event synchronously and report the outcome. */

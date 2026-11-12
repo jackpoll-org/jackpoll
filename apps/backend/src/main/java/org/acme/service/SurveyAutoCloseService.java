@@ -7,6 +7,7 @@ import org.acme.entity.NotificationEventType;
 import org.acme.entity.Survey;
 import org.acme.entity.SurveyStatus;
 import org.acme.mail.MailCopy;
+import org.acme.repository.JobRunRepository;
 import org.acme.repository.NotificationPreferenceRepository;
 import org.acme.repository.ResponseRepository;
 import org.acme.repository.SurveyRepository;
@@ -32,6 +33,9 @@ public class SurveyAutoCloseService {
     SurveyRepository surveys;
 
     @Inject
+    JobRunRepository jobRuns;
+
+    @Inject
     ResponseRepository responses;
 
     @Inject
@@ -52,6 +56,7 @@ public class SurveyAutoCloseService {
     @Scheduled(every = "5m")
     @Transactional
     void closeExpiredSurveys() {
+        if (!jobRuns.tryLock("survey-auto-close")) return;
         for (Survey survey : surveys.list("status", SurveyStatus.PUBLISHED)) {
             if (isPastAvailability(survey)) {
                 survey.status = SurveyStatus.CLOSED;

@@ -19,7 +19,7 @@ class AltchaReplayTest {
     SpamProtectionService spam;
 
     @Test
-    void aSolvedChallengeIsAcceptedOnlyForItsOwnSurvey() throws Exception {
+    void aSolvedChallengeIsAcceptedOnceAndOnlyForItsOwnSurvey() throws Exception {
         var challenge = spam.createChallenge("survey-a");
         var digest = MessageDigest.getInstance("SHA-256");
         long number = -1;
@@ -38,6 +38,12 @@ class AltchaReplayTest {
 
         assertDoesNotThrow(() -> spam.verifyCaptcha(payload, "survey-a"));
         assertThrows(SpamRejectedException.class, () -> spam.verifyCaptcha(payload, "survey-b"));
+        assertDoesNotThrow(() -> spam.verifyCaptcha(payload, "survey-a"));
+
+        var settings = new org.acme.entity.SurveySettings();
+        settings.requireCaptcha = true;
+        assertDoesNotThrow(() -> spam.consumeCaptcha(settings, payload));
+        assertThrows(SpamRejectedException.class, () -> spam.consumeCaptcha(settings, payload));
     }
 
     @Test

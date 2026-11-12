@@ -35,6 +35,9 @@ public class SurveyService {
     SurveyRepository repository;
 
     @Inject
+    AuditService audit;
+
+    @Inject
     CollaboratorRepository collaborators;
 
     @Inject
@@ -251,6 +254,7 @@ public class SurveyService {
         collaborators.delete("surveyId", id);
         respondentTokens.delete("surveyId", id);
         repository.delete(survey);
+        audit.record(ownerId, "survey.delete", id);
     }
 
     // ── Access control (reused by other services/resources) ───────

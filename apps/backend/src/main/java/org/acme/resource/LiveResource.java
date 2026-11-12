@@ -73,7 +73,7 @@ public class LiveResource {
         @Context HttpServerRequest http
     ) {
         String ip = ClientIp.of(forwardedFor, http);
-        if (!rateLimiter.allow("live-join|" + id + "|" + (ip == null ? "unknown" : ip), 1200, 60)) {
+        if (!rateLimiter.allow("live-join|" + id + "|" + ClientIp.bucket(ip), 1200, 60)) {
             throw new RateLimitedException("Too many requests. Please wait a moment and try again.");
         }
         accessCodes.requireAccess(id);

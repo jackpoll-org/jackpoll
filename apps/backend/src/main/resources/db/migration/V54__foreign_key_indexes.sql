@@ -1,0 +1,14 @@
+CREATE INDEX IF NOT EXISTS idx_survey_responses_survey_submitted ON public.survey_responses (survey_id, submitted_at);
+CREATE INDEX IF NOT EXISTS idx_survey_responses_survey_client ON public.survey_responses (survey_id, client_id);
+CREATE INDEX IF NOT EXISTS idx_response_answers_response ON public.response_answers (response_id);
+CREATE INDEX IF NOT EXISTS idx_response_answers_question ON public.response_answers (question_id);
+CREATE INDEX IF NOT EXISTS idx_questions_survey ON public.questions (survey_id);
+CREATE INDEX IF NOT EXISTS idx_question_options_question ON public.question_options (question_id);
+CREATE INDEX IF NOT EXISTS idx_surveys_owner ON public.surveys (owner_id);
+CREATE INDEX IF NOT EXISTS idx_surveys_folder ON public.surveys (folder_id);
+CREATE INDEX IF NOT EXISTS idx_surveys_status ON public.surveys (status);
+CREATE INDEX IF NOT EXISTS idx_folders_owner ON public.folders (owner_id);
+CREATE INDEX IF NOT EXISTS idx_templates_owner ON public.templates (owner_id);
+CREATE INDEX IF NOT EXISTS idx_response_drafts_survey ON public.response_drafts (survey_id);
+CREATE INDEX IF NOT EXISTS idx_response_drafts_expires ON public.response_drafts (expires_at);
+CREATE INDEX IF NOT EXISTS idx_survey_collaborators_user ON public.survey_collaborators (user_id);

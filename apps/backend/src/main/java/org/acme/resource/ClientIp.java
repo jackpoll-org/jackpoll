@@ -1,5 +1,10 @@
 package org.acme.resource;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.regex.Pattern;
+
 import io.vertx.core.http.HttpServerRequest;
 
 /**
@@ -9,14 +14,22 @@ import io.vertx.core.http.HttpServerRequest;
  */
 public final class ClientIp {
 
+    private static final Pattern IPV6_LITERAL = Pattern.compile("[0-9a-fA-F:][0-9a-fA-F:.]*");
+
     private ClientIp() {}
 
     /** The rate-limit bucket for {@code ip}: an IPv6 host can use a whole /64, so it counts as one. */
     public static String bucket(String ip) {
         if (ip == null) return "unknown";
-        if (!ip.contains(":")) return ip;
-        String[] groups = ip.split(":", -1);
-        return groups.length >= 4 ? String.join(":", groups[0], groups[1], groups[2], groups[3]) + "::/64" : ip;
+        if (!ip.contains(":") || !IPV6_LITERAL.matcher(ip).matches()) return ip;
+        try {
+            byte[] address = InetAddress.getByName(ip).getAddress();
+            if (address.length != 16) return ip;
+            Arrays.fill(address, 8, 16, (byte) 0);
+            return InetAddress.getByAddress(address).getHostAddress() + "/64";
+        } catch (UnknownHostException e) {
+            return ip;
+        }
     }
 
     public static String of(String forwardedFor, HttpServerRequest http) {
