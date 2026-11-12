@@ -161,7 +161,6 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
             >
               <ChevronDown className="size-4" />
             </Button>
-            <DeleteQuestionButton question={question} onDelete={() => removeQuestion(question.id)} />
           </div>
         </div>
 
@@ -257,31 +256,34 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
                 {t("builder.question.more")}
               </Button>
             </CollapsibleTrigger>
-            {sections.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-normal">{t("builder.question.pageLabel")}</Label>
-                <Select
-                  value={question.sectionId ?? "__none__"}
-                  onValueChange={(v) =>
-                    setQuestionSection(question.id, v === "__none__" ? null : v)
-                  }
-                >
-                  <SelectTrigger className="w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">
-                      {t("builder.page.numbered", { n: "1" })}
-                    </SelectItem>
-                    {sections.map((s, i) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.title?.trim() || t("builder.page.numbered", { n: String(i + 2) })}
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
+              {sections.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-normal">{t("builder.question.pageLabel")}</Label>
+                  <Select
+                    value={question.sectionId ?? "__none__"}
+                    onValueChange={(v) =>
+                      setQuestionSection(question.id, v === "__none__" ? null : v)
+                    }
+                  >
+                    <SelectTrigger className="w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">
+                        {t("builder.page.numbered", { n: "1" })}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                      {sections.map((s, i) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.title?.trim() || t("builder.page.numbered", { n: String(i + 2) })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <DeleteQuestionButton question={question} onDelete={() => removeQuestion(question.id)} />
+            </div>
           </div>
           <CollapsibleContent className="grid gap-4 pt-3">
             {answerable && (
