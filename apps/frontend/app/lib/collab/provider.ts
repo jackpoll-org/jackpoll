@@ -32,6 +32,10 @@ const FORBIDDEN = 4403;
 // silently drops out of everyone's presence. 15s stays comfortably under that.
 const PRESENCE_HEARTBEAT_MS = 15_000;
 
+// Each sync request makes every peer reply with the full document, so a burst
+// of newly seen awareness clients must not trigger one full sync each.
+const RESYNC_MIN_INTERVAL_MS = 2_000;
+
 /** Identifies a collaboratively-edited text field for caret tracking (#85). */
 export interface TextTarget {
   questionId?: string;
@@ -122,6 +126,8 @@ export class CollabProvider {
   private closed = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private resyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastSyncAt = 0;
 
   constructor(
     private readonly surveyId: string,
@@ -213,10 +219,25 @@ export class CollabProvider {
    * when a new peer appears guarantees both sides converge to the newest doc.
    */
   private requestSync() {
+    this.lastSyncAt = Date.now();
     const enc = encoding.createEncoder();
     encoding.writeVarUint(enc, MSG_SYNC);
     writeSyncStep1(enc, this.doc);
     this.send(enc);
+  }
+
+  /** {@link requestSync} at most once per {@link RESYNC_MIN_INTERVAL_MS}, trailing. */
+  private requestSyncThrottled() {
+    if (this.resyncTimer) return;
+    const wait = this.lastSyncAt + RESYNC_MIN_INTERVAL_MS - Date.now();
+    if (wait <= 0) {
+      this.requestSync();
+      return;
+    }
+    this.resyncTimer = setTimeout(() => {
+      this.resyncTimer = null;
+      this.requestSync();
+    }, wait);
   }
 
   private startHeartbeat() {
@@ -281,7 +302,7 @@ export class CollabProvider {
       // unappliable stream of incremental updates.
       if (added.length > 0) {
         this.announcePresence();
-        this.requestSync();
+        this.requestSyncThrottled();
       }
       return;
     }
@@ -396,6 +417,7 @@ export class CollabProvider {
     this.closed = true;
     this.stopHeartbeat();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.resyncTimer) clearTimeout(this.resyncTimer);
     if (typeof document !== "undefined") {
       document.removeEventListener("visibilitychange", this.onVisible);
     }

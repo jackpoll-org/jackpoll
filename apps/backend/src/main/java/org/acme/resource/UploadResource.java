@@ -16,6 +16,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import io.quarkus.security.Authenticated;
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -45,6 +46,9 @@ public class UploadResource {
     @Inject
     RateLimiterService rateLimiter;
 
+    @Inject
+    SecurityIdentity identity;
+
     @ConfigProperty(name = "survey.upload.rate-limit.max", defaultValue = "20")
     int uploadRateLimitMax;
 
@@ -56,6 +60,12 @@ public class UploadResource {
 
     @ConfigProperty(name = "survey.upload.daily-megabytes", defaultValue = "20000")
     int uploadDailyMegabytes;
+
+    @ConfigProperty(name = "survey.upload.daily-megabytes-auth", defaultValue = "100000")
+    int uploadAuthDailyMegabytes;
+
+    @ConfigProperty(name = "survey.upload.daily-megabytes-per-client", defaultValue = "500")
+    int uploadClientDailyMegabytes;
 
     // Anonymous on purpose: public survey respondents upload files (issue #3)
     // and signatures. StorageService validates content type (images only) + size
@@ -81,12 +91,21 @@ public class UploadResource {
         }
         // Rotating addresses defeats per-IP limits, so all anonymous uploads share
         // a daily storage budget: uploads pause instead of the disk filling up.
-        int megabytes = (int) Math.max(1, (file.size() + 1_048_575) / 1_048_576);
-        if (!rateLimiter.allowAmount("upload-bytes-day", megabytes, uploadDailyMegabytes, 86_400)) {
+        // Signed-in owners get their own budget so anonymous traffic can't block them.
+        boolean anonymous = identity.isAnonymous();
+        String clientBudget = "upload-bytes-day|"
+            + (anonymous ? "ip|" + ip : "user|" + identity.getPrincipal().getName());
+        String globalBudget = anonymous ? "upload-bytes-day" : "upload-bytes-day-auth";
+        int globalMegabytes = anonymous ? uploadDailyMegabytes : uploadAuthDailyMegabytes;
+        if (rateLimiter.exhausted(clientBudget, uploadClientDailyMegabytes, 86_400)
+            || rateLimiter.exhausted(globalBudget, globalMegabytes, 86_400)) {
             throw new RateLimitedException("Uploads are paused for today. Please try again later.");
         }
         try (InputStream in = Files.newInputStream(file.uploadedFile())) {
             var result = storage.upload(file.fileName(), file.contentType(), in, file.size());
+            int megabytes = (int) Math.max(1, (result.size() + 1_048_575) / 1_048_576);
+            rateLimiter.allowAmount(clientBudget, megabytes, uploadClientDailyMegabytes, 86_400);
+            rateLimiter.allowAmount(globalBudget, megabytes, globalMegabytes, 86_400);
             return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.ok(result))
                 .build();

@@ -119,12 +119,27 @@ public class KeycloakService {
     }
 
     /** Flip a user's email to verified in Keycloak (admin API), so the next
-     *  login's {@code email_verified} claim is true and login is unblocked. */
-    public void setEmailVerified(String email) {
+     *  login's {@code email_verified} claim is true and login is unblocked.
+     *  @return the Keycloak user id */
+    public String setEmailVerified(String email) {
         String adminToken = getAdminToken();
         var rep = new java.util.LinkedHashMap<String, Object>();
         rep.put("emailVerified", true);
-        adminClient.updateUser("Bearer " + adminToken, realm, keycloakUuid(adminToken, email), rep);
+        String id = keycloakUuid(adminToken, email);
+        adminClient.updateUser("Bearer " + adminToken, realm, id, rep);
+        return id;
+    }
+
+    public boolean isUnverified(String email) {
+        var normalized = email.trim().toLowerCase();
+        try {
+            return adminClient.searchUsers("Bearer " + getAdminToken(), realm, normalized, true).stream()
+                .anyMatch(u -> normalized.equalsIgnoreCase((String) u.get("email"))
+                    && !Boolean.TRUE.equals(u.get("emailVerified")));
+        } catch (Exception e) {
+            LOG.warnf(e, "Keycloak user lookup failed");
+            return false;
+        }
     }
 
     /** Set a new password for a user by email (admin API) — used by the code-based

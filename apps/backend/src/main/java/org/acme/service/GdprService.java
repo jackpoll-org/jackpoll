@@ -99,7 +99,7 @@ public class GdprService {
         profile.put("termsVersion", user.termsVersion);
         out.put("user", profile);
         out.put("surveys", surveyExports);
-        out.put("collaborations", collaborators.findByUser(userId).stream()
+        out.put("collaborations", collaborators.findByUserOrPendingEmail(userId, verifiedEmail(user)).stream()
             .map(c -> Map.of("surveyId", c.surveyId, "role", c.role, "status", c.status))
             .toList());
         out.put("folders", folders.list("ownerId", userId));
@@ -113,6 +113,10 @@ public class GdprService {
         out.put("notificationPreferences", notificationPrefs.findAllForUser(userId));
         out.put("notifications", notifications.list("userId", userId));
         return out;
+    }
+
+    private static String verifiedEmail(User user) {
+        return user.emailVerified ? user.email : "";
     }
 
     @SuppressWarnings("unchecked")
@@ -139,9 +143,8 @@ public class GdprService {
      */
     @Transactional
     public void clearUserData(String userId) {
-        if (users.findByIdOptional(userId).isEmpty()) {
-            throw new ResourceNotFoundException("User not found");
-        }
+        var user = users.findByIdOptional(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         for (var survey : surveys.list("ownerId", userId)) {
             var id = survey.id;
@@ -156,7 +159,7 @@ public class GdprService {
         }
 
         // Rows that reference the user directly.
-        collaborators.delete("userId", userId); // memberships on others' surveys
+        collaborators.deleteByUserOrPendingEmail(userId, verifiedEmail(user));
         devices.delete("userId", userId);
         folders.delete("ownerId", userId);
         templates.delete("ownerId", userId);

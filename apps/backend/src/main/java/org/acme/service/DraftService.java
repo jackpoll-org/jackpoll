@@ -56,7 +56,7 @@ public class DraftService {
         ResponseDraft draft = null;
         if (req.token() != null && !req.token().isBlank()) {
             draft = drafts.findByToken(req.token())
-                .filter(d -> d.surveyId.equals(surveyId))
+                .filter(d -> d.surveyId.equals(surveyId) && d.expiresAt.isAfter(now))
                 .orElse(null);
         }
 

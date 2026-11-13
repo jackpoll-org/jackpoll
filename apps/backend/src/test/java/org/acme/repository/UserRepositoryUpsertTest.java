@@ -91,6 +91,34 @@ class UserRepositoryUpsertTest {
     }
 
     @Test
+    void unprovenSyncEvictsAStaleRowWithoutTakingItsData() {
+        var email = email();
+        var oldId = java.util.UUID.randomUUID().toString();
+        var newId = java.util.UUID.randomUUID().toString();
+        var surveyId = java.util.UUID.randomUUID().toString();
+        QuarkusTransaction.requiringNew().run(() -> {
+            users.upsert(oldId, email, "Ada", true, null);
+            var invite = new org.acme.entity.SurveyCollaborator();
+            invite.id = java.util.UUID.randomUUID().toString();
+            invite.surveyId = surveyId;
+            invite.userId = oldId;
+            invite.role = org.acme.entity.CollaboratorRole.EDITOR;
+            invite.status = org.acme.entity.CollaboratorStatus.ACCEPTED;
+            collaborators.persist(invite);
+        });
+
+        QuarkusTransaction.requiringNew().run(() ->
+            users.upsert(newId, email, "Mallory", false, null, false));
+
+        assertTrue(QuarkusTransaction.requiringNew().call(() ->
+            users.findByIdOptional(newId).isPresent()));
+        assertTrue(QuarkusTransaction.requiringNew().call(() ->
+            collaborators.findBySurveyAndUser(surveyId, newId).isEmpty()), "old data stays with the old id");
+        assertTrue(QuarkusTransaction.requiringNew().call(() ->
+            collaborators.findBySurveyAndUser(surveyId, oldId).isPresent()));
+    }
+
+    @Test
     void firstSignInKeepsWhatWasLinkedToTheRegisteredRow() {
         var email = email();
         var registeredId = java.util.UUID.randomUUID().toString();

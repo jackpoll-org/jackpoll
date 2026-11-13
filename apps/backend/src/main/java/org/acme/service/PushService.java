@@ -151,6 +151,12 @@ public class PushService {
             .ifPresent(devices::delete);
     }
 
+    /** Remove every device of a user, so a revoked session stops receiving pushes. */
+    @Transactional
+    public void unregisterAll(String userId) {
+        devices.delete("userId", userId);
+    }
+
     // ── Sending ───────────────────────────────────────────────────
 
     /** Immutable snapshot of a device, read inside the caller's transaction. */

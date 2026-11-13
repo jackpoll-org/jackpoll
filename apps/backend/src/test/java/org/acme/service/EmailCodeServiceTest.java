@@ -36,6 +36,9 @@ class EmailCodeServiceTest {
     @Inject
     MockMailbox mailbox;
 
+    @Inject
+    RateLimiterService rateLimiter;
+
     private String issueAndReadCode(String email, String purpose) {
         mailbox.clear();
         service.issue(email, purpose);
@@ -109,6 +112,18 @@ class EmailCodeServiceTest {
             org.junit.jupiter.api.Assertions.assertNotNull(service.issue(email, EmailCode.PURPOSE_VERIFY));
         }
         org.junit.jupiter.api.Assertions.assertNull(service.issue(email, EmailCode.PURPOSE_VERIFY));
+    }
+
+    @Test
+    void strangersFillingTheSharedCapCannotLockOutANewCaller() {
+        String email = "verify-shared-cap@example.com";
+        String shared = "email-code-issue|" + EmailCode.PURPOSE_RESET + "|" + email;
+        for (int i = 0; i < 20; i++) {
+            rateLimiter.allow(shared, 20, 3_600);
+        }
+        org.junit.jupiter.api.Assertions.assertNotNull(service.issue(email, EmailCode.PURPOSE_RESET));
+        org.junit.jupiter.api.Assertions.assertNotNull(service.issue(email, EmailCode.PURPOSE_RESET));
+        org.junit.jupiter.api.Assertions.assertNull(service.issue(email, EmailCode.PURPOSE_RESET));
     }
 
     @Test

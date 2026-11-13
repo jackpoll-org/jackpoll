@@ -343,7 +343,7 @@ export type CollaboratorRole = "editor" | "viewer";
 export type CollaboratorStatus = "PENDING" | "ACCEPTED";
 
 export interface Collaborator {
-  userId: string;
+  userId: string | null;
   email: string | null;
   name: string | null;
   role: CollaboratorRole;

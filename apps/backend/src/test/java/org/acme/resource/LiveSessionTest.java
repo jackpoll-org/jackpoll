@@ -6,13 +6,16 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkus.mailer.MockMailbox;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 
 /**
  * Live quiz sessions: every "start game" opens a session, live answers are
@@ -24,6 +27,9 @@ import io.restassured.http.ContentType;
 class LiveSessionTest {
 
     private static final String SURVEYS = "/api/v1/surveys";
+
+    @Inject
+    MockMailbox mailbox;
 
     private String[] createQuiz(boolean liveMode) {
         String id = given().contentType(ContentType.JSON)
@@ -44,6 +50,15 @@ class LiveSessionTest {
     }
 
     private String startSession(String surveyId) {
+        String sessionId = startSessionWithoutShowing(surveyId);
+        given().contentType(ContentType.JSON)
+            .body("{\"index\":0,\"phase\":\"question\"}")
+            .when().post(SURVEYS + "/" + surveyId + "/live/state")
+            .then().statusCode(200);
+        return sessionId;
+    }
+
+    private String startSessionWithoutShowing(String surveyId) {
         return given().when().post(SURVEYS + "/" + surveyId + "/live/sessions")
             .then().statusCode(200)
             .body("data.startedAt", notNullValue())
@@ -180,6 +195,7 @@ class LiveSessionTest {
         assertEquals(400, pick(quiz, "Ada", quiz[2]));
         assertEquals(201, pick(quiz, "Bob", quiz[3]));
         assertEquals(201, pick(quiz, "Cy", quiz[2]));
+        show(quiz, "reveal");
 
         given().when().get(SURVEYS + "/" + quiz[0] + "/live/leaderboard")
             .then().statusCode(200)
@@ -219,13 +235,14 @@ class LiveSessionTest {
         var quiz = createScoredQuiz(", \"liveQuestionSeconds\": 20");
         startSession(quiz[0]);
 
-        int score = given().contentType(ContentType.JSON)
-            .body("{\"respondentName\":\"Fast\",\"clientId\":\"fast\",\"durationMs\":0,"
+        given().contentType(ContentType.JSON)
+            .body("{\"respondentName\":\"Slow\",\"clientId\":\"slow\",\"durationMs\":60000,"
                 + "\"answers\":[{\"questionId\":\"" + quiz[1] + "\",\"value\":\"" + quiz[2] + "\"}]}")
             .when().post(SURVEYS + "/" + quiz[0] + "/responses")
-            .then().statusCode(201).extract().path("data.score");
+            .then().statusCode(201);
 
-        assertEquals(50, score);
+        show(quiz, "reveal");
+        assertTrue(liveScore(quiz, "slow") > 90);
     }
 
     @Test
@@ -241,31 +258,117 @@ class LiveSessionTest {
             .then().statusCode(400);
     }
 
-    private int scoreFor(String[] quiz, String player) {
+    private Integer liveScore(String[] quiz, String player) {
         return given().contentType(ContentType.JSON)
-            .body("{\"respondentName\":\"" + player + "\",\"clientId\":\"" + player + "\","
-                + "\"answers\":[{\"questionId\":\"" + quiz[1] + "\",\"value\":\"" + quiz[2] + "\"}]}")
-            .when().post(SURVEYS + "/" + quiz[0] + "/responses")
-            .then().statusCode(201).extract().path("data.score");
+            .body("{\"clientId\":\"" + player + "\"}")
+            .when().post(SURVEYS + "/" + quiz[0] + "/responses/live-score")
+            .then().statusCode(200).extract().path("data.score");
+    }
+
+    private Integer liveScore(String[] quiz, String player, String questionId) {
+        return given().contentType(ContentType.JSON)
+            .body("{\"clientId\":\"" + player + "\",\"questionId\":\"" + questionId + "\"}")
+            .when().post(SURVEYS + "/" + quiz[0] + "/responses/live-score")
+            .then().statusCode(200).extract().path("data.score");
     }
 
     private void show(String[] quiz, String phase) {
+        show(quiz, 0, phase);
+    }
+
+    private void show(String[] quiz, int index, String phase) {
         given().contentType(ContentType.JSON)
-            .body("{\"index\":0,\"phase\":\"" + phase + "\"}")
+            .body("{\"index\":" + index + ",\"phase\":\"" + phase + "\"}")
             .when().post(SURVEYS + "/" + quiz[0] + "/live/state")
             .then().statusCode(200);
     }
 
     @Test
     @TestSecurity(user = "owner-timing")
-    void speedBonusOnlyCountsWhileTheQuestionIsShown() {
+    void answersAreOnlyTakenWhileTheQuestionIsShown() {
         var quiz = createScoredQuiz(", \"liveQuestionSeconds\": 20");
         startSession(quiz[0]);
 
         show(quiz, "question");
-        assertTrue(scoreFor(quiz, "quick") > 90);
+        assertEquals(201, pick(quiz, "quick", quiz[2]));
         show(quiz, "reveal");
-        assertEquals(50, scoreFor(quiz, "late"));
+        assertTrue(liveScore(quiz, "quick") > 90);
+        assertEquals(400, pick(quiz, "late", quiz[2]));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-hidden-score")
+    void playersOnlyLearnTheirScoreAfterTheReveal() {
+        var quiz = createScoredQuiz();
+        startSession(quiz[0]);
+        show(quiz, "question");
+
+        given().contentType(ContentType.JSON)
+            .body("{\"respondentName\":\"Ada\",\"clientId\":\"ada\","
+                + "\"answers\":[{\"questionId\":\"" + quiz[1] + "\",\"value\":\"" + quiz[2] + "\"}]}")
+            .when().post(SURVEYS + "/" + quiz[0] + "/responses")
+            .then().statusCode(201)
+            .body("data.score", nullValue())
+            .body("data.maxScore", nullValue())
+            .body("data.passed", nullValue());
+        assertEquals(null, liveScore(quiz, "ada"));
+
+        show(quiz, "reveal");
+        assertEquals(100, (int) liveScore(quiz, "ada"));
+        assertEquals(null, liveScore(quiz, "nobody"));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-late-score")
+    void aPlayerFetchesAnEarlierScoreOnceTheQuestionIsClosedEvenWithoutAReveal() {
+        var quiz = createScoredQuiz();
+        startSession(quiz[0]);
+        show(quiz, "question");
+        assertEquals(201, pick(quiz, "Lin", quiz[2]));
+
+        assertEquals(null, liveScore(quiz, "Lin", quiz[1]));
+        show(quiz, "countdown");
+        assertEquals(null, liveScore(quiz, "Lin", quiz[1]));
+
+        show(quiz, 1, "question");
+        assertEquals(100, (int) liveScore(quiz, "Lin", quiz[1]));
+        assertEquals(null, liveScore(quiz, "Lin"));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-live-receipt")
+    void liveReceiptsNeverCarryTheScore() {
+        var quiz = createScoredQuiz(
+            ", \"respondentReceipts\": true, \"studentResults\": true, \"resultsReleased\": true");
+        startSession(quiz[0]);
+        show(quiz, "question");
+        given().contentType(ContentType.JSON)
+            .body("{\"respondentName\":\"Rex\",\"clientId\":\"rex\",\"respondentEmail\":\"rex-live@test.local\","
+                + "\"answers\":[{\"questionId\":\"" + quiz[1] + "\",\"value\":\"" + quiz[2] + "\"}]}")
+            .when().post(SURVEYS + "/" + quiz[0] + "/responses")
+            .then().statusCode(201);
+
+        var receipts = mailbox.getMessagesSentTo("rex-live@test.local");
+        assertEquals(1, receipts.size());
+        assertFalse(receipts.get(0).getHtml().contains("Your score"));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-leaderboard-hidden")
+    void leaderboardHoldsBackTheOpenQuestionUntilTheReveal() {
+        var quiz = createScoredQuiz();
+        startSession(quiz[0]);
+        show(quiz, "question");
+        assertEquals(201, pick(quiz, "Grace", quiz[2]));
+
+        given().when().get(SURVEYS + "/" + quiz[0] + "/live/leaderboard")
+            .then().statusCode(200).body("data", hasSize(0));
+
+        show(quiz, "reveal");
+        given().when().get(SURVEYS + "/" + quiz[0] + "/live/leaderboard")
+            .then().statusCode(200)
+            .body("data[0].name", equalTo("Grace"))
+            .body("data[0].score", equalTo(100));
     }
 
     @Test
@@ -276,5 +379,90 @@ class LiveSessionTest {
         assertEquals(201, pick(quiz, "Repeat", quiz[2]));
         startSession(quiz[0]);
         assertEquals(201, pick(quiz, "Repeat", quiz[2]));
+    }
+
+    private String[] createTwoQuestionQuiz() {
+        String id = given().contentType(ContentType.JSON)
+            .body("{\"title\":\"Two\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String p = id.substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Two", "status": "published",
+                  "settings": {"isQuiz": true, "liveMode": true, "allowMultipleResponses": true},
+                  "questions": [
+                    {"id":"a-%1$s","type":"multiple-choice","title":"A","required":false,
+                      "order":0,"points":100,"correctAnswers":["a1-%1$s"],
+                      "options":[{"id":"a1-%1$s","label":"Right"},{"id":"a2-%1$s","label":"Wrong"}]},
+                    {"id":"b-%1$s","type":"multiple-choice","title":"B","required":false,
+                      "order":1,"points":100,"correctAnswers":["b1-%1$s"],
+                      "options":[{"id":"b1-%1$s","label":"Right"},{"id":"b2-%1$s","label":"Wrong"}]}
+                  ]
+                }
+                """.formatted(p))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        return new String[] {id, "a-" + p, "a1-" + p, "b-" + p, "b1-" + p};
+    }
+
+    private int submitBoth(String[] quiz, String player) {
+        return given().contentType(ContentType.JSON)
+            .body("{\"respondentName\":\"" + player + "\",\"clientId\":\"" + player + "\",\"answers\":["
+                + "{\"questionId\":\"" + quiz[1] + "\",\"value\":\"" + quiz[2] + "\"},"
+                + "{\"questionId\":\"" + quiz[3] + "\",\"value\":\"" + quiz[4] + "\"}]}")
+            .when().post(SURVEYS + "/" + quiz[0] + "/responses")
+            .then().extract().statusCode();
+    }
+
+    @Test
+    @TestSecurity(user = "owner-unshown")
+    void livePlayersCannotAnswerBeforeAQuestionIsShown() {
+        var quiz = createTwoQuestionQuiz();
+        startSessionWithoutShowing(quiz[0]);
+
+        given().contentType(ContentType.JSON)
+            .body("{\"respondentName\":\"Eve\",\"clientId\":\"eve\",\"answers\":["
+                + "{\"questionId\":\"" + quiz[1] + "\",\"value\":\"" + quiz[2] + "\"},"
+                + "{\"questionId\":\"" + quiz[3] + "\",\"value\":\"" + quiz[4] + "\"}]}")
+            .when().post(SURVEYS + "/" + quiz[0] + "/responses")
+            .then().statusCode(400)
+            .body("error", equalTo("This question is not open yet."));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-one-answer")
+    void aLiveResponseOnlyKeepsTheShownQuestionsAnswer() {
+        var quiz = createTwoQuestionQuiz();
+        startSession(quiz[0]);
+        assertEquals(201, submitBoth(quiz, "Eve"));
+        show(quiz, "reveal");
+
+        given().when().get(SURVEYS + "/" + quiz[0] + "/live/leaderboard")
+            .then().statusCode(200)
+            .body("data[0].name", equalTo("Eve"))
+            .body("data[0].score", equalTo(100));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-future-answers")
+    void leaderboardIgnoresAnswersToQuestionsNotYetShown() {
+        var quiz = createTwoQuestionQuiz();
+        startSession(quiz[0]);
+        show(quiz, 1, "question");
+        given().contentType(ContentType.JSON)
+            .body("{\"respondentName\":\"Mo\",\"clientId\":\"mo\",\"answers\":["
+                + "{\"questionId\":\"" + quiz[3] + "\",\"value\":\"" + quiz[4] + "\"}]}")
+            .when().post(SURVEYS + "/" + quiz[0] + "/responses")
+            .then().statusCode(201);
+        show(quiz, 0, "reveal");
+
+        given().when().get(SURVEYS + "/" + quiz[0] + "/live/leaderboard")
+            .then().statusCode(200).body("data", hasSize(0));
+
+        show(quiz, 1, "reveal");
+        given().when().get(SURVEYS + "/" + quiz[0] + "/live/leaderboard")
+            .then().statusCode(200).body("data[0].name", equalTo("Mo"));
     }
 }

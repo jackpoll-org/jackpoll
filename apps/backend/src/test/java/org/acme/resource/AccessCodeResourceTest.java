@@ -163,6 +163,37 @@ class AccessCodeResourceTest {
             .when().get("/api/v1/public/surveys/" + id).then().statusCode(403);
     }
 
+    @Test
+    void requiredCode_rejectsDraftTokensFromBeforeRotationOrExpired() {
+        String id = lockedSurvey("RO" + UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase());
+        String stale = saveDraft(id, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now().plus(1, ChronoUnit.DAYS));
+        String expired = saveDraft(id, Instant.now().plus(1, ChronoUnit.MINUTES), Instant.now().minus(1, ChronoUnit.MINUTES));
+
+        given().header("X-Resume-Token", stale)
+            .when().get("/api/v1/public/surveys/" + id).then().statusCode(403);
+        given().header("X-Resume-Token", expired)
+            .when().get("/api/v1/public/surveys/" + id).then().statusCode(403);
+        given().header("X-Resume-Token", stale).contentType(ContentType.JSON)
+            .body("{\"token\":\"" + stale + "\",\"answers\":[]}")
+            .when().post("/api/v1/public/surveys/" + id + "/drafts").then().statusCode(403);
+    }
+
+    private String saveDraft(String surveyId, Instant createdAt, Instant expiresAt) {
+        String token = UUID.randomUUID().toString().replace("-", "");
+        QuarkusTransaction.requiringNew().run(() -> {
+            var draft = new ResponseDraft();
+            draft.id = UUID.randomUUID().toString();
+            draft.token = token;
+            draft.surveyId = surveyId;
+            draft.answers = java.util.Map.of();
+            draft.createdAt = createdAt;
+            draft.updatedAt = createdAt;
+            draft.expiresAt = expiresAt;
+            drafts.persist(draft);
+        });
+        return token;
+    }
+
     /** Owners and collaborators preview their own code-protected survey without the code. */
     @Test
     @TestSecurity(user = "owner-1")

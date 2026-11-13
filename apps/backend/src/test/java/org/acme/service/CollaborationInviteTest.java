@@ -2,6 +2,7 @@ package org.acme.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -12,6 +13,7 @@ import org.acme.entity.CollaboratorRole;
 import org.acme.entity.Survey;
 import org.acme.entity.SurveyStatus;
 import org.acme.entity.User;
+import org.acme.exception.ResourceNotFoundException;
 import org.acme.repository.SurveyRepository;
 import org.acme.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -87,6 +89,47 @@ class CollaborationInviteTest {
         assertTrue(
             surveyService.list(invitee, 0, 50).stream().anyMatch(s -> s.id().equals(surveyId)),
             "accepted collaboration must grant access");
+    }
+
+    @Test
+    void anInviteToAnUnknownAddressWaitsForTheVerifiedAccount() {
+        String owner = UUID.randomUUID().toString();
+        String later = UUID.randomUUID().toString();
+        String laterEmail = later + "@test.local";
+        seedUser(owner, owner + "@test.local");
+        String surveyId = seedSurvey(owner);
+
+        collaborators.add(
+            owner, surveyId, new AddCollaboratorRequest(laterEmail.toUpperCase(), CollaboratorRole.EDITOR));
+        seedUser(later, laterEmail);
+
+        assertEquals(1, collaborators.invitations(later).size());
+        collaborators.accept(later, surveyId);
+        assertTrue(
+            surveyService.list(later, 0, 50).stream().anyMatch(s -> s.id().equals(surveyId)));
+        assertEquals("User " + later,
+            QuarkusTransaction.requiringNew().call(() -> collaborators.list(owner, surveyId)).get(0).name());
+    }
+
+    @Test
+    void anUnverifiedAccountCannotClaimAnInvite() {
+        String owner = UUID.randomUUID().toString();
+        String squatter = UUID.randomUUID().toString();
+        String email = squatter + "@test.local";
+        seedUser(owner, owner + "@test.local");
+        String surveyId = seedSurvey(owner);
+        collaborators.add(owner, surveyId, new AddCollaboratorRequest(email, CollaboratorRole.EDITOR));
+        QuarkusTransaction.requiringNew().run(() -> {
+            var u = new User();
+            u.id = squatter;
+            u.email = email;
+            u.name = "Squatter";
+            u.emailVerified = false;
+            users.persist(u);
+        });
+
+        assertEquals(0, collaborators.invitations(squatter).size());
+        assertThrows(ResourceNotFoundException.class, () -> collaborators.accept(squatter, surveyId));
     }
 
     @Test

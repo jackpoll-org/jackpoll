@@ -68,6 +68,7 @@ export const SURVEY_ENDPOINTS = {
   responded: (id: string) => `/public/surveys/${encodeURIComponent(id)}/responded`,
   studentResult: (id: string) => `/public/surveys/${encodeURIComponent(id)}/result`,
   responses: (id: string) => `/surveys/${encodeURIComponent(id)}/responses`,
+  liveScore: (id: string) => `/surveys/${encodeURIComponent(id)}/responses/live-score`,
   response: (id: string, responseId: string) =>
     `/surveys/${encodeURIComponent(id)}/responses/${encodeURIComponent(responseId)}`,
   results: (id: string) => `/surveys/${encodeURIComponent(id)}/results`,

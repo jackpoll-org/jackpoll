@@ -48,18 +48,32 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
     }
 
     /** Live leaderboard rows for one session: [trimmed name, total score] per player, best first. */
-    public List<Object[]> leaderboard(String surveyId, String sessionId, int limit) {
+    public List<Object[]> leaderboard(String surveyId, String sessionId, int maxQuestionOrder, int limit) {
         return getEntityManager().createQuery(
                 "select trim(r.respondentName), coalesce(sum(r.score), 0) from SurveyResponse r"
                     + " where r.surveyId = ?1 and r.sessionId = ?2 and r.preview = false"
+                    + " and not exists (select a.id from ResponseAnswer a, Question q where a.response = r"
+                    + " and q.id = a.questionId and q.survey.id = ?1 and q.order > ?3)"
                     + " and r.respondentName is not null and trim(r.respondentName) <> ''"
                     + " group by r.clientId, trim(r.respondentName)"
                     + " order by coalesce(sum(r.score), 0) desc, trim(r.respondentName) asc",
                 Object[].class)
             .setParameter(1, surveyId)
             .setParameter(2, sessionId)
+            .setParameter(3, maxQuestionOrder)
             .setMaxResults(limit)
             .getResultList();
+    }
+
+    public Integer questionOrderAt(String surveyId, int position) {
+        return getEntityManager().createQuery(
+                "select q.order from Question q where q.survey.id = ?1 order by q.order", Integer.class)
+            .setParameter(1, surveyId)
+            .setFirstResult(position)
+            .setMaxResults(1)
+            .getResultStream()
+            .findFirst()
+            .orElse(null);
     }
 
     /** Count real responses (preview excluded — they don't count to limits). */
@@ -128,6 +142,21 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
             .setParameter(3, clientId)
             .setParameter(4, questionIds)
             .getSingleResult() > 0;
+    }
+
+    public Integer playerScore(String surveyId, String sessionId, String clientId, String questionId) {
+        return getEntityManager().createQuery(
+                "select r.score from ResponseAnswer a join a.response r where r.surveyId = ?1"
+                    + " and r.sessionId = ?2 and r.clientId = ?3 and r.preview = false"
+                    + " and a.questionId = ?4", Integer.class)
+            .setParameter(1, surveyId)
+            .setParameter(2, sessionId)
+            .setParameter(3, clientId)
+            .setParameter(4, questionId)
+            .setMaxResults(1)
+            .getResultStream()
+            .findFirst()
+            .orElse(null);
     }
 
     public boolean tokenAnswered(

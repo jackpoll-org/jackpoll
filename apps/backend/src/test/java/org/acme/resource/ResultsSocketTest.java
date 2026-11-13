@@ -30,6 +30,9 @@ class ResultsSocketTest {
     ResultsRelay relay;
 
     @Inject
+    ResultsSocket socket;
+
+    @Inject
     SurveyService surveys;
 
     @Inject
@@ -110,6 +113,45 @@ class ResultsSocketTest {
         while (received.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(25);
         assertEquals(List.of(JOIN), received);
         connection.close().await().indefinitely();
+    }
+
+    @Test
+    void listenerIsClosedOnceTheSurveyIsNoLongerPublished() throws InterruptedException {
+        String id = publishedSurvey("results-ws-owner-f", false);
+        var connection = connector.baseUri(baseUri)
+            .addHeader("Origin", "http://localhost:3000")
+            .path("/results-ws/" + id)
+            .connectAndAwait();
+        Thread.sleep(300);
+        assertTrue(connection.isOpen());
+
+        io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() ->
+            surveyRepository.findById(id).status = org.acme.entity.SurveyStatus.DRAFT);
+        socket.recheckAccess();
+        long deadline = System.currentTimeMillis() + 5000;
+        while (!connection.isClosed() && System.currentTimeMillis() < deadline) Thread.sleep(25);
+        assertEquals(CollabSocket.FORBIDDEN, connection.closeReason().getCode());
+    }
+
+    @Test
+    void oneRecheckClosesEveryListenerSharingTheSameCredentials() throws InterruptedException {
+        String id = publishedSurvey("results-ws-owner-g", false);
+        var first = connector.baseUri(baseUri).addHeader("Origin", "http://localhost:3000")
+            .path("/results-ws/" + id).connectAndAwait();
+        var second = connector.baseUri(baseUri).addHeader("Origin", "http://localhost:3000")
+            .path("/results-ws/" + id).connectAndAwait();
+        Thread.sleep(300);
+        socket.recheckAccess();
+        Thread.sleep(300);
+        assertTrue(first.isOpen() && second.isOpen());
+
+        io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() ->
+            surveyRepository.findById(id).status = org.acme.entity.SurveyStatus.DRAFT);
+        socket.recheckAccess();
+        long deadline = System.currentTimeMillis() + 5000;
+        while (!(first.isClosed() && second.isClosed()) && System.currentTimeMillis() < deadline) Thread.sleep(25);
+        assertEquals(CollabSocket.FORBIDDEN, first.closeReason().getCode());
+        assertEquals(CollabSocket.FORBIDDEN, second.closeReason().getCode());
     }
 
     private io.quarkus.websockets.next.WebSocketClientConnection connectAsHost(String id, List<String> received) {

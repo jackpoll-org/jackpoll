@@ -5,9 +5,14 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.acme.service.RateLimiterService;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -19,6 +24,9 @@ import org.junit.jupiter.api.Test;
 class UploadResourceTest {
 
     private static final String BASE = "/api/v1/uploads";
+
+    @Inject
+    RateLimiterService rateLimiter;
 
     // A minimal 1x1 transparent PNG.
     private static final byte[] PNG = java.util.Base64.getDecoder().decode(
@@ -131,5 +139,35 @@ class UploadResourceTest {
             .statusCode(200)
             .header("Content-Security-Policy", containsString("sandbox"))
             .header("X-Content-Type-Options", is("nosniff"));
+    }
+
+    /** Rejected files never spend a storage budget; accepted ones charge the caller's own key. */
+    @Test
+    void upload_chargesTheDailyBudgetOnlyForAcceptedFiles() {
+        String ip = "198.51.100.143";
+        String budget = "upload-bytes-day|ip|" + ip;
+        given().header("X-Forwarded-For", ip)
+            .multiPart("file", "evil.png", "not really a png".getBytes(), "image/png")
+            .when().post(BASE)
+            .then().statusCode(400);
+        assertFalse(rateLimiter.exhausted(budget, 1, 86_400));
+
+        given().header("X-Forwarded-For", ip)
+            .multiPart("file", "a.png", PNG, "image/png")
+            .when().post(BASE)
+            .then().statusCode(201);
+        assertTrue(rateLimiter.exhausted(budget, 1, 86_400));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-budget")
+    void upload_signedInOwnersHaveTheirOwnBudget() {
+        given().header("X-Forwarded-For", "198.51.100.144")
+            .multiPart("file", "a.png", PNG, "image/png")
+            .when().post(BASE)
+            .then().statusCode(201);
+        assertTrue(rateLimiter.exhausted("upload-bytes-day|user|owner-budget", 1, 86_400));
+        assertFalse(rateLimiter.exhausted("upload-bytes-day|ip|198.51.100.144", 1, 86_400));
+        assertTrue(rateLimiter.exhausted("upload-bytes-day-auth", 1, 86_400));
     }
 }

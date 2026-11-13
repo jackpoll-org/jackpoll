@@ -117,6 +117,30 @@ class CollaboratorServiceTest {
     }
 
     @Test
+    void add_answersTheSameForKnownAndUnknownAddresses() {
+        var survey = survey(SURVEY, OWNER, "My Survey");
+        when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey);
+        when(users.findByEmail("invitee@example.com"))
+            .thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
+        when(users.findByEmail("stranger@example.com")).thenReturn(Optional.empty());
+        when(users.findByIdOptional(OWNER)).thenReturn(Optional.of(user(OWNER, "owner@example.com", "Owner")));
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.empty());
+
+        var known = service.add(OWNER, SURVEY, new AddCollaboratorRequest("invitee@example.com", CollaboratorRole.EDITOR));
+        var unknown = service.add(OWNER, SURVEY, new AddCollaboratorRequest("stranger@example.com", CollaboratorRole.EDITOR));
+
+        assertEquals(known.userId(), unknown.userId());
+        assertEquals(known.name(), unknown.name());
+        assertEquals(known.status(), unknown.status());
+        var rows = org.mockito.ArgumentCaptor.forClass(SurveyCollaborator.class);
+        verify(collaborators, org.mockito.Mockito.times(2)).persist(rows.capture());
+        assertEquals("invitee@example.com", rows.getAllValues().get(0).email);
+        assertEquals("stranger@example.com", rows.getAllValues().get(1).email);
+        assertEquals(null, rows.getAllValues().get(0).userId);
+        assertEquals(null, rows.getAllValues().get(1).userId);
+    }
+
+    @Test
     void add_sendsEmail_whenInviteEmailPrefEnabled() {
         var survey = survey(SURVEY, OWNER, "My Survey");
         when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey);
@@ -148,12 +172,12 @@ class CollaboratorServiceTest {
     }
 
     @Test
-    void accept_notifiesOwnerWithAcceptedEventType() {
+    void accept_bindsTheInviteAndNotifiesOwnerWithAcceptedEventType() {
         var invite = new SurveyCollaborator();
         invite.surveyId = SURVEY;
-        invite.userId = INVITEE;
+        invite.email = "invitee@example.com";
         invite.status = CollaboratorStatus.PENDING;
-        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(invite));
+        when(collaborators.findPendingBySurveyAndEmail(SURVEY, "invitee@example.com")).thenReturn(Optional.of(invite));
         when(surveys.findByIdOptional(SURVEY)).thenReturn(Optional.of(survey(SURVEY, OWNER, "My Survey")));
         when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
         when(users.findByIdOptional(OWNER)).thenReturn(Optional.of(user(OWNER, "owner@example.com", "Owner")));
@@ -161,8 +185,49 @@ class CollaboratorServiceTest {
         service.accept(INVITEE, SURVEY);
 
         assertEquals(CollaboratorStatus.ACCEPTED, invite.status);
+        assertEquals(INVITEE, invite.userId);
         verify(pushService).notifyUser(
             eq(OWNER), eq(NotificationEventType.COLLABORATOR_ACCEPTED), anyString(), anyString());
+    }
+
+    @Test
+    void add_reinvitingAnAcceptedMemberReturnsTheMember() {
+        when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey(SURVEY, OWNER, "My Survey"));
+        var invitee = user(INVITEE, "invitee@example.com", "Invitee");
+        when(users.findByEmail("invitee@example.com")).thenReturn(Optional.of(invitee));
+        when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(invitee));
+        var member = new SurveyCollaborator();
+        member.surveyId = SURVEY;
+        member.userId = INVITEE;
+        member.status = CollaboratorStatus.ACCEPTED;
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(member));
+
+        var dto = service.add(OWNER, SURVEY, new AddCollaboratorRequest("invitee@example.com", CollaboratorRole.VIEWER));
+
+        assertEquals(INVITEE, dto.userId());
+        assertEquals("Invitee", dto.name());
+        assertEquals(CollaboratorStatus.ACCEPTED, dto.status());
+        assertEquals(CollaboratorRole.VIEWER, member.role);
+    }
+
+    @Test
+    void accept_byAnExistingMemberDropsTheInviteAndKeepsTheMembership() {
+        var invite = new SurveyCollaborator();
+        invite.surveyId = SURVEY;
+        invite.email = "invitee@example.com";
+        invite.status = CollaboratorStatus.PENDING;
+        var member = new SurveyCollaborator();
+        member.userId = INVITEE;
+        member.status = CollaboratorStatus.ACCEPTED;
+        when(collaborators.findPendingBySurveyAndEmail(SURVEY, "invitee@example.com")).thenReturn(Optional.of(invite));
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(member));
+        when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
+
+        service.accept(INVITEE, SURVEY);
+
+        verify(collaborators).delete(invite);
+        assertEquals(null, invite.userId);
+        verify(pushService, never()).notifyUser(anyString(), any(), anyString(), anyString());
     }
 
     @Test
@@ -172,18 +237,18 @@ class CollaboratorServiceTest {
         when(users.findByIdOptional(OWNER)).thenReturn(Optional.of(user(OWNER, "owner@example.com", "Owner")));
         var invite = new SurveyCollaborator();
         invite.status = CollaboratorStatus.PENDING;
-        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(invite));
+        when(collaborators.findPendingBySurveyAndEmail(SURVEY, "invitee@example.com")).thenReturn(Optional.of(invite));
 
         service.decline(INVITEE, SURVEY);
 
         verify(pushService).notifyUser(
             eq(OWNER), eq(NotificationEventType.COLLABORATOR_DECLINED), anyString(), anyString());
-        verify(collaborators).deleteBySurveyAndUser(SURVEY, INVITEE);
+        verify(collaborators).delete(invite);
     }
 
     @Test
     void decline_withoutAnInvitationNotifiesNobody() {
-        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.empty());
+        when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
 
         org.junit.jupiter.api.Assertions.assertThrows(
             org.acme.exception.ResourceNotFoundException.class, () -> service.decline(INVITEE, SURVEY));
@@ -197,19 +262,36 @@ class CollaboratorServiceTest {
         var survey = survey(SURVEY, OWNER, "My Survey");
         when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey);
         when(users.findByIdOptional(OWNER)).thenReturn(Optional.of(user(OWNER, "owner@example.com", "Owner")));
-        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(new SurveyCollaborator()));
+        var member = new SurveyCollaborator();
+        member.userId = INVITEE;
+        member.status = CollaboratorStatus.ACCEPTED;
+        when(collaborators.findBySurveyAndMember(SURVEY, INVITEE)).thenReturn(Optional.of(member));
 
         service.remove(OWNER, SURVEY, INVITEE);
 
         verify(pushService).notifyUser(
             eq(INVITEE), eq(NotificationEventType.COLLABORATOR_REMOVED), anyString(), anyString());
-        verify(collaborators).deleteBySurveyAndUser(SURVEY, INVITEE);
+        verify(collaborators).delete(member);
+    }
+
+    @Test
+    void remove_ofAPendingInviteDeletesItSilently() {
+        when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey(SURVEY, OWNER, "My Survey"));
+        var pending = new SurveyCollaborator();
+        pending.email = "invitee@example.com";
+        pending.status = CollaboratorStatus.PENDING;
+        when(collaborators.findBySurveyAndMember(SURVEY, "invitee@example.com")).thenReturn(Optional.of(pending));
+
+        service.remove(OWNER, SURVEY, "invitee@example.com");
+
+        verify(collaborators).delete(pending);
+        verify(pushService, never()).notifyUser(anyString(), any(), anyString(), anyString());
     }
 
     @Test
     void remove_ofANonCollaboratorNotifiesNobody() {
         when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey(SURVEY, OWNER, "My Survey"));
-        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.empty());
+        when(collaborators.findBySurveyAndMember(SURVEY, INVITEE)).thenReturn(Optional.empty());
 
         service.remove(OWNER, SURVEY, INVITEE);
 
@@ -225,7 +307,7 @@ class CollaboratorServiceTest {
         accepted.userId = INVITEE;
         accepted.status = CollaboratorStatus.ACCEPTED;
         var pending = new SurveyCollaborator();
-        pending.userId = "pending-user";
+        pending.email = "pending@example.com";
         pending.status = CollaboratorStatus.PENDING;
         when(collaborators.findBySurvey(SURVEY)).thenReturn(java.util.List.of(accepted, pending));
         when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
@@ -235,5 +317,60 @@ class CollaboratorServiceTest {
         assertEquals(1, list.size());
         assertEquals(null, list.get(0).email());
         assertEquals("Invitee", list.get(0).name());
+    }
+
+    @Test
+    void invitations_onlyForAVerifiedEmail() {
+        var unverified = user(INVITEE, "invitee@example.com", "Invitee");
+        unverified.emailVerified = false;
+        when(users.findByIdOptional(INVITEE)).thenReturn(Optional.of(unverified));
+
+        assertEquals(0, service.invitations(INVITEE).size());
+        verify(collaborators, never()).findPendingByEmail(anyString());
+    }
+
+    @Test
+    void add_reinviteReturnsTheNeutralShape() {
+        when(surveyService.requireOwner(OWNER, SURVEY)).thenReturn(survey(SURVEY, OWNER, "My Survey"));
+        when(users.findByEmail("invitee@example.com"))
+            .thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
+        var member = new SurveyCollaborator();
+        member.userId = INVITEE;
+        member.status = CollaboratorStatus.PENDING;
+        when(collaborators.findBySurveyAndUser(SURVEY, INVITEE)).thenReturn(Optional.of(member));
+
+        var dto = service.add(OWNER, SURVEY, new AddCollaboratorRequest("Invitee@Example.com", CollaboratorRole.VIEWER));
+
+        assertEquals(null, dto.userId());
+        assertEquals(null, dto.name());
+        assertEquals(CollaboratorStatus.PENDING, dto.status());
+        assertEquals(CollaboratorRole.VIEWER, member.role);
+        verify(collaborators, never()).persist(any(SurveyCollaborator.class));
+        verify(pushService, never()).notifyUser(anyString(), any(), anyString(), anyString());
+    }
+
+    @Test
+    void list_showsKnownAndUnknownPendingInvitesIdentically() {
+        var survey = survey(SURVEY, OWNER, "My Survey");
+        when(surveyService.requireReadable(OWNER, SURVEY)).thenReturn(survey);
+        when(surveyService.isOwner(OWNER, survey)).thenReturn(true);
+        var known = new SurveyCollaborator();
+        known.email = "invitee@example.com";
+        known.role = CollaboratorRole.EDITOR;
+        known.status = CollaboratorStatus.PENDING;
+        var unknown = new SurveyCollaborator();
+        unknown.email = "stranger@example.com";
+        unknown.role = CollaboratorRole.EDITOR;
+        unknown.status = CollaboratorStatus.PENDING;
+        when(collaborators.findBySurvey(SURVEY)).thenReturn(java.util.List.of(known, unknown));
+        when(users.findByEmail("invitee@example.com"))
+            .thenReturn(Optional.of(user(INVITEE, "invitee@example.com", "Invitee")));
+
+        var list = service.list(OWNER, SURVEY);
+
+        assertEquals(list.get(0).userId(), list.get(1).userId());
+        assertEquals(list.get(0).name(), list.get(1).name());
+        assertEquals("invitee@example.com", list.get(0).email());
+        assertEquals("stranger@example.com", list.get(1).email());
     }
 }

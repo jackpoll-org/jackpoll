@@ -20,7 +20,7 @@ import { getQuestionTypeDefinition } from "@/app/components/question-types/regis
 import { useCountdown, useCountdownFraction, useJoinLive, useLivePresence } from "@/app/hooks/live";
 import type { LivePhase } from "@/app/lib/live/messages";
 import { useBeginToken, useSubmitResponse } from "@/app/hooks/survey";
-import { altchaChallengeUrl } from "@/app/lib/survey/api";
+import { altchaChallengeUrl, getLiveScoreApi } from "@/app/lib/survey/api";
 import { validCaptcha } from "@/app/lib/survey/captcha";
 import { getClientId } from "@/app/lib/survey/client-id";
 import { prefersReducedMotion } from "@/app/lib/survey/a11y";
@@ -58,6 +58,8 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   const [phase, setPhase] = useState<LivePhase>("lobby");
   const [value, setValue] = useState<AnswerValue>(undefined);
   const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
+  const [unscored, setUnscored] = useState<{ index: number; questionId: string } | null>(null);
+  const [scoreFailed, setScoreFailed] = useState(false);
   // Feedback after each answer: points earned this question, running total, and
   // consecutive-correct streak.
   const [lastScore, setLastScore] = useState<number | null>(null);
@@ -152,15 +154,43 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
     />
   ) : null;
 
-  // Chime only when the presenter reveals, matching the on-screen reveal (and
-  // never leaking correctness early).
+  // The server hands out points only once the question is closed, so the
+  // correct option can't be read off a fast answerer's phone before then. A
+  // presenter who skips the reveal still settles the score on the next slide.
   useEffect(() => {
-    if (isQuiz && phase === "reveal" && answered) {
-      if ((lastScore ?? 0) > 0) playCorrect();
-      else playWrong();
-    }
+    if (!isQuiz || !unscored) return;
+    const current = unscored.index === index;
+    if (current && phase !== "reveal" && phase !== "results") return;
+    let cancelled = false;
+    (async () => {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+        if (cancelled) return;
+        const res = await getLiveScoreApi(survey.id, getClientId(), unscored.questionId);
+        if (cancelled) return;
+        if (res.success && res.data) {
+          const gained = res.data.score ?? 0;
+          setUnscored(null);
+          setTotal((prevTotal) => prevTotal + gained);
+          setStreak((prevStreak) => (gained > 0 ? prevStreak + 1 : 0));
+          if (current) {
+            setLastScore(gained);
+            if (gained > 0) playCorrect();
+            else playWrong();
+          }
+          return;
+        }
+        if (attempt === 3) {
+          setScoreFailed(true);
+          toast.error(localizeServerError(res.error ?? "Failed to load your score"));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [phase, index, unscored]);
 
   async function send(answer: AnswerValue) {
     if (!question || expired) return;
@@ -174,7 +204,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
       return;
     }
     try {
-      const res = await submit.mutateAsync({
+      await submit.mutateAsync({
         answers: [{ questionId: question.id, value: answer }],
         respondentName: asksName && name.trim() ? name.trim() : undefined,
         respondentToken: asksToken ? token.trim() : undefined,
@@ -183,11 +213,11 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
         beginToken: beginToken ?? undefined,
         captcha: requireCaptcha && captcha ? await validCaptcha(survey.id, captcha) : undefined,
       });
-      const gained = res.score ?? 0;
-      setLastScore(gained);
-      setTotal((prevTotal) => prevTotal + gained);
-      setStreak((prevStreak) => (gained > 0 ? prevStreak + 1 : 0));
       setAnsweredIndex(index);
+      if (index != null) {
+        setScoreFailed(false);
+        setUnscored({ index, questionId: question.id });
+      }
     } catch (err) {
       if (asksToken && err instanceof Error && err.message === localizeServerError("This token is not valid.")) {
         setJoined(false);
@@ -328,6 +358,8 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
                 <X className="size-12 text-muted-foreground" />
                 <p className="text-lg font-bold">{t("live.noAnswer")}</p>
               </>
+            ) : lastScore == null ? (
+              !scoreFailed && <Spinner className="size-6 text-muted-foreground" />
             ) : correct ? (
               <>
                 <Check className="size-12 text-green-600" />

@@ -93,8 +93,8 @@ public class AccessCodeService {
     /**
      * Public surfaces call this before serving or accepting anything for a survey
      * that requires a code. Passes for the access token issued for the current
-     * code (rotating the code revokes it), for the draft or edit token of a
-     * response to this survey (resume and edit links), and for its members.
+     * code (rotating the code revokes it), for an unexpired draft or edit token
+     * of a response to this survey started since the last rotation, and for its members.
      */
     public void requireAccess(String surveyId) {
         requireAccess(surveyId, request.getHeader("X-Access-Token"), request.getHeader("X-Resume-Token"));
@@ -106,10 +106,19 @@ public class AccessCodeService {
         if (SpamProtectionService.constantTimeEquals(accessToken(entity), accessToken)) {
             return;
         }
-        if (resume != null && !resume.isBlank()
-                && (drafts.findByToken(resume).filter(d -> surveyId.equals(d.surveyId)).isPresent()
-                    || responses.findByEditToken(resume).filter(r -> surveyId.equals(r.surveyId)).isPresent())) {
-            return;
+        if (resume != null && !resume.isBlank()) {
+            var rotatedAt = entity.lastRotatedAt;
+            var now = Instant.now();
+            if (drafts.findByToken(resume)
+                    .filter(d -> surveyId.equals(d.surveyId)
+                        && d.expiresAt.isAfter(now)
+                        && !d.createdAt.isBefore(rotatedAt))
+                    .isPresent()
+                || responses.findByEditToken(resume)
+                    .filter(r -> surveyId.equals(r.surveyId) && !r.submittedAt.isBefore(rotatedAt))
+                    .isPresent()) {
+                return;
+            }
         }
         if (!identity.isAnonymous()) {
             try {

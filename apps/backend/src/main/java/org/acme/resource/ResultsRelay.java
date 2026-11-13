@@ -157,6 +157,11 @@ public class ResultsRelay {
         remove(hostRooms, room, conn);
     }
 
+    /** Stop sending host-only messages to {@code conn}; it keeps listening. */
+    void demote(String room, WebSocketConnection conn) {
+        remove(hostRooms, room, conn);
+    }
+
     private static void remove(
         Map<String, Set<WebSocketConnection>> index, String room, WebSocketConnection conn) {
         var peers = index.get(room);

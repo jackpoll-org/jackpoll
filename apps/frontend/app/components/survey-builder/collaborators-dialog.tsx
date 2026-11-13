@@ -116,9 +116,11 @@ export function CollaboratorsDialog({ surveyId }: { surveyId: string }) {
               {t("collaborators.empty")}
             </p>
           ) : (
-            list.map((c) => (
+            list.map((c) => {
+              const member = c.userId ?? c.email ?? "";
+              return (
               <div
-                key={c.userId}
+                key={member}
                 className="flex items-center justify-between gap-2 rounded-md border px-3 py-2"
               >
                 <div className="min-w-0">
@@ -137,15 +139,16 @@ export function CollaboratorsDialog({ surveyId }: { surveyId: string }) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={t("collaborators.remove", { who: c.email ?? c.userId })}
-                    onClick={() => handleRemove(c.userId)}
+                    aria-label={t("collaborators.remove", { who: c.email ?? member })}
+                    onClick={() => handleRemove(member)}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     <X className="size-4" />
                   </Button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </DialogContent>

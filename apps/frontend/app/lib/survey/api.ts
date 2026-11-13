@@ -842,6 +842,18 @@ export async function reviewResponseApi(
   });
 }
 
+/** A live quiz player's points for the question the presenter just revealed. */
+export async function getLiveScoreApi(
+  surveyId: string,
+  clientId: string,
+  questionId: string,
+): Promise<ApiResponse<{ score: number | null }>> {
+  return request<{ score: number | null }>(SURVEY_ENDPOINTS.liveScore(surveyId), {
+    method: "POST",
+    body: JSON.stringify({ clientId, questionId }),
+  });
+}
+
 export async function hasRespondedApi(
   surveyId: string,
   clientId: string,

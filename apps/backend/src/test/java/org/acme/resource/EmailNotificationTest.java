@@ -119,6 +119,63 @@ class EmailNotificationTest {
     }
 
     @Test
+    @TestSecurity(user = "owner-relay")
+    void receiptAddressMustBeOneBareAddress() {
+        ensureOwner("owner-relay");
+        String id = createSurvey("{\"respondentReceipts\":true}");
+
+        for (String email : new String[] {
+                "\\\"x\\\" <victim@test.local>", "a@test.local,b@test.local", "a@test.local; b@test.local", "not-an-email"}) {
+            given()
+                .contentType(ContentType.JSON)
+                .body("{\"answers\":[],\"respondentEmail\":\"" + email + "\"}")
+                .when().post(SURVEYS + "/" + id + "/responses")
+                .then().statusCode(422);
+        }
+        assertTrue(mailbox.getMessagesSentTo("victim@test.local").isEmpty());
+    }
+
+    @Test
+    @TestSecurity(user = "owner-receipt-budget")
+    void receiptBudgetIsOnlySpentWhenReceiptsAreOnAndCappedPerSurvey() {
+        ensureOwner("owner-receipt-budget");
+        String off = createSurvey("{\"respondentReceipts\":false}");
+        String on = createSurvey("{\"respondentReceipts\":true}");
+        String target = "budget-" + UUID.randomUUID() + "@test.local";
+
+        for (int i = 0; i < 4; i++) {
+            given()
+                .contentType(ContentType.JSON)
+                .header("X-Forwarded-For", "203.0.113.90")
+                .body("{\"answers\":[],\"respondentEmail\":\"" + target + "\"}")
+                .when().post(SURVEYS + "/" + off + "/responses")
+                .then().statusCode(201);
+        }
+        given()
+            .contentType(ContentType.JSON)
+            .header("X-Forwarded-For", "203.0.113.91")
+            .body("{\"answers\":[],\"respondentEmail\":\"" + target + "\"}")
+            .when().post(SURVEYS + "/" + on + "/responses")
+            .then().statusCode(201);
+        assertEquals(1, mailbox.getMessagesSentTo(target).size());
+
+        String prefix = "cap-" + UUID.randomUUID();
+        for (int i = 0; i < 50; i++) {
+            given()
+                .contentType(ContentType.JSON)
+                .header("X-Forwarded-For", "203.0.113." + (100 + i / 5))
+                .body("{\"answers\":[],\"respondentEmail\":\"" + prefix + "-" + i + "@test.local\"}")
+                .when().post(SURVEYS + "/" + on + "/responses")
+                .then().statusCode(201);
+        }
+        int sent = 0;
+        for (int i = 0; i < 50; i++) {
+            sent += mailbox.getMessagesSentTo(prefix + "-" + i + "@test.local").size();
+        }
+        assertEquals(49, sent);
+    }
+
+    @Test
     @TestSecurity(user = "owner-milestone")
     void milestoneEmailSentOnThresholdCrossing() {
         String ownerEmail = ensureOwner("owner-milestone");

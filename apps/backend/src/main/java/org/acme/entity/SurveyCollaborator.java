@@ -27,8 +27,12 @@ public class SurveyCollaborator extends PanacheEntityBase {
     @Column(name = "survey_id", nullable = false, length = 36)
     public String surveyId;
 
-    @Column(name = "user_id", nullable = false, length = 255)
+    /** Null while PENDING: an invitation is addressed to {@link #email} until accepted. */
+    @Column(name = "user_id", length = 255)
     public String userId;
+
+    @Column(length = 255)
+    public String email;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

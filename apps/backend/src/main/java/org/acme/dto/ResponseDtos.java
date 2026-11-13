@@ -8,9 +8,11 @@ import org.acme.entity.QuestionType;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -59,6 +61,8 @@ public final class ResponseDtos {
 
     public record RespondedDto(boolean responded) {}
 
+    public record LiveScoreDto(Integer score) {}
+
     public record ResultLookupRequest(@NotNull @Size(max = 32) String code) {}
 
     public record StudentResultDto(SurveyDtos.SurveyDto survey, ResponseDto response) {}
@@ -79,7 +83,7 @@ public final class ResponseDtos {
         /** Altcha proof-of-work payload (base64 JSON) when CAPTCHA is on. */
         @Size(max = 8192) String captcha,
         /** Optional respondent email for an opt-in receipt (issue #24). */
-        @Size(max = 320) String respondentEmail,
+        @Size(max = 320) @Email @Pattern(regexp = "[^<>,;\\s]*") String respondentEmail,
         /** True for a builder preview/test submission — not counted in results. */
         Boolean preview,
         /** Respondent's name when the survey requires it (#). */

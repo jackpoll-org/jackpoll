@@ -1,6 +1,7 @@
 package org.acme.service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.acme.dto.CollaboratorDtos.AddCollaboratorRequest;
@@ -78,30 +79,35 @@ public class CollaboratorService {
             throw new RateLimitedException("Too many invitations. Please try again later.");
         }
 
-        var user = users.findByEmail(req.email())
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Could not invite this address. They need a Jackpoll account first."));
-
-        if (user.id.equals(ownerId)) {
+        // Same answer and same stored row with or without an account, so invites can't probe for accounts.
+        var email = req.email().trim().toLowerCase();
+        var invited = new CollaboratorDto(null, email, null, req.role(), CollaboratorStatus.PENDING);
+        var user = users.findByEmail(email).orElse(null);
+        if (user != null && user.id.equals(ownerId)) {
             throw new ForbiddenAccessException("You already own this survey.");
         }
 
-        var existing = collaborators.findBySurveyAndUser(surveyId, user.id).orElse(null);
+        var existing = collaborators.findBySurveyAndMember(surveyId, email)
+            .or(() -> user == null ? Optional.<SurveyCollaborator>empty() : collaborators.findBySurveyAndUser(surveyId, user.id))
+            .orElse(null);
         if (existing != null) {
             // Re-inviting just updates the role; keep the existing accept state.
             existing.role = req.role();
-            audit.record(ownerId, "collaborator.role", surveyId + "/" + user.id + "=" + req.role());
-            return toDto(existing);
+            audit.record(ownerId, "collaborator.role", surveyId + "/" + email + "=" + req.role());
+            return existing.status == CollaboratorStatus.ACCEPTED ? toDto(existing, true) : invited;
         }
 
         var collaborator = new SurveyCollaborator();
         collaborator.id = UUID.randomUUID().toString();
         collaborator.surveyId = surveyId;
-        collaborator.userId = user.id;
+        collaborator.email = email;
         collaborator.role = req.role();
         collaborator.status = CollaboratorStatus.PENDING;
         collaborators.persist(collaborator);
-        audit.record(ownerId, "collaborator.add", surveyId + "/" + user.id + "=" + req.role());
+        audit.record(ownerId, "collaborator.add", surveyId + "/" + email + "=" + req.role());
+        if (user == null) {
+            return invited;
+        }
 
         // Notify the invitee (best-effort) so they can accept the invitation.
         var owner = users.findByIdOptional(ownerId).orElse(null);
@@ -116,16 +122,19 @@ public class CollaboratorService {
             emailService.sendCollaboratorInvite(user.email, survey.title, ownerName);
         }
 
-        return toDto(collaborator);
+        return invited;
     }
 
     @Transactional
-    public void remove(String ownerId, String surveyId, String userId) {
+    public void remove(String ownerId, String surveyId, String member) {
         var survey = surveyService.requireOwner(ownerId, surveyId);
-        if (collaborators.findBySurveyAndUser(surveyId, userId).isEmpty()) return;
-        notifyRemoved(survey.id, survey.title, ownerId, userId);
-        collaborators.deleteBySurveyAndUser(surveyId, userId);
-        audit.record(ownerId, "collaborator.remove", surveyId + "/" + userId);
+        var row = collaborators.findBySurveyAndMember(surveyId, member).orElse(null);
+        if (row == null) return;
+        if (row.userId != null) {
+            notifyRemoved(survey.id, survey.title, ownerId, row.userId);
+        }
+        collaborators.delete(row);
+        audit.record(ownerId, "collaborator.remove", surveyId + "/" + member);
     }
 
     /** Notify the removed collaborator (called before their row is deleted). */
@@ -146,9 +155,11 @@ public class CollaboratorService {
 
     // ── Invitee-facing (#8) ───────────────────────────────────────
 
-    /** Pending invitations awaiting this user's acceptance. */
+    /** Pending invitations addressed to this user's verified email. */
     public List<InvitationDto> invitations(String userId) {
-        return collaborators.findPendingByUser(userId).stream()
+        return users.findByIdOptional(userId).filter(u -> u.emailVerified)
+            .map(u -> collaborators.findPendingByEmail(u.email))
+            .orElse(List.of()).stream()
             .map(c -> {
                 var survey = surveys.findByIdOptional(c.surveyId).orElse(null);
                 if (survey == null) return null;
@@ -166,9 +177,12 @@ public class CollaboratorService {
     /** Accept a pending invitation, granting access to the survey. */
     @Transactional
     public void accept(String userId, String surveyId) {
-        var invite = collaborators.findBySurveyAndUser(surveyId, userId)
-            .filter(c -> c.status == CollaboratorStatus.PENDING)
-            .orElseThrow(() -> new ResourceNotFoundException("No invitation for this survey."));
+        var invite = requireInvite(userId, surveyId);
+        if (collaborators.findBySurveyAndUser(surveyId, userId).isPresent()) {
+            collaborators.delete(invite);
+            return;
+        }
+        invite.userId = userId;
         invite.status = CollaboratorStatus.ACCEPTED;
         notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_ACCEPTED,
             "notify.accepted", EmailService::sendCollaboratorAccepted);
@@ -178,12 +192,16 @@ public class CollaboratorService {
     @Transactional
     public void decline(String userId, String surveyId) {
         // Only someone actually invited may decline, or anyone could mail the owner at will.
-        collaborators.findBySurveyAndUser(surveyId, userId)
-            .filter(c -> c.status == CollaboratorStatus.PENDING)
-            .orElseThrow(() -> new ResourceNotFoundException("No invitation for this survey."));
+        var invite = requireInvite(userId, surveyId);
         notifyOwnerOfResponse(surveyId, userId, NotificationEventType.COLLABORATOR_DECLINED,
             "notify.declined", EmailService::sendCollaboratorDeclined);
-        collaborators.deleteBySurveyAndUser(surveyId, userId);
+        collaborators.delete(invite);
+    }
+
+    private SurveyCollaborator requireInvite(String userId, String surveyId) {
+        return users.findByIdOptional(userId).filter(u -> u.emailVerified)
+            .flatMap(u -> collaborators.findPendingBySurveyAndEmail(surveyId, u.email))
+            .orElseThrow(() -> new ResourceNotFoundException("No invitation for this survey."));
     }
 
     private interface CollabEmailSender {
@@ -208,11 +226,10 @@ public class CollaboratorService {
         }
     }
 
-    private CollaboratorDto toDto(SurveyCollaborator c) {
-        return toDto(c, true);
-    }
-
     private CollaboratorDto toDto(SurveyCollaborator c, boolean withEmail) {
+        if (c.status == CollaboratorStatus.PENDING) {
+            return new CollaboratorDto(null, withEmail ? c.email : null, null, c.role, c.status);
+        }
         var user = users.findByIdOptional(c.userId).orElse(null);
         return new CollaboratorDto(
             c.userId,

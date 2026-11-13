@@ -44,6 +44,13 @@ describe("formatAnswer", () => {
     expect(formatAnswer(question({}), "hello world")).toBe("hello world");
   });
 
+  it("does not resolve prototype keys as labels", () => {
+    const q = question({ type: "multiple-choice", options: [{ id: "o1", label: "Yes" }] });
+    expect(formatAnswer(q, "constructor")).toBe("constructor");
+    expect(formatAnswer(q, ["__proto__", "toString"])).toBe("__proto__; toString");
+    expect(formatAnswer(q, { constructor: "hasOwnProperty" })).toBe("constructor: hasOwnProperty");
+  });
+
   it("joins checkbox selections by label", () => {
     const q = question({
       type: "checkboxes",
@@ -110,6 +117,26 @@ describe("buildResponsesCsv", () => {
     expect(lines[0]).toBe("Response ID,Submitted at,Duration (s),Name");
     expect(lines[1]).toContain('"Ada, the great"');
     expect(lines[1]).toContain("5.0");
+  });
+
+  it("neutralises spreadsheet formulas and quotes carriage returns", () => {
+    const answers = ["=HYPERLINK(\"x\")", "+1", "-1", "@SUM(A1)", "\tcmd", "a\rb"];
+    const csv = buildResponsesCsv(
+      survey,
+      answers.map((value, i) => ({
+        id: `r${i}`,
+        submittedAt: "2026-06-11T10:00:00Z",
+        answers: [{ questionId: "q1", value }],
+      })),
+    );
+    expect(csv.split("\n").slice(1).map((line) => line.split(",").slice(3).join(","))).toEqual([
+      '"\'=HYPERLINK(""x"")"',
+      "'+1",
+      "'-1",
+      "'@SUM(A1)",
+      "'\tcmd",
+      '"a\rb"',
+    ]);
   });
 
   it("leaves content blocks out of the columns (public #7)", () => {

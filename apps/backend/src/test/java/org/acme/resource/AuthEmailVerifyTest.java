@@ -1,9 +1,15 @@
 package org.acme.resource;
 
 import static io.restassured.RestAssured.given;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.acme.repository.UserRepository;
+
+import io.quarkus.mailer.MockMailbox;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -15,6 +21,12 @@ import org.junit.jupiter.api.Test;
  */
 @QuarkusTest
 class AuthEmailVerifyTest {
+
+    @Inject
+    UserRepository users;
+
+    @Inject
+    MockMailbox mailbox;
 
     @Test
     void verifyEmailWithUnknownCodeIsRejected() {
@@ -65,6 +77,47 @@ class AuthEmailVerifyTest {
             .contentType(ContentType.JSON)
             .header("X-Forwarded-For", "198.51.100.14")
             .body("{\"email\":\"nobody@example.com\"}")
+            .when().post("/api/v1/auth/forgot-password")
+            .then().statusCode(200);
+    }
+
+    @Test
+    void forgotPasswordFloodFromOneIpDoesNotBlockTheOwnersCode() {
+        String email = "reset-flood-" + System.nanoTime() + "@example.org";
+        QuarkusTransaction.requiringNew().run(() ->
+            users.upsert(java.util.UUID.randomUUID().toString(), email, "Ada", true, null));
+        for (int i = 0; i < 12; i++) {
+            forgotPassword(email, "203.0.113.50");
+        }
+        mailbox.clear();
+
+        forgotPassword(email, "198.51.100.50");
+
+        assertEquals(1, mailbox.getMessagesSentTo(email).size());
+    }
+
+    @Test
+    void perAddressBackstopCapsAllCallersTogether() {
+        String email = "reset-backstop-" + System.nanoTime() + "@example.org";
+        QuarkusTransaction.requiringNew().run(() ->
+            users.upsert(java.util.UUID.randomUUID().toString(), email, "Ada", true, null));
+        for (int i = 0; i < 10; i++) {
+            forgotPassword(email, "203.0.113.60");
+            forgotPassword(email, "203.0.113.61");
+            forgotPassword(email, "203.0.113.62");
+        }
+        mailbox.clear();
+
+        for (int i = 0; i < 3; i++) forgotPassword(email, "198.51.100.60");
+
+        assertEquals(2, mailbox.getMessagesSentTo(email).size());
+    }
+
+    private static void forgotPassword(String email, String ip) {
+        given()
+            .contentType(ContentType.JSON)
+            .header("X-Forwarded-For", ip)
+            .body("{\"email\":\"" + email + "\"}")
             .when().post("/api/v1/auth/forgot-password")
             .then().statusCode(200);
     }

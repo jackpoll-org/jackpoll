@@ -32,6 +32,9 @@ public class LiveSessionService {
     @Inject
     ResponseRepository responses;
 
+    @Inject
+    LivePresentService livePresent;
+
     /** Open a new session for {@code surveyId}; answers from now on belong to it. Owner only. */
     @Transactional
     public LiveSessionDto start(String ownerId, String surveyId) {
@@ -57,7 +60,12 @@ public class LiveSessionService {
         var current = sessions.findCurrent(surveyId);
         if (current.isEmpty()) return List.of();
         int capped = Math.max(1, Math.min(limit, MAX_LEADERBOARD));
-        return responses.leaderboard(surveyId, current.get().id, capped).stream()
+        var shown = livePresent.getState(surveyId);
+        if (shown == null) return List.of();
+        Integer shownOrder = responses.questionOrderAt(surveyId, shown.index());
+        int maxOrder = shownOrder == null ? Integer.MAX_VALUE
+            : "reveal".equals(shown.phase()) || "results".equals(shown.phase()) ? shownOrder : shownOrder - 1;
+        return responses.leaderboard(surveyId, current.get().id, maxOrder, capped).stream()
             .map(row -> new LeaderboardEntryDto((String) row[0], ((Number) row[1]).longValue()))
             .toList();
     }

@@ -39,6 +39,7 @@ public class EmailCodeService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int CODE_BOUND = 1_000_000; // 6 digits: 000000–999999
+    private static final int OWN_DAILY_ISSUES = 2;
 
     @Inject
     EmailCodeRepository codes;
@@ -65,9 +66,14 @@ public class EmailCodeService {
     @ConfigProperty(name = "survey.auth.email-code.max-daily-attempts-per-address", defaultValue = "100")
     int maxDailyAttemptsPerAddress;
 
-    /** Code mails per (email, purpose) per day, so nobody can flood an inbox. */
+    /** Code mails per (email, purpose) and caller IP per day, so nobody can flood an inbox. */
     @ConfigProperty(name = "survey.auth.email-code.max-daily-issues", defaultValue = "10")
     int maxDailyIssues;
+
+    /** The same, from all callers together, per hour: a short window so strangers
+     *  can block the owner's own codes for an hour at most. */
+    @ConfigProperty(name = "survey.auth.email-code.max-daily-issues-per-address", defaultValue = "20")
+    int maxDailyIssuesPerAddress;
 
     /** HMAC key for hashing codes at rest. Set EMAIL_CODE_SECRET in production. */
     @ConfigProperty(name = "survey.auth.email-code.secret")
@@ -83,7 +89,14 @@ public class EmailCodeService {
     public String issue(String email, String purpose) {
         String normalized = normalize(email);
         // Callers answer the same either way, so a capped address learns nothing.
-        if (!rateLimiter.allow("email-code-issue|" + purpose + "|" + normalized, maxDailyIssues, 86_400)) {
+        String issues = "email-code-issue|" + purpose + "|" + normalized;
+        String ip = callerIp();
+        if (!rateLimiter.allow(issues + "|" + ClientIp.bucket(ip), maxDailyIssues, 86_400)) {
+            return null;
+        }
+        // A caller's first few codes skip the shared cap, so strangers filling it can't lock the owner out.
+        if (!rateLimiter.allow(issues + "|own|" + ClientIp.wideBucket(ip), OWN_DAILY_ISSUES, 86_400)
+            && !rateLimiter.allow(issues, maxDailyIssuesPerAddress, 86_400)) {
             return null;
         }
         String code = mint(normalized, purpose);
@@ -139,7 +152,7 @@ public class EmailCodeService {
         if (submittedCode == null || submittedCode.isBlank()) return false;
         String normalized = normalize(email);
         String failures = "email-code-fail|" + purpose + "|" + normalized;
-        String callerFailures = failures + "|" + callerIp();
+        String callerFailures = failures + "|" + ClientIp.bucket(callerIp());
         if (rateLimiter.exhausted(callerFailures, maxDailyAttempts, 86_400)
             || rateLimiter.exhausted(failures, maxDailyAttemptsPerAddress, 86_400)) {
             return false;
@@ -202,10 +215,9 @@ public class EmailCodeService {
     }
 
     private static String callerIp() {
-        if (!Arc.container().requestContext().isActive()) return "unknown";
+        if (!Arc.container().requestContext().isActive()) return null;
         var routing = Arc.container().instance(CurrentVertxRequest.class).get().getCurrent();
         var http = routing == null ? null : routing.request();
-        String ip = http == null ? null : ClientIp.of(http.getHeader("X-Forwarded-For"), http);
-        return ClientIp.bucket(ip);
+        return http == null ? null : ClientIp.of(http.getHeader("X-Forwarded-For"), http);
     }
 }

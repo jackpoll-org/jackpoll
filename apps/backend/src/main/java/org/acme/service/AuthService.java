@@ -29,6 +29,7 @@ public class AuthService {
     private final GdprService gdprService;
     private final ApiKeyService apiKeyService;
     private final AuditService audit;
+    private final PushService push;
 
     /**
      * Whether new accounts must confirm their email before they can sign in.
@@ -51,13 +52,14 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository, KeycloakService keycloakService,
                        EmailCodeService emailCodeService, GdprService gdprService,
-                       ApiKeyService apiKeyService, AuditService audit) {
+                       ApiKeyService apiKeyService, AuditService audit, PushService push) {
         this.userRepository = userRepository;
         this.keycloakService = keycloakService;
         this.emailCodeService = emailCodeService;
         this.gdprService = gdprService;
         this.apiKeyService = apiKeyService;
         this.audit = audit;
+        this.push = push;
     }
 
     // ── Register (#security email-verify) ─────────────────────────
@@ -82,10 +84,15 @@ public class AuthService {
         if (!result.success()) {
             return ApiResponse.error(result.error());
         }
-        syncLocalUser(result.data(), acceptLanguage); // emailVerified = false
         String email = result.data().email();
+        // An older same-email row is adopted only at a verified sign-in, never without verification.
+        boolean staleRow = userRepository.findByEmail(email.trim().toLowerCase())
+            .filter(u -> !u.id.equals(result.data().id())).isPresent();
+        if (!staleRow || !emailVerificationRequired) {
+            syncLocalUser(result.data(), acceptLanguage, false); // emailVerified = false
+        }
         termsVersion.ifPresent(version ->
-            userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(u -> {
+            userRepository.findByIdOptional(result.data().id()).ifPresent(u -> {
                 u.termsAcceptedAt = Instant.now();
                 u.termsVersion = version;
             }));
@@ -94,7 +101,7 @@ public class AuthService {
         // account immediately so the user can sign in without confirming a code.
         if (!emailVerificationRequired) {
             keycloakService.setEmailVerified(email);
-            userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(u -> {
+            userRepository.findByIdOptional(result.data().id()).ifPresent(u -> {
                 u.emailVerified = true;
                 u.updatedAt = Instant.now();
             });
@@ -138,10 +145,20 @@ public class AuthService {
         if (!emailCodeService.verify(req.email(), EmailCode.PURPOSE_VERIFY, req.code())) {
             return ApiResponse.error("Invalid or expired code. Please try again.");
         }
-        keycloakService.setEmailVerified(req.email());
-        userRepository.findByEmail(req.email().trim().toLowerCase()).ifPresent(u -> {
+        String email = req.email().trim().toLowerCase();
+        String id = keycloakService.setEmailVerified(email);
+        // The code proves the address, so a stale same-email row now moves to the new account.
+        var stale = userRepository.findByEmail(email).filter(u -> !u.id.equals(id));
+        stale.ifPresent(u -> userRepository.upsert(id, email, u.name, true, u.locale, true));
+        userRepository.findByIdOptional(id).ifPresent(u -> {
             u.emailVerified = true;
             u.updatedAt = Instant.now();
+            if (stale.isPresent()) {
+                termsVersion.ifPresent(version -> {
+                    u.termsAcceptedAt = Instant.now();
+                    u.termsVersion = version;
+                });
+            }
         });
         return ApiResponse.ok(null);
     }
@@ -150,9 +167,9 @@ public class AuthService {
      *  enumeration); only actually sends for a known, still-unverified user. */
     public ApiResponse<Void> resendVerification(String email) {
         if (!registrationEnabled) return ApiResponse.ok(null);
-        userRepository.findByEmail(email.trim().toLowerCase())
-            .filter(u -> !u.emailVerified)
-            .ifPresent(u -> emailCodeService.issue(email, EmailCode.PURPOSE_VERIFY));
+        if (keycloakService.isUnverified(email)) {
+            emailCodeService.issue(email, EmailCode.PURPOSE_VERIFY);
+        }
         return ApiResponse.ok(null);
     }
 
@@ -179,6 +196,7 @@ public class AuthService {
     public void logoutAllDevices(String userId) {
         keycloakService.logoutAllDevices(userId);
         apiKeyService.deleteAllForUser(userId);
+        push.unregisterAll(userId);
     }
 
     // ── Current User ──────────────────────────────────────────────
@@ -233,6 +251,7 @@ public class AuthService {
             user.email, req.currentPassword(), req.newPassword(), userId);
         if (result.success()) {
             apiKeyService.deleteAllForUser(userId);
+            push.unregisterAll(userId);
             audit.record(userId, "account.password_change", null);
         }
         return result;
@@ -268,6 +287,7 @@ public class AuthService {
             if (registrationEnabled) u.emailVerified = true;
             u.updatedAt = Instant.now();
             apiKeyService.deleteAllForUser(u.id);
+            push.unregisterAll(u.id);
             audit.record(u.id, "account.password_reset", null);
         });
         return ApiResponse.ok(null);
@@ -349,13 +369,19 @@ public class AuthService {
      *     leaves the stored one untouched.
      */
     private void syncLocalUser(AuthDtos.UserResponse keycloakUser, String acceptLanguage) {
+        syncLocalUser(keycloakUser, acceptLanguage, true);
+    }
+
+    private void syncLocalUser(AuthDtos.UserResponse keycloakUser, String acceptLanguage,
+                               boolean adoptStaleRow) {
         userRepository.upsert(
             keycloakUser.id(),
             keycloakUser.email(),
             keycloakUser.name(),
             keycloakUser.emailVerified(),
             acceptLanguage == null || acceptLanguage.isBlank()
-                ? null : MailCopy.normalize(acceptLanguage));
+                ? null : MailCopy.normalize(acceptLanguage),
+            adoptStaleRow);
     }
 
     private AuthDtos.UserResponse toUserResponse(User user) {

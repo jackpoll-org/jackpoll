@@ -62,6 +62,7 @@ public class PublicSurveyResource {
 
     private static final int RESULT_LOOKUPS_PER_MINUTE = 10;
     private static final int RESULT_MISSES_PER_HOUR = 60;
+    private static final int RESULT_MISSES_PER_SURVEY_HOUR = 1000;
 
     @GET
     @Path("/{id}")
@@ -147,15 +148,18 @@ public class PublicSurveyResource {
         @Context HttpServerRequest http
     ) {
         var ip = ClientIp.of(forwardedFor, http);
-        var missKey = "result-miss|" + id;
+        var missKey = "result-miss|" + id + "|" + ClientIp.bucket(ip);
+        var surveyMissKey = "result-miss|" + id;
         if (!rateLimiter.allow("result-code|" + ClientIp.bucket(ip), RESULT_LOOKUPS_PER_MINUTE, 60)
-            || rateLimiter.exhausted(missKey, RESULT_MISSES_PER_HOUR, 3600)) {
+            || rateLimiter.exhausted(missKey, RESULT_MISSES_PER_HOUR, 3600)
+            || rateLimiter.exhausted(surveyMissKey, RESULT_MISSES_PER_SURVEY_HOUR, 3600)) {
             throw new RateLimitedException("Too many attempts. Please wait a moment and try again.");
         }
         try {
             return Response.ok(ApiResponse.ok(responseService.studentResult(id, req.code()))).build();
         } catch (ResourceNotFoundException e) {
             rateLimiter.allow(missKey, RESULT_MISSES_PER_HOUR, 3600);
+            rateLimiter.allow(surveyMissKey, RESULT_MISSES_PER_SURVEY_HOUR, 3600);
             throw e;
         }
     }

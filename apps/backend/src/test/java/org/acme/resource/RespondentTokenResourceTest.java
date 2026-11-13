@@ -236,12 +236,22 @@ class RespondentTokenResourceTest {
         addTokens(id, "player");
         given().when().post(SURVEYS + "/" + id + "/live/sessions").then().statusCode(200);
 
+        show(id, 0);
         Assertions.assertEquals(201, submit(id, questionIds.get(0), "player"));
+        show(id, 1);
         Assertions.assertEquals(201, submit(id, questionIds.get(1), "player"));
+        show(id, 0);
         Assertions.assertEquals(403, submit(id, questionIds.get(0), "player"));
 
         given().when().post(SURVEYS + "/" + id + "/live/sessions").then().statusCode(200);
         Assertions.assertEquals(403, submit(id, questionIds.get(0), "player"));
+    }
+
+    private void show(String surveyId, int index) {
+        given().contentType(ContentType.JSON)
+            .body("{\"index\":" + index + ",\"phase\":\"question\"}")
+            .when().post(SURVEYS + "/" + surveyId + "/live/state")
+            .then().statusCode(200);
     }
 
     @Test

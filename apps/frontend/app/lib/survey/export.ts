@@ -12,7 +12,7 @@ import { isAnswerable } from "@/app/lib/survey/content-block";
 
 /** Build a label lookup (option/row/column id → label) for a question. */
 export function labelMap(question: Question | undefined): Record<string, string> {
-  const map: Record<string, string> = {};
+  const map: Record<string, string> = Object.create(null);
   const add = (list: Option[] | null | undefined) => {
     for (const o of list ?? []) map[o.id] = o.label;
   };
@@ -52,8 +52,9 @@ export function formatAnswer(question: Question, value: unknown): string {
   return String(value);
 }
 
-function csvCell(value: string): string {
-  if (/[",\n]/.test(value)) {
+function csvCell(raw: string): string {
+  const value = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  if (/[",\r\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;

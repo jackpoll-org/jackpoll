@@ -1,11 +1,17 @@
 package org.acme.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.UUID;
 
+import org.acme.entity.CollaboratorRole;
+import org.acme.entity.CollaboratorStatus;
+import org.acme.entity.SurveyCollaborator;
 import org.acme.exception.ResourceNotFoundException;
+import org.acme.repository.CollaboratorRepository;
 import org.acme.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +34,9 @@ class GdprServiceClearUserDataTest {
     @Inject
     UserRepository users;
 
+    @Inject
+    CollaboratorRepository collaborators;
+
     private static String email() {
         return "gdpr-clear-" + UUID.randomUUID() + "@example.test";
     }
@@ -42,6 +51,30 @@ class GdprServiceClearUserDataTest {
 
         assertTrue(QuarkusTransaction.requiringNew().call(() -> users.findByIdOptional(id).isPresent()),
             "the user row must survive a data-only deletion");
+    }
+
+    @Test
+    void pendingInvitesToTheVerifiedAddressAreExportedAndErased() {
+        var id = UUID.randomUUID().toString();
+        var email = email();
+        var surveyId = UUID.randomUUID().toString();
+        QuarkusTransaction.requiringNew().run(() -> {
+            users.upsert(id, email.toUpperCase(), "Ada", true, null);
+            var invite = new SurveyCollaborator();
+            invite.id = UUID.randomUUID().toString();
+            invite.surveyId = surveyId;
+            invite.email = email;
+            invite.role = CollaboratorRole.EDITOR;
+            invite.status = CollaboratorStatus.PENDING;
+            collaborators.persist(invite);
+        });
+
+        var exported = QuarkusTransaction.requiringNew().call(() -> gdprService.export(id));
+        assertEquals(1, ((List<?>) exported.get("collaborations")).size());
+
+        QuarkusTransaction.requiringNew().run(() -> gdprService.clearUserData(id));
+
+        assertEquals(0L, QuarkusTransaction.requiringNew().call(() -> collaborators.count("surveyId", surveyId)));
     }
 
     @Test

@@ -77,7 +77,8 @@ public class AuthResource {
      * target can be hammered. Throws 429 when the window is exhausted.
      */
     private static final java.util.Set<String> GUESS_ENDPOINTS =
-        java.util.Set.of("login", "verify-email", "reset-password");
+        java.util.Set.of("login", "verify-email", "reset-password",
+            "delete-account-confirm", "delete-data-confirm");
 
     private void enforceAuthRateLimit(String endpoint, String forwardedFor,
         io.vertx.core.http.HttpServerRequest http, String account) {

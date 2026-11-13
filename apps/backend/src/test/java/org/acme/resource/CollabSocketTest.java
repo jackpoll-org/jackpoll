@@ -160,4 +160,79 @@ class CollabSocketTest {
         assertFalse(CollabSocket.mayRelay(new byte[] {0, 2, 3}, false));
         assertTrue(CollabSocket.mayRelay(new byte[] {1, 5}, false));
     }
+
+    @Test
+    void oversizedPresenceAndStateRequestsAreDropped() {
+        byte[] awareness = new byte[CollabSocket.MAX_AWARENESS_BYTES + 1];
+        awareness[0] = 1;
+        assertFalse(CollabSocket.mayRelay(awareness, true));
+        byte[] step1 = new byte[CollabSocket.MAX_SYNC_STEP1_BYTES + 1];
+        assertFalse(CollabSocket.mayRelay(step1, true));
+        byte[] update = new byte[CollabSocket.MAX_SYNC_STEP1_BYTES + 1];
+        update[1] = 2;
+        assertTrue(CollabSocket.mayRelay(update, true));
+    }
+
+    @Test
+    void throttleCapsMessagesAndBytesPerSecond() {
+        var messages = new CollabSocket.Throttle(0);
+        for (int i = 0; i < 50; i++) assertTrue(messages.allow(10, 0));
+        assertFalse(messages.allow(10, 0));
+        var refilled = new CollabSocket.Throttle(0);
+        for (int i = 0; i < 50; i++) refilled.allow(10, 0);
+        assertTrue(refilled.allow(10, 1_000_000_000L));
+
+        var bytes = new CollabSocket.Throttle(0);
+        assertTrue(bytes.allow(8 << 20, 0));
+        assertFalse(bytes.allow(1, 0));
+        var bytesRefilled = new CollabSocket.Throttle(0);
+        bytesRefilled.allow(8 << 20, 0);
+        assertTrue(bytesRefilled.allow(2 << 20, 1_000_000_000L));
+    }
+
+    @Test
+    void throttleLetsSeveralPeersSyncALargeDocumentAtOnce() {
+        var throttle = new CollabSocket.Throttle(0);
+        for (int peer = 0; peer < 3; peer++) assertTrue(throttle.allow(1 << 20, 0));
+    }
+
+    @Test
+    void connectionCapsLeaveRoomForReconnectsAndClassroomsBehindNat() {
+        assertEquals(10, CollabSocket.MAX_CONNECTIONS_PER_USER);
+        assertEquals(60, CollabSocket.MAX_CONNECTIONS_PER_ANONYMOUS_IP);
+    }
+
+    @Test
+    @TestSecurity(user = "collab-ws-many-tabs")
+    void oneUserMayOnlyHoldAFewConnectionsPerRoom() {
+        String id = surveys.create("collab-ws-many-tabs", new CreateSurveyRequest("Tabs", null)).id();
+        var open = new java.util.ArrayList<WebSocketClientConnection>();
+        for (int i = 0; i < CollabSocket.MAX_CONNECTIONS_PER_USER; i++) {
+            var connection = connect(id);
+            waitUntil(connection::isClosed, 300);
+            assertTrue(connection.isOpen());
+            open.add(connection);
+        }
+
+        var extra = connect(id);
+        waitUntil(extra::isClosed, 5000);
+        assertEquals(CollabSocket.POLICY_VIOLATION, extra.closeReason().getCode());
+        open.forEach(c -> c.close().await().indefinitely());
+    }
+
+    @Test
+    @TestSecurity(user = "collab-ws-flooder")
+    void floodingConnectionIsClosedWithPolicyViolation() {
+        String id = surveys.create("collab-ws-flooder", new CreateSurveyRequest("Flood", null)).id();
+        var connection = connect(id);
+        waitUntil(connection::isClosed, 300);
+        assertTrue(connection.isOpen());
+
+        for (int i = 0; i < 200 && connection.isOpen(); i++) {
+            connection.sendBinary(io.vertx.core.buffer.Buffer.buffer(new byte[] {1, 1, 0}))
+                .subscribe().with(ignored -> {}, failure -> {});
+        }
+        waitUntil(connection::isClosed, 5000);
+        assertEquals(CollabSocket.POLICY_VIOLATION, connection.closeReason().getCode());
+    }
 }

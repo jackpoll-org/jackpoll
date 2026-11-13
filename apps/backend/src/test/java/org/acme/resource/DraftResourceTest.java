@@ -2,11 +2,16 @@ package org.acme.resource;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
+import java.time.Instant;
+import org.acme.repository.ResponseDraftRepository;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for anonymous save &amp; resume drafts (issue #26). */
@@ -84,6 +89,29 @@ class DraftResourceTest {
             .then().statusCode(200)
             .body("data.answers[0].value", is("second"))
             .body("data.position", is(1));
+    }
+
+    @Inject
+    ResponseDraftRepository drafts;
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void saveWithExpiredTokenStartsAFreshDraft() {
+        String id = createSurvey();
+        String token = given()
+            .contentType(ContentType.JSON)
+            .body("{\"answers\":[]}")
+            .when().post(PUBLIC + "/" + id + "/drafts")
+            .then().statusCode(200).extract().path("data.token");
+        QuarkusTransaction.requiringNew().run(() ->
+            drafts.update("expiresAt = ?1 where token = ?2", Instant.now().minusSeconds(60), token));
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"token\":\"" + token + "\",\"answers\":[]}")
+            .when().post(PUBLIC + "/" + id + "/drafts")
+            .then().statusCode(200)
+            .body("data.token", not(is(token)));
     }
 
     @Test

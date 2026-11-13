@@ -9,12 +9,14 @@ const LAUNCH_URL_KEY = "handled_launch_url";
 
 /**
  * Map an incoming deep-link URL to the in-app path to navigate to, or null when
- * it can't be parsed or points at the app root (nothing to route). Keeps query
- * and hash because email/share tokens live there.
+ * it can't be parsed, points at the app root (nothing to route), or belongs to a
+ * different origin than the loaded instance (its secrets must not reach this
+ * instance's operator). Keeps query and hash because email/share tokens live there.
  */
 export function deepLinkPath(url: string): string | null {
   try {
     const parsed = new URL(url);
+    if (parsed.origin !== window.location.origin) return null;
     const path = `${parsed.pathname}${parsed.search}${parsed.hash}`;
     return path !== "/" ? (safeInternalPath(path) ?? null) : null;
   } catch {
@@ -40,8 +42,6 @@ export function DeepLinks() {
 
     void import("@capacitor/app").then(({ App }) => {
       const handle = App.addListener("appUrlOpen", ({ url }) => {
-        // Only the in-app path matters — the WebView already lives on the
-        // instance origin.
         const path = deepLinkPath(url);
         if (path) router.push(path);
       });

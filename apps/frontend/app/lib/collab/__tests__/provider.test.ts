@@ -8,6 +8,7 @@ import { CollabProvider } from "../provider";
 import { AUTH_STORAGE_KEY } from "@/app/lib/auth/constants";
 import { applyContentToDoc, docToContent, type CollabContent } from "../doc";
 
+const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
 
 const content = (title: string): CollabContent => ({
@@ -86,6 +87,11 @@ function awarenessFrames(ws: MockWebSocket): number {
     const d = decoding.createDecoder(f);
     return decoding.readVarUint(d) === MSG_AWARENESS;
   }).length;
+}
+
+/** Count how many of the captured frames are sync step 1 (full-state requests). */
+function syncRequests(ws: MockWebSocket): number {
+  return ws.sent.filter((f) => f[0] === MSG_SYNC && f[1] === 0).length;
 }
 
 /** Build a wire frame announcing a foreign peer's awareness state. */
@@ -226,6 +232,26 @@ describe("CollabProvider document convergence", () => {
 
     host.destroy();
     joiner.destroy();
+  });
+});
+
+describe("CollabProvider re-sync throttling", () => {
+  it("coalesces re-syncs when many new peers appear at once", () => {
+    vi.useFakeTimers();
+    const provider = new CollabProvider("s", { name: "Host", color: "#1" });
+    const ws = MockWebSocket.instances[0];
+    ws.open();
+    expect(syncRequests(ws)).toBe(1);
+
+    for (let i = 0; i < 20; i++) ws.deliver(remotePeerFrame(`Peer ${i}`));
+    expect(syncRequests(ws)).toBe(1);
+
+    vi.advanceTimersByTime(2_000);
+    expect(syncRequests(ws)).toBe(2);
+
+    vi.advanceTimersByTime(10_000);
+    expect(syncRequests(ws)).toBe(2);
+    provider.destroy();
   });
 });
 

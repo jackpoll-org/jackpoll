@@ -64,6 +64,13 @@ public class UserRepository implements PanacheRepositoryBase<User, String> {
      */
     public void upsert(String id, String email, String name, boolean emailVerified,
                        String locale) {
+        upsert(id, email, name, emailVerified, locale, true);
+    }
+
+    /** @param adoptStaleRow false evicts a stale same-email row instead of moving
+     *     its data to {@code id}: for callers that have not proven the address. */
+    public void upsert(String id, String email, String name, boolean emailVerified,
+                       String locale, boolean adoptStaleRow) {
         var em = getEntityManager();
         var now = Instant.now();
         @SuppressWarnings("unchecked")
@@ -75,7 +82,7 @@ public class UserRepository implements PanacheRepositoryBase<User, String> {
             .setParameter(1, id)
             .getResultList()
             .isEmpty();
-        if (idFree && staleIds.size() == 1) {
+        if (adoptStaleRow && idFree && staleIds.size() == 1) {
             var staleId = staleIds.get(0);
             for (var column : USER_ID_COLUMNS) {
                 em.createNativeQuery("UPDATE " + column[0] + " SET " + column[1] + " = ?1 WHERE " + column[1] + " = ?2")

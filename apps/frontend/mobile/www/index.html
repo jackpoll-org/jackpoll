@@ -127,8 +127,10 @@
 
         // A deep link the app was cold-launched with (universal/app link). It
         // wins over the remembered path so tapping a shared/collab/email link
-        // while the app is closed opens that screen, not the dashboard.
-        function getLaunchPath() {
+        // while the app is closed opens that screen, not the dashboard. Links
+        // for another origin are dropped so their tokens never reach this
+        // instance.
+        function getLaunchPath(instance) {
           var a = window.Capacitor && window.Capacitor.Plugins
             ? window.Capacitor.Plugins.App
             : null;
@@ -138,6 +140,7 @@
               if (!r || !r.url) return "";
               try {
                 var u = new URL(r.url);
+                if (u.origin !== new URL(instance).origin) return "";
                 var p = u.pathname + u.search + u.hash;
                 return p && p !== "/" ? p : "";
               } catch (e) { return ""; }
@@ -223,7 +226,7 @@
             probe(url).then(
               function () {
                 // A cold-launch deep link wins; otherwise restore the last path.
-                getLaunchPath().then(function (launch) {
+                getLaunchPath(url).then(function (launch) {
                   if (launch) { go(url + launch); return; }
                   getLastPath().then(function (path) { go(url + path); });
                 });

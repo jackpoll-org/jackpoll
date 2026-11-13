@@ -19,12 +19,19 @@ describe("DeepLinks cold start", () => {
   beforeEach(() => {
     replace.mockReset();
     sessionStorage.clear();
-    getLaunchUrl.mockResolvedValue({ url: "https://app.jackpoll.org/s/abc123" });
+    getLaunchUrl.mockResolvedValue({ url: `${window.location.origin}/s/abc123` });
   });
 
   it("opens the survey the app was launched with instead of the start page", async () => {
     render(<DeepLinks />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/s/abc123"));
+  });
+
+  it("ignores a launch link for another instance", async () => {
+    getLaunchUrl.mockResolvedValue({ url: "https://app.jackpoll.org/collab/secret" });
+    render(<DeepLinks />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("does not reopen the launch link after a reload in the same session", async () => {

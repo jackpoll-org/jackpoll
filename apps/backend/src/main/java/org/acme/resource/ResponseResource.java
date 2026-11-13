@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import org.acme.dto.ApiResponse;
 import org.acme.dto.ResponseDtos.AnswerFeedbackRequest;
 import org.acme.dto.ResponseDtos.GradeRequest;
+import org.acme.dto.ResponseDtos.LiveScoreDto;
 import org.acme.dto.ResponseDtos.QuestionGradeRequest;
 import org.acme.dto.ResponseDtos.ReviewRequest;
 import org.acme.dto.ResponseDtos.ResponseDto;
@@ -25,6 +26,7 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -100,6 +102,23 @@ public class ResponseResource {
         return ApiResponse.ok(responseService.submit(id, req, ip));
     }
 
+    public record LiveScoreRequest(@NotNull @Size(max = 256) String clientId, @Size(max = 64) String questionId) {}
+
+    /** A live quiz player's points for a question that is no longer open. */
+    @POST
+    @Path("/{id}/responses/live-score")
+    @PermitAll
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ApiResponse<LiveScoreDto> liveScore(
+        @PathParam("id") String id,
+        @Valid @NotNull LiveScoreRequest req,
+        @jakarta.ws.rs.HeaderParam("X-Forwarded-For") String forwardedFor,
+        @jakarta.ws.rs.core.Context io.vertx.core.http.HttpServerRequest http
+    ) {
+        rateLimiter.requirePublicWrite("live-score", id, ClientIp.of(forwardedFor, http));
+        accessCodes.requireAccess(id);
+        return ApiResponse.ok(responseService.liveScore(id, req.clientId(), req.questionId()));
+    }
 
     /** List individual responses (optional date range) — owner only. */
     @GET

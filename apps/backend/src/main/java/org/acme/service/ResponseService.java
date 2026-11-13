@@ -14,6 +14,7 @@ import java.util.UUID;
 import org.acme.dto.ResponseDtos.AnswerDto;
 import org.acme.dto.ResponseDtos.FileRefDto;
 import org.acme.dto.ResponseDtos.GradeDto;
+import org.acme.dto.ResponseDtos.LiveScoreDto;
 import org.acme.dto.ResponseDtos.QuestionGradeDto;
 import org.acme.dto.ResponseDtos.QuestionResultDto;
 import org.acme.dto.ResponseDtos.ResponseDto;
@@ -132,6 +133,10 @@ public class ResponseService {
         name = "survey.mail.async", defaultValue = "true")
     boolean mailAsync;
 
+    @org.eclipse.microprofile.config.inject.ConfigProperty(
+        name = "survey.receipt.per-survey-hourly", defaultValue = "50")
+    int receiptsPerSurveyHourly;
+
     /** Daemon pool so background email sends never keep the JVM alive. */
     private static final java.util.concurrent.ExecutorService MAIL_EXECUTOR =
         java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
@@ -235,8 +240,14 @@ public class ResponseService {
 
         // A live player answers the question on screen, not ones still to come.
         var shown = livePlayer ? livePresent.getState(surveyId) : null;
+        if (shown != null && !"question".equals(shown.phase())) {
+            throw badRequest("This question is no longer open.");
+        }
         String shownQuestionId = shown != null && shown.index() < survey.questions.size()
             ? survey.questions.get(shown.index()).id : null;
+        if (livePlayer && response.sessionId != null && shownQuestionId == null) {
+            throw badRequest("This question is not open yet.");
+        }
         var values = new java.util.HashMap<String, Object>();
         if (req.answers() != null) {
             for (var a : req.answers()) {
@@ -306,7 +317,7 @@ public class ResponseService {
 
         spamProtection.consumeCaptcha(survey.settings, req.captcha());
         responseRepository.persist(response);
-        var dto = toDto(response, survey, resultsReleased(survey), true);
+        var dto = toDto(response, survey, !live && resultsReleased(survey), true);
 
         // Preview/test submissions are owner-internal: no emails, webhooks, push,
         // or live-results broadcast — and they're filtered out of results below.
@@ -317,7 +328,7 @@ public class ResponseService {
         // Email notifications & receipts (issue #24) — best-effort, never blocks
         // or fails the submission. Owner email is resolved here (in-transaction)
         // and only the actual send runs off-thread.
-        dispatchEmails(survey, response, receiptAllowed(req.respondentEmail(), clientIp)
+        dispatchEmails(survey, response, receiptAllowed(survey, req.respondentEmail(), clientIp)
             ? req.respondentEmail() : null, req.locale());
 
         // Outbound webhooks (issue #36) — HMAC-signed, off-thread, best-effort.
@@ -425,11 +436,13 @@ public class ResponseService {
     }
 
     /** Receipts go to an address the respondent types in, so they get a small
-     *  budget per recipient and per sender regardless of survey settings. */
-    private boolean receiptAllowed(String email, String clientIp) {
-        if (email == null || email.isBlank()) return false;
+     *  budget per recipient, per sender and per survey, spent only when the survey sends receipts. */
+    private boolean receiptAllowed(Survey survey, String email, String clientIp) {
+        if (survey.settings == null || !survey.settings.respondentReceipts
+            || email == null || email.isBlank()) return false;
         return rateLimiter.allow("receipt|to|" + email.trim().toLowerCase(), 3, 3600)
-            && rateLimiter.allow("receipt|ip|" + ClientIp.bucket(clientIp), 10, 3600);
+            && rateLimiter.allow("receipt|ip|" + ClientIp.bucket(clientIp), 10, 3600)
+            && rateLimiter.allow("receipt|survey|" + survey.id, receiptsPerSurveyHourly, 3600);
     }
 
     /** Fire owner notification + respondent receipt without blocking submit. */
@@ -453,7 +466,7 @@ public class ResponseService {
         String title = survey.title;
         String surveyId = survey.id;
         boolean isQuiz = settings.isQuiz;
-        boolean showScore = resultsReleased(survey) || scoreVisible(survey);
+        boolean showScore = !settings.liveMode && (resultsReleased(survey) || scoreVisible(survey));
         Integer score = showScore ? response.score : null;
         Integer maxScore = showScore ? response.maxScore : null;
         // The respondent has no account, so their language comes from the form
@@ -764,6 +777,28 @@ public class ResponseService {
         if (survey == null || survey.settings == null || !survey.settings.onePerBrowser) return false;
         var hashed = spamProtection.hashClientId(clientId);
         return hashed != null && responseRepository.existsByClientId(surveyId, hashed);
+    }
+
+    /** A live quiz player's points for {@code questionId} (default: the shown one) once it is
+     *  closed: revealed, or passed by the presenter. Later questions stay hidden too, since
+     *  answers sent before the presenter's first broadcast are not tied to the shown one. */
+    public LiveScoreDto liveScore(String surveyId, String clientId, String questionId) {
+        var survey = surveyRepository.findByIdOptional(surveyId)
+            .filter(s -> s.settings != null && s.settings.liveMode && s.settings.isQuiz)
+            .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + surveyId));
+        var shown = livePresent.getState(surveyId);
+        var hashed = spamProtection.hashClientId(clientId);
+        var session = liveSessionRepository.findCurrent(surveyId).orElse(null);
+        if (shown == null || hashed == null || session == null) return new LiveScoreDto(null);
+        boolean shownClosed = "reveal".equals(shown.phase()) || "results".equals(shown.phase());
+        int target = questionId == null ? (shownClosed ? shown.index() : -1)
+            : survey.questions.stream().map(q -> q.id).toList().indexOf(questionId);
+        if (target < 0 || target >= survey.questions.size() || target > shown.index()
+            || (target == shown.index() && !shownClosed)) {
+            return new LiveScoreDto(null);
+        }
+        return new LiveScoreDto(responseRepository.playerScore(
+            surveyId, session.id, hashed, survey.questions.get(target).id));
     }
 
     public StudentResultDto studentResult(String surveyId, String code) {
@@ -1238,10 +1273,12 @@ public class ResponseService {
 
     /** An owner who never shows correct answers doesn't hand out the score either:
      *  it would let respondents work out the answer key. Outcome pages are the
-     *  owner's own choice to show a result by score. */
+     *  owner's own choice to show a result by score. Live players get theirs
+     *  only after the reveal, from {@link #liveScore}. */
     private static boolean scoreVisible(Survey survey) {
         var settings = survey.settings;
-        return settings == null || settings.liveMode || !"never".equals(settings.showCorrectAnswers)
+        if (settings != null && settings.liveMode) return false;
+        return settings == null || !"never".equals(settings.showCorrectAnswers)
             || (settings.outcomes != null && !settings.outcomes.isEmpty());
     }
 
@@ -1384,6 +1421,16 @@ public class ResponseService {
                     || !picks.stream().allMatch(pick -> isOptionOf(q, pick))) {
                     throw badRequest("Invalid choice.");
                 }
+            } else if (q.type == QuestionType.SHORT_ANSWER || q.type == QuestionType.DATE) {
+                if (!(a.value() instanceof String)) throw badRequest("Invalid answer.");
+            } else if (q.type == QuestionType.RANKING || q.type == QuestionType.WORDCLOUD) {
+                if (!isTextList(a.value())) throw badRequest("Invalid answer.");
+            } else if (q.type == QuestionType.MULTIPLE_CHOICE_GRID) {
+                if (!isGrid(a.value(), String.class::isInstance)) throw badRequest("Invalid answer.");
+            } else if (q.type == QuestionType.CHECKBOX_GRID) {
+                if (!isGrid(a.value(), ResponseService::isTextList)) throw badRequest("Invalid answer.");
+            } else if (q.type == QuestionType.RATING_GRID) {
+                if (!isGrid(a.value(), Number.class::isInstance)) throw badRequest("Invalid answer.");
             } else if (q.type == QuestionType.RATING) {
                 if (!(a.value() instanceof Number num)) {
                     throw badRequest("Invalid value for a rating question.");
@@ -1395,6 +1442,14 @@ public class ResponseService {
                 }
             }
         }
+    }
+
+    private static boolean isTextList(Object value) {
+        return value instanceof java.util.Collection<?> items && items.stream().allMatch(String.class::isInstance);
+    }
+
+    private static boolean isGrid(Object value, java.util.function.Predicate<Object> cell) {
+        return value instanceof Map<?, ?> rows && rows.values().stream().allMatch(v -> v == null || cell.test(v));
     }
 
     /** Allowed [min,max] for a rating answer, derived from its variant (#77). */
