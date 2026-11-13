@@ -126,3 +126,15 @@ describe("hasQuizPoints", () => {
     expect(hasQuizPoints(checkboxes)).toBe(true);
   });
 });
+
+describe("QuestionQuizEditor for a paragraph", () => {
+  it("says a zero-point paragraph doesn't count", () => {
+    render(
+      <QuestionQuizEditor
+        question={{ id: "p", type: "long-answer", title: "Anything else?", required: false, order: 0, points: 0 } as Question}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByText("builder.quiz.zeroPoints")).toBeTruthy();
+  });
+});

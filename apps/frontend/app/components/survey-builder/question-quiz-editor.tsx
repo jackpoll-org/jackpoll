@@ -178,7 +178,11 @@ export function QuestionQuizEditor({
       <div className="grid gap-3 rounded-lg border border-dashed p-3">
         {question.type === "file-upload" && <ManualGradingToggle question={question} onChange={onChange} />}
         <p className="text-xs text-muted-foreground">
-          {manual ? t("builder.quiz.manualHint") : t("builder.quiz.notScored")}
+          {!manual
+            ? t("builder.quiz.notScored")
+            : maxPointsFor(question) === 0
+              ? t("builder.quiz.zeroPoints")
+              : t("builder.quiz.manualHint")}
         </p>
       </div>
     );

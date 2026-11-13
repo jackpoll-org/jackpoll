@@ -48,7 +48,7 @@ export function scoresOrder(question: Question): boolean {
 }
 
 export function basePoints(question: Question): number {
-  return question.points != null && question.points > 0 ? question.points : 1;
+  return question.points != null && question.points >= 0 ? question.points : 1;
 }
 
 /** Points a question is worth, derived from per-answer points when set. */
@@ -80,7 +80,8 @@ export function seededOptionPoints(question: Question): PointsMap {
     const worth = basePoints(question);
     return Object.fromEntries((question.options ?? []).map((o) => [o.id, correct.has(o.id) ? worth : 0]));
   }
-  const share = Math.max(1, Math.round(basePoints(question) / Math.max(1, correct.size)));
+  const base = basePoints(question);
+  const share = base === 0 ? 0 : Math.max(1, Math.round(base / Math.max(1, correct.size)));
   return Object.fromEntries((question.options ?? []).map((o) => [o.id, correct.has(o.id) ? share : -share]));
 }
 
@@ -127,6 +128,7 @@ export function isAutoScored(question: Question): boolean {
 }
 
 export function isGradable(question: Question, liveMode: boolean): boolean {
+  if (maxPointsFor(question) === 0) return false;
   return isManuallyGraded(question) || (!liveMode && isAutoScored(question));
 }
 

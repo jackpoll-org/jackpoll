@@ -848,17 +848,19 @@ public class ResponseService {
             if (QuizScoring.isScorable(q)) {
                 var answer = answers.get(q.id);
                 if (!live && answer != null) {
-                    awarded += answer.awardedPoints != null ? answer.awardedPoints : autoPoints(q, answer.value);
+                    awarded += answer.awardedPoints != null
+                        ? Math.min(answer.awardedPoints, QuizScoring.pointsFor(q))
+                        : autoPoints(q, answer.value);
                 }
                 continue;
             }
-            if (!QuizScoring.isManuallyGraded(q)) continue;
+            if (!QuizScoring.isManuallyGraded(q) || QuizScoring.pointsFor(q) == 0) continue;
             var answer = answers.get(q.id);
             if (answer == null || isBlankAnswer(answer.value)) continue; // unanswered = 0
             if (answer.awardedPoints == null) {
                 pending = true;
             } else {
-                awarded += answer.awardedPoints;
+                awarded += Math.min(answer.awardedPoints, QuizScoring.pointsFor(q));
             }
         }
         response.score = awarded;

@@ -71,7 +71,7 @@ export function StudentResultView({ result }: { result: StudentResult }) {
 function AnswerRow({ question, answer }: { question: Question; answer?: AnswerInput }) {
   const { t } = useTranslation();
   const answered = hasAnswer(answer?.value);
-  const scored = answer?.autoPoints != null || isManuallyGraded(question);
+  const scored = (answer?.autoPoints != null || isManuallyGraded(question)) && maxPointsFor(question) > 0;
   const earned = answer?.awardedPoints ?? answer?.autoPoints ?? null;
 
   return (

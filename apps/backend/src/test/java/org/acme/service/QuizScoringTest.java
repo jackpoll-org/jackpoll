@@ -132,4 +132,22 @@ class QuizScoringTest {
         assertEquals(50, QuizScoring.speedAdjusted(100, 30_000, limit));  // late → clamped to half
         assertEquals(100, QuizScoring.speedAdjusted(100, 5_000, 0));      // no limit → unchanged
     }
+
+    @Test
+    void zeroPointQuestionsAreWorthNothingWhileUnsetPointsStayOne() {
+        var free = q("free", QuestionType.MULTIPLE_CHOICE, 0, List.of("a"));
+        var unset = q("unset", QuestionType.MULTIPLE_CHOICE, null, List.of("a"));
+        var two = q("two", QuestionType.MULTIPLE_CHOICE, 2, List.of("a"));
+
+        assertEquals(0, QuizScoring.pointsFor(free));
+        assertEquals(1, QuizScoring.pointsFor(unset));
+        assertEquals(3, QuizScoring.maxScore(survey(free, unset, two)));
+        assertEquals(3, QuizScoring.score(survey(free, unset, two), Map.of("free", "a", "unset", "a", "two", "a")));
+    }
+
+    @Test
+    void speedBonusGivesNothingForAZeroPointQuestion() {
+        assertEquals(0, QuizScoring.speedAdjusted(0, 0, 10_000));
+        assertEquals(1, QuizScoring.speedAdjusted(1, 10_000, 10_000));
+    }
 }

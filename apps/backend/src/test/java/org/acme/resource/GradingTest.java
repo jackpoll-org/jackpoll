@@ -467,4 +467,63 @@ class GradingTest {
             .when().put(SURVEYS + "/x/questions/q/feedback")
             .then().statusCode(401);
     }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void aZeroPointParagraphCountsNothingAndNeedsNoGrading() {
+        var quiz = createQuiz();
+        String p = quiz.id().substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Databases test", "status": "published",
+                  "settings": {"isQuiz": true, "allowMultipleResponses": true},
+                  "questions": [
+                    {"id":"mc-%1$s","type":"multiple-choice","title":"SQL?","required":false,
+                     "order":0,"points":1,"correctAnswers":["ok-%1$s"],
+                     "options":[{"id":"ok-%1$s","label":"Yes"},{"id":"no-%1$s","label":"No"}]},
+                    {"id":"essay-%1$s","type":"long-answer","title":"Anything else?",
+                     "required":false,"order":1,"points":0}
+                  ]
+                }
+                """.formatted(p))
+            .when().put(SURVEYS + "/" + quiz.id())
+            .then().statusCode(200);
+
+        submit(quiz, "Greetings to mum")
+            .body("data.score", is(1))
+            .body("data.maxScore", is(1))
+            .body("data.gradingPending", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void anOverrideNeverCountsMoreThanTheQuestionIsWorthNow() {
+        var quiz = createQuiz();
+        String responseId = submit(quiz, "Essay").extract().path("data.id");
+        grade(quiz, responseId, quiz.essay(), 5).statusCode(200).body("data.score", is(6));
+
+        String p = quiz.id().substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Databases test", "status": "published",
+                  "settings": {"isQuiz": true, "allowMultipleResponses": true},
+                  "questions": [
+                    {"id":"mc-%1$s","type":"multiple-choice","title":"SQL?","required":false,
+                     "order":0,"points":1,"correctAnswers":["ok-%1$s"],
+                     "options":[{"id":"ok-%1$s","label":"Yes"},{"id":"no-%1$s","label":"No"}]},
+                    {"id":"essay-%1$s","type":"long-answer","title":"Primary vs foreign key",
+                     "required":false,"order":1,"points":2}
+                  ]
+                }
+                """.formatted(p))
+            .when().put(SURVEYS + "/" + quiz.id())
+            .then().statusCode(200);
+
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data[0].score", is(3))
+            .body("data[0].maxScore", is(3));
+    }
 }

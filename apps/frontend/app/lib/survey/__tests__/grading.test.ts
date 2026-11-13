@@ -52,9 +52,9 @@ describe("formatResultCode", () => {
 });
 
 describe("maxPointsFor", () => {
-  it("defaults to one point", () => {
+  it("defaults to one point, but keeps zero", () => {
     expect(maxPointsFor(q({}))).toBe(1);
-    expect(maxPointsFor(q({ points: 0 }))).toBe(1);
+    expect(maxPointsFor(q({ points: 0 }))).toBe(0);
     expect(maxPointsFor(q({ points: 5 }))).toBe(5);
   });
 });
@@ -126,5 +126,17 @@ describe("sharedPoints", () => {
     expect(sharedPoints(q({}), [resp("1", "x", 2), resp("2", "x", 2)])).toBe(2);
     expect(sharedPoints(q({}), [resp("1", "x"), resp("2", "x")])).toBeNull();
     expect(sharedPoints(q({}), [resp("1", "x", 2), resp("2", "x", 1)])).toBe("mixed");
+  });
+});
+
+describe("zero-point questions", () => {
+  const paragraph = (points: number | undefined) =>
+    ({ id: "p", type: "long-answer", title: "Anything else?", required: false, order: 0, points }) as Question;
+
+  it("are worth nothing and need no grading, while unset points stay 1", () => {
+    expect(maxPointsFor(paragraph(0))).toBe(0);
+    expect(isGradable(paragraph(0), false)).toBe(false);
+    expect(maxPointsFor(paragraph(undefined))).toBe(1);
+    expect(isGradable(paragraph(undefined), false)).toBe(true);
   });
 });

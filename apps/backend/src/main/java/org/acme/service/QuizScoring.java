@@ -24,7 +24,7 @@ public final class QuizScoring {
     private QuizScoring() {}
 
     private static int basePoints(Question q) {
-        return q.points != null && q.points > 0 ? q.points : 1;
+        return q.points != null && q.points >= 0 ? q.points : 1;
     }
 
     public static int pointsFor(Question q) {
@@ -114,6 +114,7 @@ public final class QuizScoring {
      * per-question countdown.
      */
     public static int speedAdjusted(int basePoints, long elapsedMs, long limitMs) {
+        if (basePoints <= 0) return 0;
         if (limitMs <= 0) return basePoints;
         double ratio = Math.max(0.0, Math.min(1.0, (double) elapsedMs / limitMs));
         double factor = 1.0 - 0.5 * ratio; // 1.0 → 0.5 across the window
