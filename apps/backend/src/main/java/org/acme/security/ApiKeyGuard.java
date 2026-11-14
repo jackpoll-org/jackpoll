@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.acme.dto.SurveyDtos.SurveySettingsDto;
+import org.acme.entity.SurveySettings;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.repository.ResponseRepository;
 import org.acme.service.ApiKeyService;
@@ -34,7 +35,9 @@ public class ApiKeyGuard {
             || next.studentResults() != current.studentResults
             || next.resultsReleased() != current.resultsReleased
             || !Objects.equals(next.retentionDays(), current.retentionDays)
-            || next.retentionAnonymize() != current.retentionAnonymize;
+            || next.retentionAnonymize() != current.retentionAnonymize
+            || (next.isQuiz() && next.doNotStoreResponses()) == current.storesResponses()
+            || SurveySettings.REVEAL_ANSWER_KEY.equals(next.showCorrectAnswers()) != SurveySettings.revealsAnswerKey(current);
         if (exposesOrPurges) {
             throw new ForbiddenAccessException(
                 "This API key can't change result sharing or data retention. Allow it to read responses first.");

@@ -13,7 +13,7 @@ import org.acme.entity.Question;
 import org.acme.entity.QuestionType;
 import org.acme.entity.Survey;
 
-/** Server-side quiz scoring (issue #10). Correct answers never leave the server. */
+/** Server-side quiz scoring (issue #10). Correct answers leave the server only after a submission. */
 public final class QuizScoring {
 
     private static final Set<QuestionType> CHOICE =
@@ -54,6 +54,22 @@ public final class QuizScoring {
         return (q.correctAnswers != null && q.correctAnswers.stream().anyMatch(c -> c != null && !c.isBlank()))
             || optionPoints(q).values().stream().anyMatch(p -> p > 0)
             || scoresOrder(q);
+    }
+
+    public static List<String> answerKey(Question q) {
+        if (scoresOrder(q)) {
+            return q.options.stream().filter(o -> o.kind == OptionKind.OPTION).map(o -> o.id).toList();
+        }
+        var options = optionPoints(q);
+        if (!options.isEmpty()) {
+            int threshold = q.type == QuestionType.CHECKBOXES ? 1 : pointsFor(q);
+            return q.options.stream()
+                .filter(o -> o.kind == OptionKind.OPTION && options.getOrDefault(o.id, 0) >= threshold)
+                .map(o -> o.id)
+                .toList();
+        }
+        return q.correctAnswers == null ? List.of()
+            : q.correctAnswers.stream().filter(c -> c != null && !c.isBlank()).toList();
     }
 
     public static boolean scoresOrder(Question q) {

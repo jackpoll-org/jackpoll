@@ -47,9 +47,12 @@ public class DraftService {
     /** Create a new draft or update an existing one identified by its token. */
     @Transactional
     public DraftDto save(String surveyId, SaveDraftRequest req) {
-        surveys.findByIdOptional(surveyId)
+        var survey = surveys.findByIdOptional(surveyId)
             .filter(s -> s.status == org.acme.entity.SurveyStatus.PUBLISHED)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + surveyId));
+        if (survey.settings != null && !survey.settings.allowsSaveLater()) {
+            throw new org.acme.exception.ForbiddenAccessException("Saving for later is turned off for this survey.");
+        }
         ResponseService.requireAnswersWithin(req.answers(), MAX_DRAFT_BYTES, objectMapper);
 
         var now = Instant.now();

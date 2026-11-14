@@ -1,5 +1,6 @@
 "use client";
 
+import { storesResponses } from "@/app/lib/survey/response-storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -41,6 +42,7 @@ export function ProtectionCard() {
           <Switch
             id="one-per-browser"
             checked={settings.onePerBrowser}
+            disabled={!storesResponses(settings)}
             onCheckedChange={(c) => updateSettings({ onePerBrowser: c })}
           />
           <Label htmlFor="one-per-browser" className="font-normal">

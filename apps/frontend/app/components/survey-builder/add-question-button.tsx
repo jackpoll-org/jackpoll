@@ -1,5 +1,6 @@
 "use client";
 
+import { storesResponses, UNSTORED_QUESTION_TYPES } from "@/app/lib/survey/response-storage";
 import { Plus, ToggleLeft } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -27,7 +28,9 @@ export function AddQuestionButton() {
   const { addQuestion, activePageId, survey } = useBuilder();
   const types = isQuizGame(survey.settings)
     ? BUILDER_QUESTION_TYPES.filter((type) => QUIZ_GAME_TYPES.has(type))
-    : BUILDER_QUESTION_TYPES;
+    : storesResponses(survey.settings)
+      ? BUILDER_QUESTION_TYPES
+      : BUILDER_QUESTION_TYPES.filter((type) => !UNSTORED_QUESTION_TYPES.has(type));
 
   return (
     <DropdownMenu>

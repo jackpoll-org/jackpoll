@@ -91,7 +91,9 @@ public final class ResponseDtos {
         @Size(max = 128) String respondentToken,
         /** Language the form was answered in, so the emailed receipt matches it.
          *  Null falls back to the survey owner's language. */
-        @Size(max = 16) String locale
+        @Size(max = 16) String locale,
+        /** Questions the player showed, so corrections skip ones hidden by branching. */
+        @Size(max = 1000) List<@NotNull @Size(max = 128) String> shownQuestionIds
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -116,7 +118,17 @@ public final class ResponseDtos {
         Integer bonusPoints,
         String feedback,
         String grade,
-        String resultCode
+        String resultCode,
+        List<CorrectionDto> corrections
+    ) {}
+
+    public record CorrectionDto(
+        String questionId,
+        Object answer,
+        boolean correct,
+        int points,
+        int maxPoints,
+        List<String> correctAnswers
     ) {}
 
     /** The data needed to re-open a response for editing (issue #40). */

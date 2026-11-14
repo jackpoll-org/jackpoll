@@ -63,7 +63,10 @@ public class ShareLinkService {
 
     @Transactional
     public ShareLinkDto update(String ownerId, String surveyId, UpdateShareLinkRequest req) {
-        surveyService.requireEditable(ownerId, surveyId);
+        var survey = surveyService.requireEditable(ownerId, surveyId);
+        if (req.maxResponses() != null && survey.settings != null && !survey.settings.storesResponses()) {
+            throw new IllegalArgumentException(SurveyService.STORAGE_SETTINGS_ERROR);
+        }
         var link = getOrCreate(surveyId);
         link.expiresAt = req.expiresAt();
         link.maxResponses = req.maxResponses();

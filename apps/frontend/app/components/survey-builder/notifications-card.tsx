@@ -1,5 +1,6 @@
 "use client";
 
+import { storesResponses } from "@/app/lib/survey/response-storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Label } from "@/app/components/ui/label";
 import { Switch } from "@/app/components/ui/switch";
@@ -39,6 +40,7 @@ export function NotificationsCard() {
           </Label>
           <Select
             value={ownerNotify}
+            disabled={!storesResponses(settings)}
             onValueChange={(v) => updateSettings({ ownerNotify: v as OwnerNotify })}
           >
             <SelectTrigger id="owner-notify" className="w-64">
@@ -59,6 +61,7 @@ export function NotificationsCard() {
           <Switch
             id="respondent-receipts"
             checked={receipts}
+            disabled={!storesResponses(settings)}
             onCheckedChange={(c) => updateSettings({ respondentReceipts: c })}
           />
           <Label htmlFor="respondent-receipts" className="font-normal">

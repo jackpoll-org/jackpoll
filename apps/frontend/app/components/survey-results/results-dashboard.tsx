@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { storesResponses } from "@/app/lib/survey/response-storage";
 import {
   ArrowLeft,
   Calendar,
@@ -351,7 +352,11 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
                 <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
                   <Inbox className="size-6" />
                 </span>
-                <p className="text-sm text-muted-foreground">{t("results.empty")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {survey.data && !storesResponses(survey.data.settings)
+                    ? t("results.notStored")
+                    : t("results.empty")}
+                </p>
               </CardContent>
             </Card>
           ) : (

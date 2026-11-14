@@ -142,7 +142,9 @@ public final class SurveyDtos {
         String ogStyle,
         @Size(max = 30) java.util.List<@Valid GradeStepDto> gradingScale,
         boolean studentResults,
-        boolean resultsReleased
+        boolean resultsReleased,
+        boolean disableSaveLater,
+        boolean doNotStoreResponses
     ) {}
 
     public record GradeStepDto(@Size(max = 50) String label, Integer minScore) {}

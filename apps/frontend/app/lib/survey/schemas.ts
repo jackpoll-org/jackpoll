@@ -64,7 +64,7 @@ const surveySettingsSchema = z.object({
   timeLimit: z.number().optional(),
   passingScore: z.number().optional(),
   showCorrectAnswers: z
-    .enum(["immediately", "after-submission", "never"])
+    .enum(["immediately", "after-submission", "with-answers", "never"])
     .optional(),
   // Data retention (issue #64)
   retentionDays: z.number().int().min(0).optional(),
@@ -72,6 +72,8 @@ const surveySettingsSchema = z.object({
   // Respondent privacy notice & legal basis (issue #63)
   privacyNotice: z.string().optional(),
   requireConsent: z.boolean().optional(),
+  disableSaveLater: z.boolean().optional(),
+  doNotStoreResponses: z.boolean().optional(),
 });
 
 export const createSurveySchema = z.object({

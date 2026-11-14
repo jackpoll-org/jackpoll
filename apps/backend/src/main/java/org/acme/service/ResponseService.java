@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.acme.dto.ResponseDtos.AnswerDto;
+import org.acme.dto.ResponseDtos.CorrectionDto;
 import org.acme.dto.ResponseDtos.FileRefDto;
 import org.acme.dto.ResponseDtos.GradeDto;
 import org.acme.dto.ResponseDtos.LiveScoreDto;
@@ -28,6 +29,7 @@ import org.acme.entity.NotificationEventType;
 import org.acme.entity.OptionKind;
 import org.acme.entity.Question;
 import org.acme.entity.QuestionOption;
+import org.acme.entity.SurveySettings;
 import org.acme.entity.QuestionType;
 import org.acme.entity.ResponseAnswer;
 import org.acme.entity.Survey;
@@ -170,7 +172,7 @@ public class ResponseService {
             return new ResponseDto(
                 UUID.randomUUID().toString(), Instant.now().toString(),
                 req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
         }
 
         boolean live = survey.settings != null && survey.settings.liveMode;
@@ -316,8 +318,12 @@ public class ResponseService {
         }
 
         spamProtection.consumeCaptcha(survey.settings, req.captcha());
+        var dto = toDto(response, survey, !live && resultsReleased(survey), true, true,
+            showsCorrections(survey) ? corrections(survey, values, req.shownQuestionIds()) : null);
+        if (survey.settings != null && !survey.settings.storesResponses()) {
+            return dto;
+        }
         responseRepository.persist(response);
-        var dto = toDto(response, survey, !live && resultsReleased(survey), true);
 
         // Preview/test submissions are owner-internal: no emails, webhooks, push,
         // or live-results broadcast — and they're filtered out of results below.
@@ -1302,6 +1308,33 @@ public class ResponseService {
     /** {@code includeEditToken} is for the respondent alone: it lets its holder rewrite the answers. */
     private ResponseDto toDto(SurveyResponse r, Survey survey, boolean reveal, boolean includeEditToken,
                               boolean includeRespondentToken) {
+        return toDto(r, survey, reveal, includeEditToken, includeRespondentToken, null);
+    }
+
+    private static boolean showsCorrections(Survey survey) {
+        var settings = survey.settings;
+        return settings != null && settings.isQuiz && !settings.liveMode && !settings.allowEditResponses
+            && (!settings.studentResults || settings.resultsReleased)
+            && SurveySettings.revealsAnswerKey(settings);
+    }
+
+    private static List<CorrectionDto> corrections(Survey survey, Map<String, Object> values, List<String> shown) {
+        var seen = new HashSet<String>(values.keySet());
+        if (shown != null) seen.addAll(shown);
+        return survey.questions.stream()
+            .filter(q -> QuizScoring.isScorable(q) && seen.contains(q.id))
+            .map(q -> {
+                var value = values.get(q.id);
+                int points = QuizScoring.autoPoints(q, value);
+                int max = QuizScoring.pointsFor(q);
+                boolean correct = max > 0 ? points >= max : QuizScoring.isCorrect(q, value);
+                return new CorrectionDto(q.id, value, correct, points, max, QuizScoring.answerKey(q));
+            })
+            .toList();
+    }
+
+    private ResponseDto toDto(SurveyResponse r, Survey survey, boolean reveal, boolean includeEditToken,
+                              boolean includeRespondentToken, List<CorrectionDto> corrections) {
         var questions = new HashMap<String, Question>();
         if (reveal && survey.settings != null && survey.settings.isQuiz) {
             for (var q : survey.questions) {
@@ -1333,7 +1366,8 @@ public class ResponseService {
             reveal ? r.bonusPoints : null,
             reveal ? r.feedback : null,
             reveal ? gradeFor(survey, r) : null,
-            r.resultCode);
+            r.resultCode,
+            corrections);
     }
 
     // ── Server-side answer validation (issue #55) ─────────────────

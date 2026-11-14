@@ -134,7 +134,7 @@ export interface SurveySettings {
   isQuiz: boolean;
   timeLimit?: number;
   passingScore?: number;
-  showCorrectAnswers?: "immediately" | "after-submission" | "never";
+  showCorrectAnswers?: "immediately" | "after-submission" | "with-answers" | "never";
   /** Optional ISO instant before which the survey is not yet open (issue #39). */
   opensAt?: string;
   /** Optional ISO instant after which the survey stops accepting responses. */
@@ -196,6 +196,8 @@ export interface SurveySettings {
   gradingScale?: GradeStep[] | null;
   studentResults?: boolean;
   resultsReleased?: boolean;
+  disableSaveLater?: boolean;
+  doNotStoreResponses?: boolean;
 }
 
 export interface GradeStep {
@@ -437,6 +439,7 @@ export interface SubmitResponseRequest {
   respondentToken?: string;
   /** UI language the form was answered in, so the emailed receipt matches it. */
   locale?: string;
+  shownQuestionIds?: string[];
 }
 
 // ── Save & Resume drafts (issue #26) ───────────────────────────────
@@ -480,6 +483,16 @@ export interface SurveyResponseDto {
   feedback?: string | null;
   grade?: string | null;
   resultCode?: string | null;
+  corrections?: AnswerCorrection[] | null;
+}
+
+export interface AnswerCorrection {
+  questionId: string;
+  answer?: unknown;
+  correct: boolean;
+  points: number;
+  maxPoints: number;
+  correctAnswers: string[];
 }
 
 export interface ReviewInput {

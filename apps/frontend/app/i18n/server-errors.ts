@@ -56,6 +56,7 @@ const EXACT_DE: Record<string, string> = {
   "Registration is disabled on this instance.": "Auf dieser Instanz können keine neuen Konten angelegt werden.",
   "Request body too large": "Die Anfrage ist zu groß.",
   "Response not found.": "Antwort nicht gefunden.",
+  "Saving for later is turned off for this survey.": "Speichern für später ist bei dieser Umfrage ausgeschaltet.",
   "Sign in to preview this survey.": "Melde dich an, um diese Umfrage in der Vorschau zu sehen.",
   "The password is incorrect.": "Das Passwort ist falsch.",
   "There is no answer to grade for this question.": "Für diese Frage gibt es keine Antwort zum Bewerten.",
@@ -81,6 +82,10 @@ const EXACT_DE: Record<string, string> = {
   "Too many requests. Please wait a moment and try again.": "Zu viele Anfragen. Bitte warte einen Moment und versuche es erneut.",
   "Too many submissions. Please wait a moment and try again.": "Zu viele Einsendungen. Bitte warte einen Moment und versuche es erneut.",
   "Too many uploads. Please wait a moment and try again.": "Zu viele Uploads. Bitte warte einen Moment und versuche es erneut.",
+  "Turn off \"Don't store responses\" to use live mode, live results, result lookup codes, response editing, one response per browser, a response limit, respondent tokens, email notifications or receipts.":
+    "Schalte „Antworten nicht speichern“ aus, um Live-Modus, Live-Ergebnisse, den Ergebnisabruf per Code, das Bearbeiten von Antworten, eine Antwort pro Browser, ein Antwortlimit, Tokens der Teilnehmenden, E-Mail-Benachrichtigungen oder Bestätigungen zu nutzen.",
+  "Turn off \"Don't store responses\" to use paragraph, manually graded, file upload or signature questions, or answer limits.":
+    "Schalte „Antworten nicht speichern“ aus, um Absatz-, manuell bewertete, Datei-Upload- oder Unterschrift-Fragen oder Antwortlimits pro Option zu nutzen.",
   "Unsupported or corrupt file. Allowed: images (JPG, PNG, GIF, WEBP, SVG), PDF, Word/Excel/PowerPoint, TXT, CSV.":
     "Nicht unterstützte oder beschädigte Datei. Erlaubt: Bilder (JPG, PNG, GIF, WEBP, SVG), PDF, Word/Excel/PowerPoint, TXT, CSV.",
   "Upload not found.": "Upload nicht gefunden.",

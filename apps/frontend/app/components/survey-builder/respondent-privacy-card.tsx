@@ -1,5 +1,6 @@
 "use client";
 
+import { storesResponses } from "@/app/lib/survey/response-storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Label } from "@/app/components/ui/label";
 import { Switch } from "@/app/components/ui/switch";
@@ -83,6 +84,7 @@ export function RespondentPrivacyCard() {
           <Switch
             id="require-token"
             checked={settings.requireRespondentToken ?? false}
+            disabled={!storesResponses(settings)}
             onCheckedChange={(c) => updateSettings({ requireRespondentToken: c })}
           />
         </div>

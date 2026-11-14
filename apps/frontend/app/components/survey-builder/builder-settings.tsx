@@ -16,6 +16,7 @@ import {
 } from "@/app/components/ui/select";
 import { useBuilder } from "./builder-context";
 import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
+import { storageConflict, storesResponses } from "@/app/lib/survey/response-storage";
 import { useTranslation } from "@/app/i18n/context";
 import { BrandingCard } from "./branding-card";
 import { OgPreviewCard } from "./og-preview-card";
@@ -26,7 +27,7 @@ import { NotificationsCard } from "./notifications-card";
 import { IntegrationsCard } from "./integrations-card";
 import { TranslationsCard } from "./translations-card";
 
-type ShowAnswers = "immediately" | "after-submission" | "never";
+type ShowAnswers = "immediately" | "after-submission" | "with-answers" | "never";
 
 /** ISO instant → value for <input type="datetime-local"> in local time. */
 function toLocalInput(iso?: string): string {
@@ -42,6 +43,8 @@ export function BuilderSettings() {
   const { t } = useTranslation();
   const { survey, updateSettings } = useBuilder();
   const settings = survey.settings;
+  const stateless = !storesResponses(settings);
+  const conflict = storageConflict(survey);
 
   return (
     <div className="grid gap-4">
@@ -54,6 +57,7 @@ export function BuilderSettings() {
           <Switch
             id="live-results"
             checked={settings.showLiveResults}
+            disabled={stateless}
             onCheckedChange={(c) => updateSettings({ showLiveResults: c })}
           />
           <Label htmlFor="live-results" className="font-normal">
@@ -80,6 +84,7 @@ export function BuilderSettings() {
           <Switch
             id="live-mode"
             checked={settings.liveMode ?? false}
+            disabled={stateless}
             onCheckedChange={(c) =>
               // Live mode drives everyone through questions together; it needs
               // live results on to show each question's answers as they arrive.
@@ -205,6 +210,7 @@ export function BuilderSettings() {
           min={0}
           className="w-64"
           value={settings.responseLimit ?? ""}
+          disabled={stateless}
           onChange={(e) =>
             updateSettings({
               responseLimit: e.target.value ? Number(e.target.value) : undefined,
@@ -288,7 +294,7 @@ export function BuilderSettings() {
                 {t("builder.settings.showAnswers")}
               </Label>
               <Select
-                value={settings.showCorrectAnswers ?? "after-submission"}
+                value={settings.showCorrectAnswers === "immediately" ? "after-submission" : (settings.showCorrectAnswers ?? "after-submission")}
                 onValueChange={(v) =>
                   updateSettings({ showCorrectAnswers: v as ShowAnswers })
                 }
@@ -298,10 +304,36 @@ export function BuilderSettings() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="after-submission">{t("builder.settings.showAnswersAfter")}</SelectItem>
+                  <SelectItem value="with-answers">{t("builder.settings.showAnswersWithKey")}</SelectItem>
                   <SelectItem value="never">{t("builder.settings.showAnswersNever")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="do-not-store-responses"
+                checked={settings.doNotStoreResponses ?? false}
+                disabled={!settings.doNotStoreResponses && conflict !== null}
+                onCheckedChange={(c) => updateSettings({ doNotStoreResponses: c })}
+              />
+              <Label htmlFor="do-not-store-responses" className="font-normal">
+                {t("builder.settings.doNotStoreResponses")}
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("builder.settings.doNotStoreResponsesHelp")}
+            </p>
+            {conflict && (
+              <p className={`text-xs ${stateless ? "text-destructive" : "text-muted-foreground"}`}>
+                {t(
+                  conflict === "settings"
+                    ? "builder.settings.doNotStoreConflictSettings"
+                    : "builder.settings.doNotStoreConflictQuestions",
+                )}
+              </p>
+            )}
           </div>
           <OutcomesEditor
             outcomes={settings.outcomes ?? []}
@@ -361,6 +393,7 @@ export function BuilderSettings() {
           <Switch
             id="allow-edit-responses"
             checked={settings.allowEditResponses ?? false}
+            disabled={stateless}
             onCheckedChange={(c) => updateSettings({ allowEditResponses: c })}
           />
         </div>
@@ -384,6 +417,20 @@ export function BuilderSettings() {
         </div>
         <p className="text-xs text-muted-foreground">
           {t("builder.settings.conversationalHelp")}
+        </p>
+        <div className="flex items-center gap-2 border-t pt-3">
+          <Switch
+            id="allow-save-later"
+            checked={!settings.disableSaveLater && !stateless}
+            disabled={stateless}
+            onCheckedChange={(c) => updateSettings({ disableSaveLater: !c })}
+          />
+          <Label htmlFor="allow-save-later" className="font-normal">
+            {t("builder.settings.allowSaveLater")}
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t("builder.settings.allowSaveLaterHelp")}
         </p>
       </CardContent>
     </Card>

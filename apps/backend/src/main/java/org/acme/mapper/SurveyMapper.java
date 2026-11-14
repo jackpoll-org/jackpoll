@@ -133,7 +133,9 @@ public class SurveyMapper {
                 .map(g -> new org.acme.dto.SurveyDtos.GradeStepDto(g.label, g.minScore))
                 .toList(),
             s.studentResults,
-            s.resultsReleased
+            s.resultsReleased,
+            s.disableSaveLater,
+            s.doNotStoreResponses
         );
     }
 
@@ -345,6 +347,8 @@ public class SurveyMapper {
             .toList();
         s.studentResults = d.studentResults();
         s.resultsReleased = d.resultsReleased();
+        s.disableSaveLater = d.disableSaveLater();
+        s.doNotStoreResponses = d.doNotStoreResponses();
         return s;
     }
 

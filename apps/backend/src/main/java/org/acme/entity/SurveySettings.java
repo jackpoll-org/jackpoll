@@ -46,7 +46,13 @@ public class SurveySettings {
     public boolean isQuiz;
     public Integer timeLimit;
     public Integer passingScore;
-    public String showCorrectAnswers; // "immediately" | "after-submission" | "never"
+    public String showCorrectAnswers; // "after-submission" | "immediately" (both score only) | "with-answers" | "never"
+
+    public static final String REVEAL_ANSWER_KEY = "with-answers";
+
+    public static boolean revealsAnswerKey(SurveySettings settings) {
+        return settings != null && REVEAL_ANSWER_KEY.equals(settings.showCorrectAnswers);
+    }
 
     // Spam & bot protection (issue #31) — opt-in per survey, safe defaults off.
     /** Reject submissions faster than this many seconds (0 / null = off). */
@@ -117,6 +123,16 @@ public class SurveySettings {
     public java.util.List<GradeStep> gradingScale;
     public boolean studentResults;
     public boolean resultsReleased;
+    public boolean disableSaveLater;
+    public boolean doNotStoreResponses;
+
+    public boolean storesResponses() {
+        return !(isQuiz && doNotStoreResponses);
+    }
+
+    public boolean allowsSaveLater() {
+        return !disableSaveLater && storesResponses();
+    }
 
     public static SurveySettings defaults() {
         var s = new SurveySettings();

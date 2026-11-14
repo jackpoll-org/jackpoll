@@ -55,6 +55,13 @@ public class SurveyService {
     @Inject
     org.acme.repository.RespondentTokenRepository respondentTokens;
 
+    @Inject
+    org.acme.repository.ShareLinkRepository shareLinks;
+
+    public static final String STORAGE_SETTINGS_ERROR = "Turn off \"Don't store responses\" to use live mode,"
+        + " live results, result lookup codes, response editing, one response per browser, a response limit,"
+        + " respondent tokens, email notifications or receipts.";
+
     // ── Listing (owned + collaborated) ────────────────────────────
 
     public List<SurveyDto> list(String userId, int page, int limit) {
@@ -140,6 +147,13 @@ public class SurveyService {
             survey.settings.ogShowOwner = previous == null ? null : previous.ogShowOwner;
             survey.settings.retentionDays = previous == null ? null : previous.retentionDays;
             survey.settings.retentionAnonymize = previous != null && previous.retentionAnonymize;
+            survey.settings.doNotStoreResponses = previous != null && previous.doNotStoreResponses;
+            if (SurveySettings.revealsAnswerKey(previous) != SurveySettings.revealsAnswerKey(survey.settings)) {
+                survey.settings.showCorrectAnswers = previous == null ? null : previous.showCorrectAnswers;
+            }
+            if (previous != null && previous.storesResponses() != survey.settings.storesResponses()) {
+                survey.settings.isQuiz = previous.isQuiz;
+            }
         }
         if (editLink && survey.settings != null) {
             survey.settings.showLiveResults = previous != null && previous.showLiveResults;
@@ -147,9 +161,32 @@ public class SurveyService {
             survey.settings.studentResults = previous != null && previous.studentResults;
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
+        ensureStorageNotNeeded(survey);
         repository.persist(survey);
         if (!scoringBefore.equals(scoringSignature(survey))) {
             responseService.rescore(survey);
+        }
+    }
+
+    private void ensureStorageNotNeeded(Survey survey) {
+        var s = survey.settings;
+        if (s == null || s.storesResponses()) return;
+        boolean ownerNotify = s.ownerNotify != null && !"off".equals(s.ownerNotify);
+        if (s.liveMode || s.showLiveResults || s.studentResults || s.allowEditResponses || s.onePerBrowser
+            || (s.responseLimit != null && s.responseLimit > 0) || s.requireRespondentToken
+            || ownerNotify || s.respondentReceipts
+            || shareLinks.findBySurvey(survey.id).map(link -> link.maxResponses != null).orElse(false)) {
+            throw new IllegalArgumentException(STORAGE_SETTINGS_ERROR);
+        }
+        boolean needsStorage = survey.questions.stream().anyMatch(q ->
+            q.type == org.acme.entity.QuestionType.LONG_ANSWER
+                || q.type == org.acme.entity.QuestionType.FILE_UPLOAD
+                || q.type == org.acme.entity.QuestionType.SIGNATURE
+                || QuizScoring.isManuallyGraded(q)
+                || q.options.stream().anyMatch(o -> o.capacity != null && o.capacity > 0));
+        if (needsStorage) {
+            throw new IllegalArgumentException("Turn off \"Don't store responses\" to use paragraph, manually graded,"
+                + " file upload or signature questions, or answer limits.");
         }
     }
 

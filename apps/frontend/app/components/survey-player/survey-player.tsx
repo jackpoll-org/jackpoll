@@ -31,6 +31,8 @@ import { BrandingHeader, PoweredBy, brandingStyle } from "./branding-frame";
 import { useInstanceLegal } from "@/app/components/legal/instance-legal-context";
 import { SurveyLogo } from "@/app/components/live/survey-logo";
 import { SaveLaterDialog } from "./save-later-dialog";
+import { AnswerCorrections } from "./answer-corrections";
+import { allowsSaveLater } from "@/app/lib/survey/response-storage";
 import { AltchaWidget } from "./altcha-widget";
 import {
   useSaveDraft,
@@ -166,6 +168,7 @@ export function SurveyPlayer({
   const isEditing = !!editToken;
   const saveDraft = useSaveDraft(survey.id);
   const deleteDraft = useDeleteDraft();
+  const saveLater = allowsSaveLater(survey.settings);
 
   // Spam & bot protection (issue #31) — only on public surfaces.
   const honeypot = useRef("");
@@ -200,6 +203,10 @@ export function SurveyPlayer({
   useEffect(() => {
     if (localRestored.current || initialAnswers) return;
     localRestored.current = true;
+    if (!saveLater) {
+      clearLocalDraft(survey.id);
+      return;
+    }
     const stored = loadLocalDraft(survey.id);
     if (stored && Object.keys(stored.answers).length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -210,11 +217,11 @@ export function SurveyPlayer({
 
   // Autosave answers locally whenever they change (instant, offline-friendly).
   useEffect(() => {
-    if (submitted || Object.keys(answers).length === 0) return;
+    if (!saveLater || submitted || Object.keys(answers).length === 0) return;
     saveLocalDraft(survey.id, answers);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSavedAt(nowMs());
-  }, [answers, submitted, survey.id]);
+  }, [answers, submitted, survey.id, saveLater]);
 
   // Paginate by section (#28); flat surveys collapse to a single page.
   const pages = useMemo(() => buildPages(survey, answers), [survey, answers]);
@@ -509,6 +516,7 @@ export function SurveyPlayer({
       // The receipt is written in the language the form was answered in — the
       // respondent has no account we could look one up from.
       locale,
+      shownQuestionIds: visible.map((q) => q.id),
     };
 
     const finishSubmitted = () => {
@@ -924,7 +932,7 @@ export function SurveyPlayer({
             {t("common.next")}
           </Button>
         )}
-        {analytics && !isEditing && <SaveLaterDialog onSave={handleSaveLater} />}
+        {analytics && !isEditing && saveLater && <SaveLaterDialog onSave={handleSaveLater} />}
         {analytics && !isEditing && savedAt !== null && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Check className="size-3" />
@@ -1072,6 +1080,9 @@ function ConfirmationScreen({
         </CardContent>
       </Card>
 
+      {result?.corrections && result.corrections.length > 0 && (
+        <AnswerCorrections survey={survey} answers={answers} corrections={result.corrections} />
+      )}
       {showSummary && <LiveResultsSummary survey={survey} />}
       <PoweredBy survey={survey} />
     </div>

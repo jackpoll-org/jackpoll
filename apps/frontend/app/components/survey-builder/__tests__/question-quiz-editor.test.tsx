@@ -138,3 +138,16 @@ describe("QuestionQuizEditor for a paragraph", () => {
     expect(screen.getByText("builder.quiz.zeroPoints")).toBeTruthy();
   });
 });
+
+describe("QuestionQuizEditor manual grading without stored responses", () => {
+  const upload = (manualGrading: boolean) =>
+    ({ id: "u", type: "file-upload", title: "Upload", required: false, order: 0, settings: { manualGrading } }) as unknown as Question;
+
+  it("can't turn manual grading on, but can turn it off", () => {
+    const { unmount } = render(<QuestionQuizEditor question={upload(false)} onChange={vi.fn()} stateless />);
+    expect(screen.getByRole("switch", { name: "builder.quiz.gradeManually" })).toBeDisabled();
+    unmount();
+    render(<QuestionQuizEditor question={upload(true)} onChange={vi.fn()} stateless />);
+    expect(screen.getByRole("switch", { name: "builder.quiz.gradeManually" })).toBeEnabled();
+  });
+});

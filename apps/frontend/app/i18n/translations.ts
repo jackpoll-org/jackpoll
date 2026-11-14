@@ -257,9 +257,10 @@ export const en = {
   "builder.settings.noLimit": "No limit",
   "builder.settings.passingScore": "Passing score (points)",
   "builder.settings.none": "None",
-  "builder.settings.showAnswers": "Show correct answers",
-  "builder.settings.showAnswersAfter": "After submission",
-  "builder.settings.showAnswersNever": "Never",
+  "builder.settings.showAnswers": "After submitting, show",
+  "builder.settings.showAnswersAfter": "Score only",
+  "builder.settings.showAnswersWithKey": "Score and correct answers",
+  "builder.settings.showAnswersNever": "Nothing",
   "builder.settings.afterSubmissionTitle": "After submission",
   "builder.settings.confirmationMessage": "Confirmation message",
   "builder.settings.confirmationPlaceholder": "Thanks! Your response has been recorded.",
@@ -267,6 +268,16 @@ export const en = {
   "builder.settings.redirectUrl": "Redirect URL (optional)",
   "builder.settings.redirectHelp":
     "If set, respondents get a button to continue to this address.",
+  "builder.settings.allowSaveLater": "Allow save & continue later",
+  "builder.settings.allowSaveLaterHelp":
+    "Respondents can save their answers and finish later, also in this browser. Turn off to start every visit from scratch.",
+  "builder.settings.doNotStoreResponses": "Don't store responses",
+  "builder.settings.doNotStoreResponsesHelp":
+    "Answers are scored and shown to the participant, then discarded. You won't see responses or per-question results, only view, start and submit counts. Webhooks and notifications don't fire, and save for later is off.",
+  "builder.settings.doNotStoreConflictSettings":
+    "Not available with live mode, live results, result lookup codes, response editing, one response per browser, a response limit, respondent tokens, email notifications or receipts.",
+  "builder.settings.doNotStoreConflictQuestions":
+    "Not available with paragraph, manually graded, file upload or signature questions, or answer limits.",
   "builder.settings.allowEdit": "Allow editing responses",
   "builder.settings.allowEditHelp":
     "Respondents get a private link to change their answer after submitting. Editing updates the same response.",
@@ -552,6 +563,8 @@ export const en = {
   "results.kpi.total": "Total responses",
   "results.kpi.last": "Last response",
   "results.kpi.avgTime": "Avg. completion time",
+  "results.notStored":
+    "Responses to this quiz aren't stored, so there are no answers or per-question results to show. View, start and submit counts are in the Analytics tab.",
   "results.empty":
     "No responses yet. Share the survey or submit one from the builder Preview tab.",
   "results.quiz.title": "Quiz analytics",
@@ -1219,6 +1232,10 @@ export const en = {
   "player.submitFailed": "Failed to submit response",
   "player.passed": "Passed",
   "player.failed": "Failed",
+  "player.yourAnswers": "Your answers",
+  "player.correct": "Correct",
+  "player.incorrect": "Incorrect",
+  "player.correctAnswer": "Correct answer",
   "player.continue": "Continue",
   "player.submitAnother": "Submit another response",
   "player.poweredBy": "Powered by Jackpoll",
@@ -1626,9 +1643,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.settings.noLimit": "Kein Limit",
   "builder.settings.passingScore": "Bestehensgrenze (Punkte)",
   "builder.settings.none": "Keine",
-  "builder.settings.showAnswers": "Richtige Antworten zeigen",
-  "builder.settings.showAnswersAfter": "Nach dem Absenden",
-  "builder.settings.showAnswersNever": "Nie",
+  "builder.settings.showAnswers": "Nach dem Absenden zeigen",
+  "builder.settings.showAnswersAfter": "Nur die Punktzahl",
+  "builder.settings.showAnswersWithKey": "Punktzahl und richtige Antworten",
+  "builder.settings.showAnswersNever": "Nichts",
   "builder.settings.afterSubmissionTitle": "Nach dem Absenden",
   "builder.settings.confirmationMessage": "Bestätigungsnachricht",
   "builder.settings.confirmationPlaceholder": "Danke! Deine Antwort wurde gespeichert.",
@@ -1637,6 +1655,16 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.settings.redirectUrl": "Weiterleitungs-URL (optional)",
   "builder.settings.redirectHelp":
     "Wenn gesetzt, erhalten Teilnehmende einen Button, um zu dieser Adresse weiterzugehen.",
+  "builder.settings.allowSaveLater": "Speichern & später fortsetzen erlauben",
+  "builder.settings.allowSaveLaterHelp":
+    "Teilnehmende können ihre Antworten speichern und später fertig ausfüllen, auch in diesem Browser. Schalte es aus, damit jeder Besuch neu beginnt.",
+  "builder.settings.doNotStoreResponses": "Antworten nicht speichern",
+  "builder.settings.doNotStoreResponsesHelp":
+    "Antworten werden bewertet und den Teilnehmenden angezeigt, danach verworfen. Du siehst keine Antworten und keine Ergebnisse pro Frage, nur Aufrufe, Starts und Absendungen. Webhooks und Benachrichtigungen werden nicht ausgelöst, und Speichern für später ist aus.",
+  "builder.settings.doNotStoreConflictSettings":
+    "Nicht möglich mit Live-Modus, Live-Ergebnissen, dem Ergebnisabruf per Code, dem Bearbeiten von Antworten, einer Antwort pro Browser, einem Antwortlimit, Tokens der Teilnehmenden, E-Mail-Benachrichtigungen oder Bestätigungen.",
+  "builder.settings.doNotStoreConflictQuestions":
+    "Nicht möglich mit Absatz-, manuell bewerteten, Datei-Upload- oder Unterschrift-Fragen oder Antwortlimits pro Option.",
   "builder.settings.allowEdit": "Bearbeiten von Antworten erlauben",
   "builder.settings.allowEditHelp":
     "Teilnehmende erhalten einen privaten Link, um ihre Antwort nach dem Absenden zu ändern. Das Bearbeiten aktualisiert dieselbe Antwort.",
@@ -1922,6 +1950,8 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "results.kpi.total": "Antworten gesamt",
   "results.kpi.last": "Letzte Antwort",
   "results.kpi.avgTime": "Ø Bearbeitungszeit",
+  "results.notStored":
+    "Antworten auf dieses Quiz werden nicht gespeichert, daher gibt es keine Antworten oder Ergebnisse pro Frage. Aufrufe, Starts und Absendungen findest du im Tab Analysen.",
   "results.empty":
     "Noch keine Antworten. Teile die Umfrage oder sende eine über den Vorschau-Tab im Editor.",
   "results.quiz.title": "Quiz-Analyse",
@@ -2593,6 +2623,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "player.submitFailed": "Antwort konnte nicht gesendet werden",
   "player.passed": "Bestanden",
   "player.failed": "Nicht bestanden",
+  "player.yourAnswers": "Deine Antworten",
+  "player.correct": "Richtig",
+  "player.incorrect": "Falsch",
+  "player.correctAnswer": "Richtige Antwort",
   "player.continue": "Weiter",
   "player.submitAnother": "Weitere Antwort senden",
   "player.poweredBy": "Bereitgestellt von Jackpoll",

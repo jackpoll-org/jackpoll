@@ -47,6 +47,8 @@ curl -s -X PUT https://app.jackpoll.org/api/surveys/<survey-id> \
 
 In a quiz, a question's `points` and `correctAnswers` score it. For finer scoring, set in the question's `settings`: `optionPoints` (option id → points, also negative; single choice gives the chosen option's points, multiple choice adds them up, never below 0), `answerPoints` (accepted short answer → points) or `scoreOrder: true` on a `ranking` question (the option order is the correct order; respondents see it shuffled). These values are never sent to respondents.
 
+Quiz settings for a quiz people take just to learn: `showCorrectAnswers: "with-answers"` adds a `corrections` list to the submit response with each scored question's answer, points and correct answers, limited to questions the participant answered or that are listed in the request's `shownQuestionIds`; `"after-submission"` (the default) and `"immediately"` show only the score, `"never"` neither. `"doNotStoreResponses": true` scores each submission and returns the result without storing anything; it can't be combined with live mode, live results, result lookup codes, response editing, one response per browser, a response limit, respondent tokens, email notifications, receipts, or paragraph, manually graded, file upload or signature questions and answer limits. `"disableSaveLater": true` removes "Save & continue later".
+
 Question types: `short-answer`, `long-answer`, `multiple-choice`, `checkboxes`, `dropdown`, `multiple-choice-grid`, `checkbox-grid`, `rating-grid`, `file-upload`, `slider`, `rating`, `date`, `ranking`, `signature`, `wordcloud`, `content` (text/image block without an answer).
 
 ## 3. Let your agent read the API description

@@ -161,7 +161,7 @@ interface SurveySettings {
   isQuiz: boolean
   timeLimit?: number        // In seconds
   passingScore?: number
-  showCorrectAnswers: 'immediately' | 'after-submission' | 'never'
+  showCorrectAnswers: 'immediately' | 'after-submission' | 'with-answers' | 'never'
 }
 ```
 

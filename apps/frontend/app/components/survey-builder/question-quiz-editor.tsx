@@ -145,13 +145,18 @@ function AcceptedAnswersEditor({ question, onChange }: QuestionEditorProps) {
   );
 }
 
-function ManualGradingToggle({ question, onChange }: QuestionEditorProps) {
+function ManualGradingToggle({
+  question,
+  onChange,
+  disabled,
+}: QuestionEditorProps & { disabled: boolean }) {
   const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2">
       <Switch
         id={`manual-${question.id}`}
         checked={question.settings?.manualGrading === true}
+        disabled={disabled && question.settings?.manualGrading !== true}
         onCheckedChange={(c) =>
           onChange({ settings: { ...(question.settings ?? {}), manualGrading: c } })
         }
@@ -168,7 +173,8 @@ export function QuestionQuizEditor({
   question,
   onChange,
   liveMode = false,
-}: QuestionEditorProps & { liveMode?: boolean }) {
+  stateless = false,
+}: QuestionEditorProps & { liveMode?: boolean; stateless?: boolean }) {
   const { t } = useTranslation();
   const correct = question.correctAnswers ?? [];
 
@@ -176,7 +182,7 @@ export function QuestionQuizEditor({
     const manual = isManuallyGraded(question);
     return (
       <div className="grid gap-3 rounded-lg border border-dashed p-3">
-        {question.type === "file-upload" && <ManualGradingToggle question={question} onChange={onChange} />}
+        {question.type === "file-upload" && <ManualGradingToggle question={question} onChange={onChange} disabled={stateless} />}
         <p className="text-xs text-muted-foreground">
           {!manual
             ? t("builder.quiz.notScored")
@@ -297,7 +303,7 @@ export function QuestionQuizEditor({
       <AcceptedAnswersEditor question={question} onChange={onChange} />
       {correct.every((c) => c.trim() === "") && (
         <>
-          <ManualGradingToggle question={question} onChange={onChange} />
+          <ManualGradingToggle question={question} onChange={onChange} disabled={stateless} />
           <p className="text-xs text-muted-foreground">
             {isManuallyGraded(question) ? t("builder.quiz.manualHint") : t("builder.quiz.needsKeyOrManual")}
           </p>

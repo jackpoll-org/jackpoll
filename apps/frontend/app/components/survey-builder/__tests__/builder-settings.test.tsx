@@ -98,3 +98,45 @@ describe("BuilderSettings live-quiz seconds persistence", () => {
     expect(call).not.toHaveProperty("liveQuestionSeconds");
   });
 });
+
+describe("BuilderSettings response storage", () => {
+  const storeSwitch = () =>
+    screen.getByRole("switch", { name: "builder.settings.doNotStoreResponses" });
+  const saveLaterSwitch = () =>
+    screen.getByRole("switch", { name: "builder.settings.allowSaveLater" });
+
+  it("toggles save for later, on by default", () => {
+    survey = baseSurvey();
+    render(<BuilderSettings />);
+
+    expect(saveLaterSwitch()).toBeChecked();
+    fireEvent.click(saveLaterSwitch());
+    expect(updateSettings).toHaveBeenCalledWith({ disableSaveLater: true });
+  });
+
+  it("turns on not storing responses when nothing needs them", () => {
+    survey = baseSurvey({ isQuiz: true });
+    render(<BuilderSettings />);
+
+    fireEvent.click(storeSwitch());
+    expect(updateSettings).toHaveBeenCalledWith({ doNotStoreResponses: true });
+  });
+
+  it("blocks not storing responses while a setting needs them", () => {
+    survey = baseSurvey({ isQuiz: true, allowEditResponses: true });
+    render(<BuilderSettings />);
+
+    expect(storeSwitch()).toBeDisabled();
+    expect(screen.getByText("builder.settings.doNotStoreConflictSettings")).toBeTruthy();
+  });
+
+  it("locks settings that need stored responses once it is on", () => {
+    survey = baseSurvey({ isQuiz: true, doNotStoreResponses: true });
+    render(<BuilderSettings />);
+
+    expect(screen.getByRole("switch", { name: "builder.settings.liveMode" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "builder.settings.allowEdit" })).toBeDisabled();
+    expect(saveLaterSwitch()).toBeDisabled();
+    expect(saveLaterSwitch()).not.toBeChecked();
+  });
+});

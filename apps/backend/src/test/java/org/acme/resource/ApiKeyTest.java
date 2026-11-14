@@ -216,6 +216,14 @@ class ApiKeyTest {
             .when().put(API + "/surveys/" + id).then().statusCode(403);
         given().auth().oauth2(key).contentType(ContentType.JSON).body(body.formatted(",\"retentionDays\":1"))
             .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(",\"isQuiz\":true,\"doNotStoreResponses\":true"))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON).body(body.formatted(",\"doNotStoreResponses\":true"))
+            .when().put(API + "/surveys/" + id).then().statusCode(200);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(",\"showCorrectAnswers\":\"with-answers\""))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
 
         given().contentType(ContentType.JSON)
             .body("{\"answers\":[{\"questionId\":\"g1\",\"value\":\"hi\"}]}")

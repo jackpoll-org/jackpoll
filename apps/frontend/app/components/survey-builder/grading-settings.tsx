@@ -1,5 +1,6 @@
 "use client";
 
+import { storesResponses } from "@/app/lib/survey/response-storage";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/app/components/ui/button";
@@ -95,6 +96,7 @@ export function GradingSettings({ surveyId, settings, onChange }: GradingSetting
           <Switch
             id="student-results"
             checked={settings.studentResults === true}
+            disabled={!storesResponses(settings)}
             onCheckedChange={(c) =>
               onChange({ studentResults: c, ...(c ? {} : { resultsReleased: false }) })
             }

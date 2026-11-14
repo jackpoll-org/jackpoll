@@ -36,6 +36,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/app/compo
 import { getValidationRules } from "@/app/lib/survey/validation";
 import { ResultChartSelect } from "./result-chart-select";
 import { isAnswerable } from "@/app/lib/survey/content-block";
+import { storesResponses } from "@/app/lib/survey/response-storage";
 
 interface QuestionCardProps {
   question: Question;
@@ -243,6 +244,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
             question={question}
             onChange={(patch) => updateQuestion(question.id, patch)}
             liveMode={survey.settings.liveMode === true}
+            stateless={!storesResponses(survey.settings)}
           />
         )}
 
