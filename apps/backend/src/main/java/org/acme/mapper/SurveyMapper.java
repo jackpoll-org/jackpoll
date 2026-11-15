@@ -135,7 +135,13 @@ public class SurveyMapper {
             s.studentResults,
             s.resultsReleased,
             s.disableSaveLater,
-            s.doNotStoreResponses
+            s.doNotStoreResponses,
+            s.completionButtons == null ? null : s.completionButtons.stream()
+                .map(b -> new org.acme.dto.SurveyDtos.CompletionButtonDto(
+                    b.id, b.label, b.action, b.url, b.newTab, b.enabled))
+                .toList(),
+            s.hideSubmitAnother,
+            s.submitAnotherLabel
         );
     }
 
@@ -349,6 +355,21 @@ public class SurveyMapper {
         s.resultsReleased = d.resultsReleased();
         s.disableSaveLater = d.disableSaveLater();
         s.doNotStoreResponses = d.doNotStoreResponses();
+        s.completionButtons = d.completionButtons() == null ? null : d.completionButtons().stream()
+            .map(b -> {
+                var x = new org.acme.entity.CompletionButton();
+                x.id = b.id();
+                x.label = b.label();
+                x.action = b.action();
+                x.url = "url".equals(b.action()) && b.url() != null && !b.url().isBlank() ? b.url() : null;
+                x.newTab = b.newTab();
+                x.enabled = b.enabled();
+                return x;
+            })
+            .toList();
+        s.hideSubmitAnother = d.hideSubmitAnother();
+        s.submitAnotherLabel = d.submitAnotherLabel() == null || d.submitAnotherLabel().isBlank()
+            ? null : d.submitAnotherLabel();
         return s;
     }
 

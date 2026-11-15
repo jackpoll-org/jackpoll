@@ -1,5 +1,6 @@
 import type { Question, Survey } from "@/app/types/survey";
 import type { TranslateFn } from "@/app/i18n/context";
+import { isButtonComplete, safeButtonUrl } from "@/app/lib/survey/completion-buttons";
 
 /** A single thing the author must fix before the survey can be saved. */
 export interface BuilderSaveIssue {
@@ -41,6 +42,15 @@ export function validateSurveyForSave(
   if (isBlank(survey.title)) {
     issues.push({ message: t("builder.validation.surveyTitle") });
   }
+
+  (survey.settings?.completionButtons ?? []).forEach((button, index) => {
+    const n = String(index + 1);
+    if (button.action === "url" && !isBlank(button.url) && !safeButtonUrl(button.url)) {
+      issues.push({ message: t("builder.validation.buttonUrlInvalid", { n }) });
+    } else if (forPublish && button.enabled && !isButtonComplete(button)) {
+      issues.push({ message: t("builder.validation.buttonIncomplete", { n }) });
+    }
+  });
 
   if (!forPublish) return issues;
 

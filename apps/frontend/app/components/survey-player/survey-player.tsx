@@ -32,6 +32,7 @@ import { useInstanceLegal } from "@/app/components/legal/instance-legal-context"
 import { SurveyLogo } from "@/app/components/live/survey-logo";
 import { SaveLaterDialog } from "./save-later-dialog";
 import { AnswerCorrections } from "./answer-corrections";
+import { CompletionButtons } from "./completion-buttons";
 import { allowsSaveLater } from "@/app/lib/survey/response-storage";
 import { AltchaWidget } from "./altcha-widget";
 import {
@@ -1063,6 +1064,12 @@ function ConfirmationScreen({
             </div>
           )}
 
+          <CompletionButtons
+            buttons={survey.settings.completionButtons}
+            allowRestart={allowAnother}
+            onRestart={onReset}
+          />
+
           <div className="flex flex-wrap justify-center gap-2">
             {redirectUrl && (
               <Button asChild>
@@ -1071,9 +1078,9 @@ function ConfirmationScreen({
                 </a>
               </Button>
             )}
-            {allowAnother && (
+            {allowAnother && !survey.settings.hideSubmitAnother && (
               <Button variant="outline" onClick={onReset}>
-                {t("player.submitAnother")}
+                {survey.settings.submitAnotherLabel?.trim() || t("player.submitAnother")}
               </Button>
             )}
           </div>

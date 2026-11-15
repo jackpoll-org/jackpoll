@@ -51,6 +51,14 @@ function collectFields(survey: Survey, t: TranslateFn): Field[] {
     t("builder.i18n.field.confirmationMessage"),
     true,
   );
+  for (const b of survey.settings.completionButtons ?? []) {
+    push(fieldKeys.completionButtonLabel(b.id), b.label, t("builder.i18n.field.completionButton"));
+  }
+  push(
+    fieldKeys.submitAnotherLabel,
+    survey.settings.submitAnotherLabel ?? undefined,
+    t("builder.i18n.field.submitAnotherLabel"),
+  );
 
   for (const s of survey.sections ?? []) {
     push(fieldKeys.sectionTitle(s.id), s.title, t("builder.i18n.field.page", { title: s.title ?? "" }));

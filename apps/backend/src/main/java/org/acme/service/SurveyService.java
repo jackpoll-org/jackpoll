@@ -162,10 +162,29 @@ public class SurveyService {
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
         ensureStorageNotNeeded(survey);
+        ensureSafeButtonLinks(survey.settings);
         repository.persist(survey);
         if (!scoringBefore.equals(scoringSignature(survey))) {
             responseService.rescore(survey);
         }
+    }
+
+    private static void ensureSafeButtonLinks(SurveySettings settings) {
+        if (settings == null || settings.completionButtons == null) return;
+        for (var button : settings.completionButtons) {
+            if (button.url != null && !isHttpUrl(button.url.trim())) {
+                throw new IllegalArgumentException("Link must start with http:// or https://");
+            }
+        }
+    }
+
+    private static final java.util.regex.Pattern HTTP_URL = java.util.regex.Pattern.compile(
+        "(?i)https?://(?:[\\p{L}\\p{N}-]+(?:\\.[\\p{L}\\p{N}-]+)*|\\[[0-9a-f:.]+\\])(?::[0-9]{1,5})?(?:[/?#]\\S*)?");
+
+    private static boolean isHttpUrl(String url) {
+        var lower = url.toLowerCase(java.util.Locale.ROOT);
+        var candidate = lower.startsWith("http://") || lower.startsWith("https://") ? url : "https://" + url;
+        return HTTP_URL.matcher(candidate).matches();
     }
 
     private void ensureStorageNotNeeded(Survey survey) {

@@ -126,6 +126,10 @@ public class SurveySettings {
     public boolean disableSaveLater;
     public boolean doNotStoreResponses;
 
+    public java.util.List<CompletionButton> completionButtons;
+    public boolean hideSubmitAnother;
+    public String submitAnotherLabel;
+
     public boolean storesResponses() {
         return !(isQuiz && doNotStoreResponses);
     }

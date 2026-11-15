@@ -101,3 +101,28 @@ describe("content-i18n", () => {
     expect(localizeSurvey(s, "en")).toBe(s);
   });
 });
+
+describe("content-i18n completion buttons", () => {
+  it("translates button labels and the submit another label", () => {
+    const base = makeSurvey();
+    const s = makeSurvey({
+      settings: {
+        ...base.settings,
+        submitAnotherLabel: "Again",
+        completionButtons: [
+          { id: "b1", label: "Directory", action: "close", enabled: true },
+          { id: "b2", label: "More", action: "close", enabled: true },
+        ],
+      },
+      i18n: {
+        de: {
+          [fieldKeys.submitAnotherLabel]: "Nochmal",
+          [fieldKeys.completionButtonLabel("b1")]: "Verzeichnis",
+        },
+      },
+    });
+    const de = localizeSurvey(s, "de");
+    expect(de.settings.submitAnotherLabel).toBe("Nochmal");
+    expect(de.settings.completionButtons?.map((b) => b.label)).toEqual(["Verzeichnis", "More"]);
+  });
+});

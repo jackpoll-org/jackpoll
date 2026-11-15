@@ -198,6 +198,20 @@ export interface SurveySettings {
   resultsReleased?: boolean;
   disableSaveLater?: boolean;
   doNotStoreResponses?: boolean;
+  completionButtons?: CompletionButton[] | null;
+  hideSubmitAnother?: boolean;
+  submitAnotherLabel?: string | null;
+}
+
+export type CompletionButtonAction = "url" | "close" | "restart";
+
+export interface CompletionButton {
+  id: string;
+  label: string;
+  action: CompletionButtonAction;
+  url?: string | null;
+  newTab?: boolean;
+  enabled: boolean;
 }
 
 export interface GradeStep {

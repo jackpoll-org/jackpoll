@@ -7,6 +7,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { Switch } from "@/app/components/ui/switch";
 import { OutcomesEditor } from "./outcomes-editor";
 import { GradingSettings } from "./grading-settings";
+import { CompletionButtonsEditor } from "./completion-buttons-editor";
 import {
   Select,
   SelectContent,
@@ -382,6 +383,8 @@ export function BuilderSettings() {
             {t("builder.settings.redirectHelp")}
           </p>
         </div>
+
+        <CompletionButtonsEditor settings={settings} onChange={updateSettings} />
 
         <div className="flex items-center justify-between gap-4">
           <div className="grid gap-0.5">

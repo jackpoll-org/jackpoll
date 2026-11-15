@@ -92,3 +92,44 @@ describe("validateSurveyForSave", () => {
     expect(validateSurveyForSave(s, t, true)).toHaveLength(2);
   });
 });
+
+describe("validateSurveyForSave completion buttons", () => {
+  const withButtons = (completionButtons: unknown[]) =>
+    survey({ settings: { completionButtons } as unknown as Survey["settings"] });
+
+  it("flags an unsafe link even on a draft save", () => {
+    const issues = validateSurveyForSave(
+      withButtons([
+        { id: "b", label: "Go", action: "url", url: "javascript:x", enabled: false },
+        { id: "c", label: "Go", action: "close", url: "javascript:x", enabled: true },
+      ]),
+      t,
+      false,
+    );
+    expect(issues.map((i) => i.message)).toEqual([
+      'builder.validation.buttonUrlInvalid:{"n":"1"}',
+    ]);
+  });
+
+  it("allows incomplete buttons in a draft", () => {
+    expect(
+      validateSurveyForSave(withButtons([{ id: "b", label: "", action: "url", enabled: true }]), t, false),
+    ).toEqual([]);
+  });
+
+  it("requires a label and link for enabled buttons when publishing", () => {
+    const issues = validateSurveyForSave(
+      withButtons([
+        { id: "a", label: "", action: "close", enabled: true },
+        { id: "b", label: "Go", action: "url", url: " ", enabled: true },
+        { id: "c", label: "", action: "url", enabled: false },
+      ]),
+      t,
+      true,
+    );
+    expect(issues.map((i) => i.message)).toEqual([
+      'builder.validation.buttonIncomplete:{"n":"1"}',
+      'builder.validation.buttonIncomplete:{"n":"2"}',
+    ]);
+  });
+});

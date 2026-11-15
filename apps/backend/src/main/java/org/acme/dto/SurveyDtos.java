@@ -144,7 +144,19 @@ public final class SurveyDtos {
         boolean studentResults,
         boolean resultsReleased,
         boolean disableSaveLater,
-        boolean doNotStoreResponses
+        boolean doNotStoreResponses,
+        @Size(max = 10) java.util.List<@NotNull @Valid CompletionButtonDto> completionButtons,
+        boolean hideSubmitAnother,
+        @Size(max = 80) String submitAnotherLabel
+    ) {}
+
+    public record CompletionButtonDto(
+        @NotBlank @Size(max = 64) String id,
+        @Size(max = 80) String label,
+        @NotNull @Pattern(regexp = "url|close|restart") String action,
+        @Size(max = 2048) String url,
+        boolean newTab,
+        boolean enabled
     ) {}
 
     public record GradeStepDto(@Size(max = 50) String label, Integer minScore) {}
