@@ -168,13 +168,16 @@ public final class SurveyDtos {
         String description
     ) {}
 
+    public static final int MAX_QUESTIONS = 2000;
+    public static final int MAX_SECTIONS = 500;
+
     public record UpdateSurveyRequest(
         @NotBlank @Size(max = 255) String title,
         String description,
         @NotNull SurveyStatus status,
         @Valid SurveySettingsDto settings,
-        List<@Valid QuestionDto> questions,
-        List<SectionDto> sections,
+        @Size(max = MAX_QUESTIONS) List<@Valid QuestionDto> questions,
+        @Size(max = MAX_SECTIONS) List<SectionDto> sections,
         // Multilingual content (issue #37) — optional, null/empty = single language.
         List<String> languages,
         String defaultLanguage,

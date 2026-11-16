@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPages } from "../pagination";
+import { buildAllPages, buildPages } from "../pagination";
 import type { Question, Section, Survey } from "@/app/types/survey";
 
 function q(id: string, sectionId?: string | null, extra: Partial<Question> = {}): Question {
@@ -103,5 +103,40 @@ describe("buildPages", () => {
     const questions = [q("a", "s1"), q("b", "s2")];
     expect(buildPages(survey(questions, sections), { a: "no" }).map((p) => p.sectionId)).toEqual(["s1"]);
     expect(buildPages(survey(questions, sections), { a: "yes" }).map((p) => p.sectionId)).toEqual(["s1", "s2"]);
+  });
+});
+
+describe("buildAllPages", () => {
+  it("orders by page, then by question order, ignoring logic", () => {
+    const sections: Section[] = [
+      { id: "s2", title: "Two", order: 1 },
+      { id: "s1", title: "One", order: 0, visibleIf: { match: "all", conditions: [{ questionId: "x", operator: "equals", value: "y" }] } },
+    ];
+    const pages = buildAllPages(
+      survey(
+        [q("late", "s2", { order: 0 }), q("first", "s1", { order: 1 }), q("loose", null, { order: 2 })],
+        sections,
+      ),
+    );
+    expect(pages.map((p) => [p.title, p.questions.map((x) => x.id)])).toEqual([
+      [undefined, ["loose"]],
+      ["One", ["first"]],
+      ["Two", ["late"]],
+    ]);
+  });
+
+  it("keeps questions whose page no longer exists on a trailing page", () => {
+    const pages = buildAllPages(
+      survey([q("a", "s1"), q("orphan", "gone")], [{ id: "s1", title: "One", order: 0 }]),
+    );
+    expect(pages.map((p) => p.questions.map((x) => x.id))).toEqual([["a"], ["orphan"]]);
+  });
+
+  it("ignores sections in conversational mode, like the player", () => {
+    const s = survey([q("a", "s1", { order: 0 }), q("b", null, { order: 1 })], [
+      { id: "s1", title: "One", order: 0 },
+    ]);
+    s.settings.conversational = true;
+    expect(buildAllPages(s).flatMap((p) => p.questions.map((x) => x.id))).toEqual(["a", "b"]);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,10 +20,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/ca
 import { Input } from "@/app/components/ui/input";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import { useGradeResponse, useResponses, useSurvey } from "@/app/hooks/survey";
+import { useSaveAfterPause } from "@/app/hooks/use-save-after-pause";
 import { useTranslation } from "@/app/i18n/context";
 import { uploadFileUrl } from "@/app/lib/survey/api";
-import { isAnswerable } from "@/app/lib/survey/content-block";
 import { formatAnswer } from "@/app/lib/survey/export";
+import { buildAllPages } from "@/app/lib/survey/pagination";
 import {
   hasAnswer,
   isAutoScored,
@@ -36,6 +37,7 @@ import type { Question, SurveyResponseDto, UploadedFile } from "@/app/types/surv
 import { AnswerFeedbackField } from "./answer-feedback-field";
 import { ReviewCard } from "./grading-review-card";
 import { ChoiceAnswer } from "./choice-answer";
+import { ResultPages } from "@/app/components/survey-player/result-pages";
 
 interface GradingViewProps {
   surveyId: string;
@@ -108,13 +110,13 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
     );
   }
 
-  const questions = survey.data.questions
-    .filter((q) => isAnswerable(q.type))
-    .toSorted((a, b) => a.order - b.order);
+  const pages = buildAllPages(survey.data);
   const pendingIndex = nextPendingIndex(ordered, index);
   const isQuiz = survey.data.settings.isQuiz;
   const liveMode = survey.data.settings.liveMode === true;
-  const firstGradable = questions.find((q) => isGradable(q, liveMode));
+  const firstGradable = pages
+    .flatMap((page) => page.questions)
+    .find((q) => isGradable(q, liveMode));
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8">
@@ -176,17 +178,21 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
         </p>
       )}
 
-      {questions.map((q) => (
-        <AnswerCard
-          // Remount per submission so points inputs start from that response.
-          key={`${response.id}-${q.id}`}
-          surveyId={surveyId}
-          question={q}
-          response={response}
-          gradable={isQuiz && isGradable(q, liveMode)}
-          commentable={isQuiz && !liveMode}
-        />
-      ))}
+      <ResultPages
+        key={response.id}
+        survey={survey.data}
+        pages={pages}
+        answers={response.answers}
+        renderQuestion={(q) => (
+          <AnswerCard
+            surveyId={surveyId}
+            question={q}
+            response={response}
+            gradable={isQuiz && isGradable(q, liveMode)}
+            commentable={isQuiz && !liveMode}
+          />
+        )}
+      />
 
       {isQuiz && (
         <ReviewCard
@@ -434,22 +440,6 @@ function PointsInput({
     </div>
   );
 }
-
-/**
- * Saves points a short while after the last change, so clicking the arrows is
- * enough. Waits while a save is running and stops after a failed one, which
- * blur or Enter then retries.
- */
-export function useSaveAfterPause(text: string, enabled: boolean, save: () => void) {
-  const saveNow = useEffectEvent(save);
-  useEffect(() => {
-    if (!enabled) return;
-    const timer = setTimeout(saveNow, POINTS_SAVE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [text, enabled]);
-}
-
-const POINTS_SAVE_DELAY_MS = 800;
 
 /** "" clears the grade (null); otherwise a whole number within 0..max. */
 export function parsePoints(text: string, max: number): number | null | "invalid" {

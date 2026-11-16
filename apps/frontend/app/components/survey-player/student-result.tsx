@@ -3,18 +3,14 @@
 import { Badge } from "@/app/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { useTranslation } from "@/app/i18n/context";
-import { isAnswerable } from "@/app/lib/survey/content-block";
 import { formatAnswer } from "@/app/lib/survey/export";
 import { hasAnswer, isManuallyGraded, maxPointsFor } from "@/app/lib/survey/grading";
 import type { AnswerInput, Question, StudentResult } from "@/app/types/survey";
+import { ResultPages } from "./result-pages";
 
 export function StudentResultView({ result }: { result: StudentResult }) {
   const { t } = useTranslation();
   const { survey, response } = result;
-  const questions = survey.questions
-    .filter((q) => isAnswerable(q.type))
-    .toSorted((a, b) => a.order - b.order);
-
   return (
     <div className="grid gap-4">
       <Card>
@@ -57,13 +53,13 @@ export function StudentResultView({ result }: { result: StudentResult }) {
         </CardContent>
       </Card>
 
-      {questions.map((q) => (
-        <AnswerRow
-          key={q.id}
-          question={q}
-          answer={response.answers.find((a) => a.questionId === q.id)}
-        />
-      ))}
+      <ResultPages
+        survey={survey}
+        answers={response.answers}
+        renderQuestion={(q) => (
+          <AnswerRow question={q} answer={response.answers.find((a) => a.questionId === q.id)} />
+        )}
+      />
     </div>
   );
 }

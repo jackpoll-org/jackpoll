@@ -14,13 +14,14 @@ import {
 } from "@/app/components/ui/collapsible";
 import { Input } from "@/app/components/ui/input";
 import { useGradeQuestion } from "@/app/hooks/survey";
+import { useSaveAfterPause } from "@/app/hooks/use-save-after-pause";
 import { useTranslation } from "@/app/i18n/context";
 import { formatAnswer } from "@/app/lib/survey/export";
 import { maxPointsFor, sharedPoints, type AnswerGroup } from "@/app/lib/survey/grading";
 import type { Question, UploadedFile } from "@/app/types/survey";
 import { AnswerFeedbackField } from "./answer-feedback-field";
 import { ChoiceAnswer } from "./choice-answer";
-import { FileList, parsePoints, useSaveAfterPause } from "./grading-view";
+import { FileList, parsePoints } from "./grading-view";
 
 interface AnswerGroupCardProps {
   surveyId: string;

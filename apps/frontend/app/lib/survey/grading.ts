@@ -1,4 +1,5 @@
 import type { Question, SurveyResponseDto } from "@/app/types/survey";
+import { isAnswerable } from "./content-block";
 
 const UNGROUPED_TYPES = new Set<Question["type"]>(["file-upload", "signature"]);
 
@@ -128,7 +129,7 @@ export function isAutoScored(question: Question): boolean {
 }
 
 export function isGradable(question: Question, liveMode: boolean): boolean {
-  if (maxPointsFor(question) === 0) return false;
+  if (!isAnswerable(question.type) || maxPointsFor(question) === 0) return false;
   return isManuallyGraded(question) || (!liveMode && isAutoScored(question));
 }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { Survey, SurveyResponseDto } from "@/app/types/survey";
 
@@ -7,6 +7,7 @@ const mutate = vi.fn();
 const reviewMutate = vi.fn();
 const feedbackMutate = vi.fn();
 let responses: SurveyResponseDto[] = [];
+let reviewPending = false;
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
 vi.mock("next/link", () => ({
@@ -22,7 +23,7 @@ vi.mock("@/app/i18n/context", () => ({
   }),
 }));
 
-const survey = {
+let survey = {
   id: "s1",
   title: "Databases",
   settings: { isQuiz: true },
@@ -46,7 +47,7 @@ vi.mock("@/app/hooks/survey", () => ({
   useSurvey: () => ({ data: survey, isLoading: false }),
   useResponses: () => ({ data: responses, isLoading: false }),
   useGradeResponse: () => ({ mutate }),
-  useReviewResponse: () => ({ mutate: reviewMutate, isPending: false }),
+  useReviewResponse: () => ({ mutate: reviewMutate, isPending: reviewPending }),
   useAnswerFeedback: () => ({ mutateAsync: feedbackMutate }),
 }));
 
@@ -89,7 +90,6 @@ describe("GradingView", () => {
     expect(screen.getByRole("heading", { name: "Student b" })).toBeTruthy();
     expect(screen.getByText(/grading.position 2 2/)).toBeTruthy();
     expect(screen.getByText(/identifies a row/)).toBeTruthy();
-    expect(screen.queryByText("Read")).toBeNull(); // content block isn't graded
     expect(screen.getByRole("img", { name: "erm.png" })).toBeTruthy();
     const download = screen.getByRole("link", { name: /grading.download/ });
     expect(download.getAttribute("href")).toContain("download=1&name=erm.png");
@@ -246,6 +246,113 @@ describe("GradingView overrides and review", () => {
     );
   });
 
+  it("saves bonus points shortly after typing, so they count towards the total", () => {
+    vi.useFakeTimers();
+    try {
+      render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      const field = screen.getByLabelText("grading.bonus");
+      fireEvent.change(field, { target: { value: "3" } });
+      expect(reviewMutate).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(1000));
+
+      expect(reviewMutate).toHaveBeenCalledTimes(1);
+      expect(reviewMutate.mock.calls[0][0]).toEqual({
+        responseId: "b",
+        review: { bonusPoints: 3, feedback: null },
+      });
+      fireEvent.blur(field);
+      expect(reviewMutate).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("saves bonus points when the field loses focus", () => {
+    render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+    const field = screen.getByLabelText("grading.bonus");
+
+    fireEvent.blur(field);
+    expect(reviewMutate).not.toHaveBeenCalled();
+
+    fireEvent.change(field, { target: { value: "-2" } });
+    fireEvent.blur(field);
+    expect(reviewMutate.mock.calls[0][0]).toEqual({
+      responseId: "b",
+      review: { bonusPoints: -2, feedback: null },
+    });
+  });
+
+  it("retries a failed bonus save on blur, not on its own", () => {
+    vi.useFakeTimers();
+    try {
+      render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      const field = screen.getByLabelText("grading.bonus");
+      fireEvent.change(field, { target: { value: "3" } });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(reviewMutate).toHaveBeenCalledTimes(1);
+
+      act(() => reviewMutate.mock.calls[0][1].onError(new Error("offline")));
+      act(() => vi.advanceTimersByTime(5000));
+      expect(reviewMutate).toHaveBeenCalledTimes(1);
+
+      fireEvent.blur(field);
+      expect(reviewMutate).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps save and next usable while a bonus save is running", () => {
+    reviewPending = true;
+    try {
+      responses = [...responses, response("c", "2026-09-24T10:10:00Z")];
+      render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      fireEvent.change(screen.getByLabelText("grading.bonus"), { target: { value: "3" } });
+      fireEvent.click(screen.getByRole("button", { name: /grading.saveAndNext/ }));
+
+      expect(reviewMutate).toHaveBeenCalledTimes(1);
+      act(() => reviewMutate.mock.calls[0][1].onSuccess());
+      expect(replace).toHaveBeenCalledWith("/surveys/s1/results/grade/c");
+    } finally {
+      reviewPending = false;
+    }
+  });
+
+  it("saves a bonus changed while an earlier bonus save is still running", () => {
+    reviewPending = true;
+    try {
+      render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      const field = screen.getByLabelText("grading.bonus");
+      fireEvent.change(field, { target: { value: "3" } });
+      fireEvent.blur(field);
+      fireEvent.change(field, { target: { value: "35" } });
+      fireEvent.blur(field);
+
+      expect(reviewMutate).toHaveBeenCalledTimes(2);
+      expect(reviewMutate.mock.calls[1][0]).toEqual({
+        responseId: "b",
+        review: { bonusPoints: 35, feedback: null },
+      });
+    } finally {
+      reviewPending = false;
+    }
+  });
+
+  it("does not save invalid bonus points on its own", () => {
+    vi.useFakeTimers();
+    try {
+      render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      const field = screen.getByLabelText("grading.bonus");
+      fireEvent.change(field, { target: { value: "1.5" } });
+      act(() => vi.advanceTimersByTime(1000));
+      fireEvent.blur(field);
+      expect(reviewMutate).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rejects bonus points that are not whole numbers", () => {
     render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
 
@@ -283,5 +390,40 @@ describe("GradingView file answers", () => {
     expect(screen.getByRole("link", { name: /grading.download/ }).getAttribute("href")).toContain(
       "name=erm.pdf",
     );
+  });
+});
+
+describe("GradingView page order", () => {
+  const original = survey;
+  beforeEach(() => {
+    mutate.mockReset();
+    feedbackMutate.mockReset();
+    feedbackMutate.mockResolvedValue([]);
+    survey = {
+      ...original,
+      sections: [{ id: "p2", title: "Part two", order: 0 }],
+      questions: [
+        { id: "sql", type: "short-answer", title: "Created first", required: false, order: 0, points: 2, sectionId: "p2" },
+        { id: "intro", type: "content", title: "Context text", required: false, order: 1 },
+        { id: "essay", type: "long-answer", title: "Added later", required: false, order: 2, points: 5 },
+      ],
+    } as unknown as Survey;
+    responses = [response("b", "2026-09-24T10:05:00Z")];
+  });
+
+  afterEach(() => {
+    survey = original;
+  });
+
+  it("lists questions in test order with page headings and ungraded content blocks", () => {
+    const { container } = render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+    const text = container.textContent ?? "";
+    const positions = ["Context text", "Added later", "Part two", "Created first"].map((s) =>
+      text.indexOf(s),
+    );
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect(positions).toEqual(positions.toSorted((a, b) => a - b));
+    expect(screen.getByRole("heading", { name: "Part two" })).toBeTruthy();
+    expect(screen.getAllByLabelText("grading.points")).toHaveLength(1);
   });
 });

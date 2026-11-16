@@ -4,6 +4,7 @@ const EXACT_DE: Record<string, string> = {
   "A paragraph answer is too long.": "Eine Absatz-Antwort ist zu lang.",
   "A rating answer is out of range.": "Eine Bewertung liegt außerhalb des gültigen Bereichs.",
   "A survey can have at most 10 webhooks.": "Eine Umfrage kann höchstens 10 Webhooks haben.",
+  "A survey can have at most 500 pages.": "Eine Umfrage kann höchstens 500 Seiten haben.",
   "A survey can have at most 10000 tokens.": "Eine Umfrage kann höchstens 10000 Tokens haben.",
   "A slider answer is out of range.": "Ein Schieberegler-Wert liegt außerhalb des gültigen Bereichs.",
   "A user with this email already exists": "Es gibt bereits ein Konto mit dieser E-Mail-Adresse.",

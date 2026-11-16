@@ -9,6 +9,7 @@ import type {
 } from "@/app/types/survey";
 import { saveTextFile } from "@/app/lib/native/file-share";
 import { isAnswerable } from "@/app/lib/survey/content-block";
+import { questionsInPageOrder } from "@/app/lib/survey/pagination";
 
 /** Build a label lookup (option/row/column id → label) for a question. */
 export function labelMap(question: Question | undefined): Record<string, string> {
@@ -65,7 +66,7 @@ export function buildResponsesCsv(
   survey: Survey,
   responses: SurveyResponseDto[],
 ): string {
-  const questions = survey.questions.filter((q) => isAnswerable(q.type));
+  const questions = questionsInPageOrder(survey).filter((q) => isAnswerable(q.type));
   const withToken = responses.some((r) => r.respondentToken);
   const header = [
     "Response ID",

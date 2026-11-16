@@ -283,6 +283,94 @@ class LiveSessionTest {
             .then().statusCode(200);
     }
 
+    private String[] createPagedQuiz() {
+        String id = given().contentType(ContentType.JSON)
+            .body("{\"title\":\"Paged\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String p = id.substring(0, 8);
+        savePagedQuiz(id, p, "p1", "p2");
+        return new String[] {id, "late-" + p, "early-" + p, p};
+    }
+
+    private void savePagedQuiz(String id, String p, String firstPage, String secondPage) {
+        given().contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Paged", "status": "published",
+                  "settings": {"isQuiz": true, "liveMode": true, "allowMultipleResponses": true},
+                  "sections": [{"id":"%2$s-%1$s","title":"First","order":0},{"id":"%3$s-%1$s","title":"Second","order":1}],
+                  "questions": [
+                    {"id":"late-%1$s","type":"multiple-choice","title":"Late","required":false,"order":0,
+                     "sectionId":"p2-%1$s","points":100,"correctAnswers":["ok-late-%1$s"],
+                     "options":[{"id":"ok-late-%1$s","label":"Right"},{"id":"no-late-%1$s","label":"Wrong"}]},
+                    {"id":"early-%1$s","type":"multiple-choice","title":"Early","required":false,"order":1,
+                     "sectionId":"p1-%1$s","points":100,"correctAnswers":["ok-early-%1$s"],
+                     "options":[{"id":"ok-early-%1$s","label":"Right"},{"id":"no-early-%1$s","label":"Wrong"}]}
+                  ]
+                }
+                """.formatted(p, firstPage, secondPage))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+    }
+
+    private int pickOn(String surveyId, String questionId, String player, String optionId) {
+        return given().contentType(ContentType.JSON)
+            .body("{\"respondentName\":\"" + player + "\",\"clientId\":\"" + player
+                + "\",\"answers\":[{\"questionId\":\"" + questionId + "\",\"value\":\"" + optionId + "\"}]}")
+            .when().post(SURVEYS + "/" + surveyId + "/responses")
+            .then().extract().statusCode();
+    }
+
+    @Test
+    @TestSecurity(user = "owner-page-order")
+    void theLiveIndexFollowsThePageOrder() {
+        var quiz = createPagedQuiz();
+        String survey = quiz[0];
+        String late = quiz[1];
+        String early = quiz[2];
+        String p = quiz[3];
+        startSession(survey);
+
+        assertEquals(400, pickOn(survey, late, "Ada", "ok-late-" + p));
+        assertEquals(201, pickOn(survey, early, "Ada", "no-early-" + p));
+        show(new String[] {survey}, 0, "reveal");
+        assertEquals(0, (int) liveScore(new String[] {survey}, "Ada"));
+        assertEquals(null, liveScore(new String[] {survey}, "Ada", late));
+
+        show(new String[] {survey}, 1, "question");
+        assertEquals(201, pickOn(survey, late, "Ada", "ok-late-" + p));
+        given().when().get(SURVEYS + "/" + survey + "/live/leaderboard")
+            .then().statusCode(200)
+            .body("data", hasSize(1))
+            .body("data[0].score", equalTo(0));
+
+        show(new String[] {survey}, 1, "reveal");
+        assertEquals(100, (int) liveScore(new String[] {survey}, "Ada"));
+        given().when().get(SURVEYS + "/" + survey + "/live/leaderboard")
+            .then().statusCode(200)
+            .body("data[0].score", equalTo(100));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-page-edit")
+    void theLeaderboardFollowsPagesMovedDuringASession() {
+        var quiz = createPagedQuiz();
+        String survey = quiz[0];
+        String p = quiz[3];
+        startSession(survey);
+        assertEquals(201, pickOn(survey, quiz[2], "Ada", "ok-early-" + p));
+        show(new String[] {survey}, 0, "reveal");
+        given().when().get(SURVEYS + "/" + survey + "/live/leaderboard")
+            .then().statusCode(200)
+            .body("data[0].score", equalTo(100));
+
+        savePagedQuiz(survey, p, "p2", "p1");
+        given().when().get(SURVEYS + "/" + survey + "/live/leaderboard")
+            .then().statusCode(200)
+            .body("data", hasSize(0));
+    }
+
     @Test
     @TestSecurity(user = "owner-timing")
     void answersAreOnlyTakenWhileTheQuestionIsShown() {

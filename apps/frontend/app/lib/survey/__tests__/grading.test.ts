@@ -41,6 +41,10 @@ describe("isGradable", () => {
     expect(isGradable(q({ type: "long-answer" }), true)).toBe(true);
     expect(isGradable(q({ type: "rating" }), false)).toBe(false);
   });
+
+  it("never grades a content block, even one that carries an answer key", () => {
+    expect(isGradable(q({ type: "content", correctAnswers: ["SQL"] }), false)).toBe(false);
+  });
 });
 
 describe("formatResultCode", () => {

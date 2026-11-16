@@ -1,6 +1,10 @@
 import type { Question, Survey } from "@/app/types/survey";
 import type { TranslateFn } from "@/app/i18n/context";
 import { isButtonComplete, safeButtonUrl } from "@/app/lib/survey/completion-buttons";
+import { questionsInPageOrder } from "@/app/lib/survey/pagination";
+
+export const MAX_QUESTIONS = 2000;
+export const MAX_SECTIONS = 500;
 
 /** A single thing the author must fix before the survey can be saved. */
 export interface BuilderSaveIssue {
@@ -42,6 +46,12 @@ export function validateSurveyForSave(
   if (isBlank(survey.title)) {
     issues.push({ message: t("builder.validation.surveyTitle") });
   }
+  if (survey.questions.length > MAX_QUESTIONS) {
+    issues.push({ message: t("builder.validation.tooManyQuestions", { max: String(MAX_QUESTIONS) }) });
+  }
+  if ((survey.sections?.length ?? 0) > MAX_SECTIONS) {
+    issues.push({ message: t("builder.validation.tooManyPages", { max: String(MAX_SECTIONS) }) });
+  }
 
   (survey.settings?.completionButtons ?? []).forEach((button, index) => {
     const n = String(index + 1);
@@ -54,7 +64,7 @@ export function validateSurveyForSave(
 
   if (!forPublish) return issues;
 
-  survey.questions.forEach((question, index) => {
+  questionsInPageOrder(survey).forEach((question, index) => {
     const n = String(index + 1);
     // A content block's heading is optional (public #7).
     if (question.type !== "content" && isBlank(question.title)) {

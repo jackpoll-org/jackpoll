@@ -2,11 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   evaluateCondition,
   getLogicRule,
-  getPrecedingQuestions,
   hasLogic,
   isQuestionVisible,
   withLogicRule,
 } from "@/app/lib/survey/logic";
+import { getPrecedingQuestions } from "@/app/lib/survey/pagination";
 import type { LogicRule, Question, Section, Survey } from "@/app/types/survey";
 
 function q(overrides: Partial<Question>): Question {
@@ -125,6 +125,19 @@ describe("getPrecedingQuestions", () => {
     // s1 (order 0) precedes s2 (order 1), so y comes before x.
     expect(getPrecedingQuestions(s, "x").map((q) => q.id)).toEqual(["y"]);
     expect(getPrecedingQuestions(s, "y")).toEqual([]);
+  });
+
+  it("follows the stored order in conversational mode, like the player", () => {
+    const sections: Section[] = [{ id: "s1", title: "One", order: 0 }];
+    const s = survey([pq("x", "s1"), pq("y", null)], sections);
+    s.settings.conversational = true;
+    expect(getPrecedingQuestions(s, "y").map((q) => q.id)).toEqual(["x"]);
+  });
+
+  it("treats a blank section id as the ungrouped first page", () => {
+    const sections: Section[] = [{ id: "s1", title: "One", order: 0 }];
+    const s = survey([pq("x", "s1"), pq("y", "")], sections);
+    expect(getPrecedingQuestions(s, "x").map((q) => q.id)).toEqual(["y"]);
   });
 });
 

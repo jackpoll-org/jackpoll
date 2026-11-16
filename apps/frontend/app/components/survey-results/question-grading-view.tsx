@@ -15,6 +15,7 @@ import {
   isGradable,
   maxPointsFor,
 } from "@/app/lib/survey/grading";
+import { questionsInPageOrder } from "@/app/lib/survey/pagination";
 import { AnswerGroupCard } from "./answer-group-card";
 
 interface QuestionGradingViewProps {
@@ -41,9 +42,9 @@ export function QuestionGradingView({ surveyId, questionId, sessionId }: Questio
   const gradable = useMemo(() => {
     const settings = survey.data?.settings;
     if (!settings?.isQuiz) return [];
-    return survey.data!.questions
-      .filter((q) => isGradable(q, settings.liveMode === true))
-      .toSorted((a, b) => a.order - b.order);
+    return questionsInPageOrder(survey.data!).filter((q) =>
+      isGradable(q, settings.liveMode === true),
+    );
   }, [survey.data]);
 
   const goTo = useCallback(

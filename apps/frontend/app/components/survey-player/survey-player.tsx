@@ -31,6 +31,7 @@ import { BrandingHeader, PoweredBy, brandingStyle } from "./branding-frame";
 import { useInstanceLegal } from "@/app/components/legal/instance-legal-context";
 import { SurveyLogo } from "@/app/components/live/survey-logo";
 import { SaveLaterDialog } from "./save-later-dialog";
+import { ContentBlockCard } from "./content-block-card";
 import { AnswerCorrections } from "./answer-corrections";
 import { CompletionButtons } from "./completion-buttons";
 import { allowsSaveLater } from "@/app/lib/survey/response-storage";
@@ -771,11 +772,9 @@ export function SurveyPlayer({
           return (
             <ContentBlockCard
               key={question.id}
-              question={{
-                ...question,
-                title: resolvePiping(question.title, answers, survey.questions),
-                description: resolvePiping(question.description, answers, survey.questions),
-              }}
+              question={question}
+              answers={answers}
+              questions={survey.questions}
             />
           );
         }
@@ -1093,23 +1092,5 @@ function ConfirmationScreen({
       {showSummary && <LiveResultsSummary survey={survey} />}
       <PoweredBy survey={survey} />
     </div>
-  );
-}
-
-/** A display-only content block (public #7): optional heading, text, image. */
-function ContentBlockCard({ question }: { question: Question }) {
-  const { Preview } = getQuestionTypeDefinition("content");
-  const heading = question.title.trim();
-  return (
-    <Card id={questionIds(question.id).group}>
-      {heading && (
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">{heading}</CardTitle>
-        </CardHeader>
-      )}
-      <CardContent>
-        <Preview question={question} />
-      </CardContent>
-    </Card>
   );
 }

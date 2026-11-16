@@ -1,6 +1,6 @@
-import type { Option, Question, Survey } from "@/app/types/survey";
+import type { Option, Survey } from "@/app/types/survey";
 import { localizeSurvey, resolveContentLocale } from "@/app/lib/survey/content-i18n";
-import { orderedQuestions } from "@/app/lib/survey/logic";
+import { questionsOnPlayerPages } from "@/app/lib/survey/pagination";
 
 function OptionList({ options }: { options?: Option[] | null }) {
   if (!options?.length) return null;
@@ -11,11 +11,6 @@ function OptionList({ options }: { options?: Option[] | null }) {
       ))}
     </ul>
   );
-}
-
-function questionsInPlayerOrder(survey: Survey): Question[] {
-  const flat = survey.settings.conversational || !survey.sections?.length;
-  return flat ? survey.questions : orderedQuestions(survey);
 }
 
 export function SurveyNoscript({
@@ -35,7 +30,7 @@ export function SurveyNoscript({
         <h1 className="text-2xl font-bold">{survey.title}</h1>
         {survey.description && <p>{survey.description}</p>}
         <ol className="list-decimal space-y-4 pl-5">
-          {questionsInPlayerOrder(survey).map((question) => (
+          {questionsOnPlayerPages(survey).map((question) => (
             <li key={question.id}>
               <h2 className="font-semibold">{question.title}</h2>
               {question.description && <p>{question.description}</p>}

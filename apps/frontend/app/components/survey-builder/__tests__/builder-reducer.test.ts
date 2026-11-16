@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { builderReducer, type BuilderState } from "../builder-reducer";
-import type { Survey } from "@/app/types/survey";
+import type { Question, Survey } from "@/app/types/survey";
+import { questionsInPageOrder } from "@/app/lib/survey/pagination";
 
 function baseSurvey(): Survey {
   return {
@@ -310,5 +311,41 @@ describe("builderReducer", () => {
     });
     const saved = builderReducer(dirty, { type: "saved", survey: baseSurvey() });
     expect(saved.locallyDirty).toBe(false);
+  });
+});
+
+describe("saving a survey the server returns in page order", () => {
+  const q = (id: string, sectionId: string | null, order: number) =>
+    ({ id, type: "short-answer", title: id, required: false, order, sectionId }) as Question;
+  const sections = [
+    { id: "p2", title: "Two", order: 1 },
+    { id: "p1", title: "One", order: 0 },
+  ];
+  const creationOrder = {
+    ...baseSurvey(),
+    sections,
+    questions: [q("late", "p2", 0), q("a", "p1", 1), q("u", null, 2), q("b", "p1", 3), q("later", "p2", 4)],
+  };
+  const pageOrder = {
+    ...creationOrder,
+    questions: questionsInPageOrder(creationOrder).map((x, order) => ({ ...x, order })),
+  };
+  const onPage = (survey: Survey, page: string | null) =>
+    survey.questions.filter((x) => (x.sectionId ?? null) === page).map((x) => x.id);
+
+  it("keeps every builder page's questions in the same order", () => {
+    const saved = builderReducer(state(creationOrder, true), { type: "saved", survey: pageOrder });
+    for (const page of [null, "p1", "p2"]) {
+      expect(onPage(saved.survey, page)).toEqual(onPage(creationOrder, page));
+    }
+    expect(saved.dirty).toBe(false);
+    expect(saved.survey.questions.map((x) => x.order)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("still reorders within a page after the save", () => {
+    const saved = builderReducer(state(creationOrder), { type: "saved", survey: pageOrder });
+    const moved = builderReducer(saved, { type: "reorderQuestions", activeId: "later", overId: "late" });
+    expect(onPage(moved.survey, "p2")).toEqual(["later", "late"]);
+    expect(onPage(moved.survey, "p1")).toEqual(["a", "b"]);
   });
 });

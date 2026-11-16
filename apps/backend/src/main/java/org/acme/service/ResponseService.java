@@ -245,8 +245,9 @@ public class ResponseService {
         if (shown != null && !"question".equals(shown.phase())) {
             throw badRequest("This question is no longer open.");
         }
-        String shownQuestionId = shown != null && shown.index() < survey.questions.size()
-            ? survey.questions.get(shown.index()).id : null;
+        var slides = shown != null ? SurveyPages.questionsInPageOrder(survey) : List.<Question>of();
+        String shownQuestionId = shown != null && shown.index() < slides.size()
+            ? slides.get(shown.index()).id : null;
         if (livePlayer && response.sessionId != null && shownQuestionId == null) {
             throw badRequest("This question is not open yet.");
         }
@@ -292,8 +293,8 @@ public class ResponseService {
                 long limitMs = seconds * 1000L;
                 boolean answeringShownQuestion = shown != null && shown.since() > 0
                     && "question".equals(shown.phase())
-                    && shown.index() < survey.questions.size()
-                    && values.containsKey(survey.questions.get(shown.index()).id);
+                    && shownQuestionId != null
+                    && values.containsKey(shownQuestionId);
                 long elapsed = answeringShownQuestion ? System.currentTimeMillis() - shown.since() : limitMs;
                 response.score = QuizScoring.speedAdjusted(response.score, elapsed, limitMs);
             }
@@ -797,14 +798,15 @@ public class ResponseService {
         var session = liveSessionRepository.findCurrent(surveyId).orElse(null);
         if (shown == null || hashed == null || session == null) return new LiveScoreDto(null);
         boolean shownClosed = "reveal".equals(shown.phase()) || "results".equals(shown.phase());
+        var slides = SurveyPages.questionsInPageOrder(survey);
         int target = questionId == null ? (shownClosed ? shown.index() : -1)
-            : survey.questions.stream().map(q -> q.id).toList().indexOf(questionId);
-        if (target < 0 || target >= survey.questions.size() || target > shown.index()
+            : slides.stream().map(q -> q.id).toList().indexOf(questionId);
+        if (target < 0 || target >= slides.size() || target > shown.index()
             || (target == shown.index() && !shownClosed)) {
             return new LiveScoreDto(null);
         }
         return new LiveScoreDto(responseRepository.playerScore(
-            surveyId, session.id, hashed, survey.questions.get(target).id));
+            surveyId, session.id, hashed, slides.get(target).id));
     }
 
     public StudentResultDto studentResult(String surveyId, String code) {
@@ -1006,7 +1008,7 @@ public class ResponseService {
             .findFirst()
             .orElse(null);
 
-        var questionResults = survey.questions.stream()
+        var questionResults = SurveyPages.questionsInPageOrder(survey).stream()
             .filter(q -> q.type.isAnswerable())
             .map(q -> aggregateQuestion(q, responses))
             .toList();
@@ -1050,7 +1052,7 @@ public class ResponseService {
             throw new ForbiddenAccessException("Live results are not enabled.");
         }
         var responses = responseRepository.findBySurvey(surveyId);
-        var questions = survey.questions.stream()
+        var questions = SurveyPages.questionsInPageOrder(survey).stream()
             .filter(q -> liveAllowed(survey, q))
             .map(q -> aggregateQuestion(q, responses))
             .toList();
@@ -1321,7 +1323,7 @@ public class ResponseService {
     private static List<CorrectionDto> corrections(Survey survey, Map<String, Object> values, List<String> shown) {
         var seen = new HashSet<String>(values.keySet());
         if (shown != null) seen.addAll(shown);
-        return survey.questions.stream()
+        return SurveyPages.questionsInPageOrder(survey).stream()
             .filter(q -> QuizScoring.isScorable(q) && seen.contains(q.id))
             .map(q -> {
                 var value = values.get(q.id);
@@ -1571,7 +1573,7 @@ public class ResponseService {
         return pdfService.render(buildResponseHtml(survey, response));
     }
 
-    private String buildResponseHtml(Survey survey, SurveyResponse response) {
+    String buildResponseHtml(Survey survey, SurveyResponse response) {
         var accent = survey.settings != null && survey.settings.accentColor != null
             && !survey.settings.accentColor.isBlank()
             ? survey.settings.accentColor : "#6d5ce7";
@@ -1587,6 +1589,8 @@ public class ResponseService {
           .append(".q{margin:0 0 12px;padding:0 0 12px;border-bottom:1px solid #eee;}")
           .append(".qt{font-weight:bold;margin:0 0 3px;}")
           .append(".qa{white-space:pre-wrap;}")
+          .append("h2{font-size:15px;margin:20px 0 4px;}")
+          .append(".pd{color:#666;white-space:pre-wrap;margin:0 0 12px;}")
           .append("</style></head><body>");
         sb.append("<h1>").append(esc(survey.title)).append("</h1>");
         sb.append("<p class=\"meta\">Submitted ")
@@ -1600,14 +1604,21 @@ public class ResponseService {
             }
             sb.append("</p>");
         }
-        var questions = survey.questions.stream()
-            .filter(q -> q.type.isAnswerable())
-            .sorted((a, b) -> Integer.compare(a.order, b.order)).toList();
-        for (var q : questions) {
-            sb.append("<div class=\"q\"><div class=\"qt\">").append(esc(q.title))
-              .append("</div><div class=\"qa\">")
-              .append(esc(renderAnswer(q, byId.get(q.id))))
-              .append("</div></div>");
+        for (var page : SurveyPages.pages(survey)) {
+            if (PlainText.hasText(page.title())) sb.append("<h2>").append(esc(page.title())).append("</h2>");
+            if (PlainText.hasText(page.description())) {
+                sb.append("<p class=\"pd\">").append(esc(page.description())).append("</p>");
+            }
+            for (var q : page.questions()) {
+                var title = PlainText.withoutPiping(q.title);
+                var body = q.type.isAnswerable() ? renderAnswer(q, byId.get(q.id))
+                    : PlainText.fromMarkdown(PlainText.withoutPiping(q.description));
+                if (!q.type.isAnswerable() && !PlainText.hasText(title) && !PlainText.hasText(body)) continue;
+                sb.append("<div class=\"q\">");
+                if (PlainText.hasText(title)) sb.append("<div class=\"qt\">").append(esc(title)).append("</div>");
+                if (PlainText.hasText(body)) sb.append("<div class=\"qa\">").append(esc(body)).append("</div>");
+                sb.append("</div>");
+            }
         }
         sb.append("</body></html>");
         return sb.toString();

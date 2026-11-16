@@ -27,6 +27,7 @@ import {
   defaultLanguageOf,
   getTranslation,
 } from "@/app/lib/survey/content-i18n";
+import { questionsInPageOrder } from "@/app/lib/survey/pagination";
 import type { Survey } from "@/app/types/survey";
 
 interface Field {
@@ -65,7 +66,7 @@ function collectFields(survey: Survey, t: TranslateFn): Field[] {
     push(fieldKeys.sectionDescription(s.id), s.description, t("builder.i18n.field.pageDescription"), true);
   }
 
-  survey.questions.forEach((q, i) => {
+  questionsInPageOrder(survey).forEach((q, i) => {
     const n = String(i + 1);
     push(
       fieldKeys.questionTitle(q.id),

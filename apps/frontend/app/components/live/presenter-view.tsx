@@ -108,7 +108,7 @@ function PresenterInner({ survey }: { survey: Survey }) {
   const game = isQuizGame(survey.settings);
   // Questions plus content blocks as info slides (public #7); participants
   // build the same list so the broadcast index stays aligned.
-  const questions = useMemo(() => liveSlides(survey.questions), [survey.questions]);
+  const questions = useMemo(() => liveSlides(survey), [survey]);
   const [index, setIndex] = useState(0);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   // Every live run opens in a lobby (join QR + PIN); the host starts from there.

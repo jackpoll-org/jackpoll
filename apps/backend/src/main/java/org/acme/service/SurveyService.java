@@ -161,6 +161,10 @@ public class SurveyService {
             survey.settings.studentResults = previous != null && previous.studentResults;
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
+        if (survey.sections != null && survey.sections.size() > org.acme.dto.SurveyDtos.MAX_SECTIONS) {
+            throw new IllegalArgumentException("A survey can have at most "
+                + org.acme.dto.SurveyDtos.MAX_SECTIONS + " pages.");
+        }
         ensureStorageNotNeeded(survey);
         ensureSafeButtonLinks(survey.settings);
         repository.persist(survey);
@@ -212,7 +216,10 @@ public class SurveyService {
     private static String scoringSignature(Survey survey) {
         if (survey.settings == null || !survey.settings.isQuiz) return "";
         var signature = new StringBuilder(String.valueOf(survey.settings.liveMode));
-        for (var q : survey.questions) {
+        var byId = survey.questions.stream()
+            .sorted(java.util.Comparator.comparing(q -> q.id, java.util.Comparator.nullsFirst(String::compareTo)))
+            .toList();
+        for (var q : byId) {
             var settings = q.settings != null ? q.settings : java.util.Map.<String, Object>of();
             signature.append('|').append(q.id).append(':').append(q.type).append(':').append(q.points)
                 .append(':').append(q.correctAnswers).append(':').append(q.caseSensitiveAnswers)

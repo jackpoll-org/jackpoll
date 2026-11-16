@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateSurveyForSave } from "../builder-validation";
+import { MAX_QUESTIONS, MAX_SECTIONS, validateSurveyForSave } from "../builder-validation";
 import type { Survey, Question } from "@/app/types/survey";
 import type { TranslateFn } from "@/app/i18n/context";
 
@@ -23,6 +23,7 @@ function survey(overrides: Partial<Survey>): Survey {
     id: "s1",
     title: "My survey",
     status: "draft",
+    settings: {},
     questions: [],
     sections: [],
     ...overrides,
@@ -63,6 +64,16 @@ describe("validateSurveyForSave", () => {
     const issues = validateSurveyForSave(s, t, true);
     expect(issues).toHaveLength(1);
     expect(issues[0].questionId).toBe("q2");
+    expect(issues[0].message).toBe('builder.validation.questionTitle:{"n":"2"}');
+  });
+
+  it("numbers questions in the player's page order", () => {
+    const s = survey({
+      sections: [{ id: "p2", title: "Two", order: 0 }],
+      questions: [question({ id: "late", title: "", sectionId: "p2" }), question({ id: "early", title: "ok" })],
+    });
+    const issues = validateSurveyForSave(s, t, true);
+    expect(issues[0].questionId).toBe("late");
     expect(issues[0].message).toBe('builder.validation.questionTitle:{"n":"2"}');
   });
 
@@ -130,6 +141,18 @@ describe("validateSurveyForSave completion buttons", () => {
     expect(issues.map((i) => i.message)).toEqual([
       'builder.validation.buttonIncomplete:{"n":"1"}',
       'builder.validation.buttonIncomplete:{"n":"2"}',
+    ]);
+  });
+
+  it("flags surveys over the question and page limits, even as drafts", () => {
+    const many = (n: number) => Array.from({ length: n }, (_, i) => question({ id: `q${i}` }));
+    const pages = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `s${i}`, order: i }));
+    expect(validateSurveyForSave(survey({ questions: many(MAX_QUESTIONS), sections: pages(MAX_SECTIONS) } as Partial<Survey>), t, false)).toEqual([]);
+    expect(
+      validateSurveyForSave(survey({ questions: many(MAX_QUESTIONS + 1), sections: pages(MAX_SECTIONS + 1) } as Partial<Survey>), t, false).map((i) => i.message),
+    ).toEqual([
+      'builder.validation.tooManyQuestions:{"max":"2000"}',
+      'builder.validation.tooManyPages:{"max":"500"}',
     ]);
   });
 });

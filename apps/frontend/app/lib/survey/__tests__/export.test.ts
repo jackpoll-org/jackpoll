@@ -153,6 +153,19 @@ describe("buildResponsesCsv", () => {
     expect(csv.split("\n")[0]).toBe("Response ID,Submitted at,Duration (s),Name");
   });
 
+  it("orders columns like the player: by page, then question order", () => {
+    const paged: Survey = {
+      ...survey,
+      sections: [{ id: "p2", title: "Two", order: 0 }],
+      questions: [
+        question({ id: "q1", title: "Later page", order: 0, sectionId: "p2" }),
+        question({ id: "q2", title: "First page", order: 1 }),
+      ],
+    };
+    const csv = buildResponsesCsv(paged, []);
+    expect(csv.split("\n")[0]).toBe("Response ID,Submitted at,Duration (s),First page,Later page");
+  });
+
   it("adds a token column when responses carry respondent tokens", () => {
     const csv = buildResponsesCsv(survey, [
       { id: "r1", submittedAt: "2026-06-11T10:00:00Z", respondentToken: "T-1", answers: [] },

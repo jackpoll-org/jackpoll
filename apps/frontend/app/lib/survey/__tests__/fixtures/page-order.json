@@ -1,0 +1,273 @@
+[
+  {
+    "name": "no sections keeps the stored order",
+    "conversational": false,
+    "sections": [],
+    "questions": [
+      {
+        "id": "c",
+        "sectionId": null
+      },
+      {
+        "id": "a",
+        "sectionId": null
+      },
+      {
+        "id": "b"
+      }
+    ],
+    "expected": [
+      "c",
+      "a",
+      "b"
+    ]
+  },
+  {
+    "name": "sections follow their order field, ungrouped first",
+    "conversational": false,
+    "sections": [
+      {
+        "id": "s2",
+        "order": 1
+      },
+      {
+        "id": "s1",
+        "order": 0
+      }
+    ],
+    "questions": [
+      {
+        "id": "x",
+        "sectionId": "s2"
+      },
+      {
+        "id": "u",
+        "sectionId": null
+      },
+      {
+        "id": "y",
+        "sectionId": "s1"
+      },
+      {
+        "id": "z",
+        "sectionId": "s2"
+      }
+    ],
+    "expected": [
+      "u",
+      "y",
+      "x",
+      "z"
+    ]
+  },
+  {
+    "name": "empty sections add no page",
+    "conversational": false,
+    "sections": [
+      {
+        "id": "empty",
+        "order": 0
+      },
+      {
+        "id": "s1",
+        "order": 1
+      },
+      {
+        "id": "empty2",
+        "order": 2
+      }
+    ],
+    "questions": [
+      {
+        "id": "a",
+        "sectionId": "s1"
+      },
+      {
+        "id": "b",
+        "sectionId": null
+      }
+    ],
+    "expected": [
+      "b",
+      "a"
+    ]
+  },
+  {
+    "name": "null and blank section ids are ungrouped and match no section",
+    "conversational": false,
+    "sections": [
+      {
+        "id": "",
+        "order": 0
+      },
+      {
+        "id": "  ",
+        "order": 1
+      },
+      {
+        "id": null,
+        "order": 2
+      },
+      {
+        "id": "s1",
+        "order": 3
+      }
+    ],
+    "questions": [
+      {
+        "id": "a",
+        "sectionId": null
+      },
+      {
+        "id": "b",
+        "sectionId": ""
+      },
+      {
+        "id": "d",
+        "sectionId": "s1"
+      },
+      {
+        "id": "c",
+        "sectionId": "  "
+      },
+      {
+        "id": "e"
+      }
+    ],
+    "expected": [
+      "a",
+      "b",
+      "c",
+      "e",
+      "d"
+    ]
+  },
+  {
+    "name": "orphaned section ids go last",
+    "conversational": false,
+    "sections": [
+      {
+        "id": "s1",
+        "order": 0
+      }
+    ],
+    "questions": [
+      {
+        "id": "o",
+        "sectionId": "gone"
+      },
+      {
+        "id": "a",
+        "sectionId": "s1"
+      },
+      {
+        "id": "b",
+        "sectionId": null
+      }
+    ],
+    "expected": [
+      "b",
+      "a",
+      "o"
+    ]
+  },
+  {
+    "name": "conversational mode keeps the stored order",
+    "conversational": true,
+    "sections": [
+      {
+        "id": "s2",
+        "order": 1
+      },
+      {
+        "id": "s1",
+        "order": 0
+      }
+    ],
+    "questions": [
+      {
+        "id": "x",
+        "sectionId": "s2"
+      },
+      {
+        "id": "y",
+        "sectionId": "s1"
+      },
+      {
+        "id": "z",
+        "sectionId": null
+      }
+    ],
+    "expected": [
+      "x",
+      "y",
+      "z"
+    ]
+  },
+  {
+    "name": "every question sectioned leaves no ungrouped page",
+    "conversational": false,
+    "sections": [
+      {
+        "id": "s1",
+        "order": 0
+      },
+      {
+        "id": "s2",
+        "order": 1
+      }
+    ],
+    "questions": [
+      {
+        "id": "b",
+        "sectionId": "s2"
+      },
+      {
+        "id": "a",
+        "sectionId": "s1"
+      },
+      {
+        "id": "c",
+        "sectionId": "s2"
+      }
+    ],
+    "expected": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  {
+    "name": "only ASCII whitespace counts as a blank section id",
+    "conversational": false,
+    "sections": [
+      {
+        "id": "\u00a0",
+        "order": 0
+      },
+      {
+        "id": "\u001c",
+        "order": 1
+      }
+    ],
+    "questions": [
+      {
+        "id": "n",
+        "sectionId": "\u00a0"
+      },
+      {
+        "id": "u",
+        "sectionId": " \t"
+      },
+      {
+        "id": "f",
+        "sectionId": "\u001c"
+      }
+    ],
+    "expected": [
+      "u",
+      "n",
+      "f"
+    ]
+  }
+]

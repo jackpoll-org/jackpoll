@@ -10,6 +10,7 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
 import { useReviewResponse } from "@/app/hooks/survey";
+import { useSaveAfterPause } from "@/app/hooks/use-save-after-pause";
 import { useTranslation } from "@/app/i18n/context";
 import { formatResultCode } from "@/app/lib/survey/grading";
 import type { SurveyResponseDto } from "@/app/types/survey";
@@ -29,23 +30,36 @@ export function ReviewCard({ surveyId, response, onNext }: ReviewCardProps) {
   const [bonus, setBonus] = useState(response.bonusPoints != null ? String(response.bonusPoints) : "");
   const [feedback, setFeedback] = useState(response.feedback ?? "");
   const [saved, setSaved] = useState(false);
+  const [bonusDirty, setBonusDirty] = useState(false);
+  const [bonusFailed, setBonusFailed] = useState(false);
   const bonusValue = parseBonus(bonus);
   const invalid = bonusValue === "invalid";
 
-  function save(then?: () => void) {
+  function save(announce: boolean, then?: () => void) {
     if (bonusValue === "invalid") return;
+    setBonusDirty(false);
     review.mutate(
       { responseId: response.id, review: { bonusPoints: bonusValue, feedback: feedback.trim() || null } },
       {
         onSuccess: () => {
           setSaved(true);
-          toast.success(t("grading.reviewSaved"));
+          if (announce) toast.success(t("grading.reviewSaved"));
           then?.();
         },
-        onError: (err) => toast.error(err instanceof Error ? err.message : t("grading.saveFailed")),
+        onError: (err) => {
+          setBonusDirty(true);
+          setBonusFailed(true);
+          toast.error(err instanceof Error ? err.message : t("grading.saveFailed"));
+        },
       },
     );
   }
+
+  function saveBonus() {
+    if (bonusDirty) save(false);
+  }
+
+  useSaveAfterPause(bonus, bonusDirty && !invalid && !review.isPending && !bonusFailed, saveBonus);
 
   return (
     <Card>
@@ -74,8 +88,11 @@ export function ReviewCard({ surveyId, response, onNext }: ReviewCardProps) {
             value={bonus}
             onChange={(e) => {
               setBonus(e.target.value);
+              setBonusDirty(true);
+              setBonusFailed(false);
               setSaved(false);
             }}
+            onBlur={saveBonus}
           />
           <p className={invalid ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
             {t("grading.bonusHelp", { max: String(MAX_BONUS) })}
@@ -104,15 +121,15 @@ export function ReviewCard({ surveyId, response, onNext }: ReviewCardProps) {
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <Button disabled={invalid || review.isPending} onClick={() => save()}>
+          <Button disabled={invalid} onClick={() => save(true)}>
             <Save className="size-4" /> {t("grading.saveReview")}
           </Button>
           {onNext && (
-            <Button variant="secondary" disabled={invalid || review.isPending} onClick={() => save(onNext)}>
+            <Button variant="secondary" disabled={invalid} onClick={() => save(true, onNext)}>
               <SkipForward className="size-4" /> {t("grading.saveAndNext")}
             </Button>
           )}
-          {saved && (
+          {saved && !bonusDirty && (
             <span className="flex items-center gap-1 text-sm text-muted-foreground">
               <Check className="size-4" /> {t("grading.saved")}
             </span>

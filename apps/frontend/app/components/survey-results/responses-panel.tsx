@@ -48,6 +48,7 @@ import { useTranslation } from "@/app/i18n/context";
 import type { Survey, SurveyResponseDto } from "@/app/types/survey";
 import { isAnswerable } from "@/app/lib/survey/content-block";
 import { isGradable } from "@/app/lib/survey/grading";
+import { questionsInPageOrder } from "@/app/lib/survey/pagination";
 
 type PassFilter = "all" | "passed" | "failed";
 
@@ -82,10 +83,11 @@ export function ResponsesPanel({
     all
       .toSorted((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
       .find((r) => r.gradingPending) ?? null;
+  const pageOrder = questionsInPageOrder(survey);
   const firstGradableQuestion = survey.settings.isQuiz
-    ? (survey.questions
-        .filter((q) => isGradable(q, survey.settings.liveMode === true))
-        .toSorted((a, b) => a.order - b.order)[0] ?? null)
+    ? (pageOrder.find((q) =>
+        isGradable(q, survey.settings.liveMode === true),
+      ) ?? null)
     : null;
   const filtered = all.filter((r) => {
     const t = new Date(r.submittedAt).getTime();
@@ -309,7 +311,7 @@ export function ResponsesPanel({
           </DialogHeader>
           {selected && (
             <div className="grid gap-3">
-              {survey.questions.filter((q) => isAnswerable(q.type)).map((q) => {
+              {pageOrder.filter((q) => isAnswerable(q.type)).map((q) => {
                 const answer = selected.answers.find((a) => a.questionId === q.id);
                 return (
                   <div key={q.id} className="grid gap-0.5">

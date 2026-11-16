@@ -19,6 +19,7 @@ import org.acme.entity.Survey;
 import org.acme.entity.SurveySettings;
 import org.acme.entity.User;
 import org.acme.service.QuizScoring;
+import org.acme.service.SurveyPages;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -60,7 +61,7 @@ public class SurveyMapper {
             s.description,
             s.status,
             toSettingsDto(s.settings),
-            s.questions.stream().map(q -> toQuestionDto(q, includeAnswers, isQuiz(s))).toList(),
+            toQuestionDtos(s, includeAnswers),
             toSectionDtos(s.sections),
             s.tags != null ? s.tags : java.util.List.of(),
             s.folderId,
@@ -149,14 +150,21 @@ public class SurveyMapper {
         return s.settings != null && s.settings.isQuiz;
     }
 
-    private QuestionDto toQuestionDto(Question q, boolean includeAnswers, boolean quiz) {
+    private List<QuestionDto> toQuestionDtos(Survey s, boolean includeAnswers) {
+        var questions = SurveyPages.questionsInPageOrder(s);
+        return java.util.stream.IntStream.range(0, questions.size())
+            .mapToObj(i -> toQuestionDto(questions.get(i), i, includeAnswers, isQuiz(s)))
+            .toList();
+    }
+
+    private QuestionDto toQuestionDto(Question q, int order, boolean includeAnswers, boolean quiz) {
         return new QuestionDto(
             q.id,
             q.type,
             q.title,
             q.description,
             q.required,
-            q.order,
+            order,
             includeAnswers || !quiz ? optionsOfKind(q, OptionKind.OPTION) : respondentOptions(q),
             optionsOfKind(q, OptionKind.ROW),
             optionsOfKind(q, OptionKind.COLUMN),
@@ -165,7 +173,7 @@ public class SurveyMapper {
             includeAnswers ? q.correctAnswers : null,
             q.caseSensitiveAnswers,
             q.showInLiveResults,
-            q.sectionId
+            SurveyPages.sectionKey(q.sectionId)
         );
     }
 
@@ -272,7 +280,7 @@ public class SurveyMapper {
             nextOrder = Math.max(nextOrder, section.order + 1);
         }
         for (var q : questions) {
-            if (q.sectionId != null && known.add(q.sectionId)) {
+            if (SurveyPages.sectionKey(q.sectionId) != null && known.add(q.sectionId)) {
                 var section = new Section();
                 section.id = q.sectionId;
                 section.order = nextOrder++;
@@ -389,7 +397,7 @@ public class SurveyMapper {
         var order = 0;
         for (var d : dtos) {
             var s = new Section();
-            s.id = d.id() != null ? d.id() : UUID.randomUUID().toString();
+            s.id = SurveyPages.sectionKey(d.id()) != null ? d.id() : UUID.randomUUID().toString();
             s.title = d.title();
             s.description = d.description();
             s.order = order++;
@@ -410,7 +418,7 @@ public class SurveyMapper {
         q.correctAnswers = d.correctAnswers();
         q.caseSensitiveAnswers = d.caseSensitiveAnswers();
         q.showInLiveResults = d.showInLiveResults();
-        q.sectionId = d.sectionId();
+        q.sectionId = SurveyPages.sectionKey(d.sectionId());
 
         mergeOptions(q, d.options(), OptionKind.OPTION);
         mergeOptions(q, d.rows(), OptionKind.ROW);

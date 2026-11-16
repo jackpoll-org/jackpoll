@@ -51,7 +51,7 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
   const isQuiz = !!survey.settings.isQuiz;
   // Same slide list as the presenter (questions + info slides) so the
   // broadcast index points at the same slide here.
-  const questions = useMemo(() => liveSlides(survey.questions), [survey.questions]);
+  const questions = useMemo(() => liveSlides(survey), [survey]);
   // Phones show only the answer buttons; the question is on the big screen.
   const hideQuestion = !!survey.settings.liveHideQuestionOnDevices;
   const [index, setIndex] = useState<number | null>(null);

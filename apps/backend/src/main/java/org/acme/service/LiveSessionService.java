@@ -10,6 +10,7 @@ import org.acme.dto.ResponseDtos.LiveSessionDto;
 import org.acme.entity.LiveSession;
 import org.acme.repository.LiveSessionRepository;
 import org.acme.repository.ResponseRepository;
+import org.acme.repository.SurveyRepository;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -31,6 +32,9 @@ public class LiveSessionService {
 
     @Inject
     ResponseRepository responses;
+
+    @Inject
+    SurveyRepository surveys;
 
     @Inject
     LivePresentService livePresent;
@@ -62,10 +66,11 @@ public class LiveSessionService {
         int capped = Math.max(1, Math.min(limit, MAX_LEADERBOARD));
         var shown = livePresent.getState(surveyId);
         if (shown == null) return List.of();
-        Integer shownOrder = responses.questionOrderAt(surveyId, shown.index());
-        int maxOrder = shownOrder == null ? Integer.MAX_VALUE
-            : "reveal".equals(shown.phase()) || "results".equals(shown.phase()) ? shownOrder : shownOrder - 1;
-        return responses.leaderboard(surveyId, current.get().id, maxOrder, capped).stream()
+        var slides = surveys.findPageLayout(surveyId).map(SurveyPages::questionsInPageOrder).orElse(List.of());
+        boolean shownClosed = "reveal".equals(shown.phase()) || "results".equals(shown.phase());
+        int firstHidden = Math.min(slides.size(), shownClosed ? shown.index() + 1 : shown.index());
+        var hidden = slides.subList(firstHidden, slides.size()).stream().map(q -> q.id).toList();
+        return responses.leaderboard(surveyId, current.get().id, hidden, capped).stream()
             .map(row -> new LeaderboardEntryDto((String) row[0], ((Number) row[1]).longValue()))
             .toList();
     }
