@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { builderReducer, type BuilderState } from "../builder-reducer";
+import { FIRST_PAGE_ID, builderReducer, firstPageSectionId, type BuilderState } from "../builder-reducer";
 import type { Question, Survey } from "@/app/types/survey";
 import { questionsInPageOrder } from "@/app/lib/survey/pagination";
 
@@ -92,6 +92,132 @@ describe("builderReducer", () => {
     expect(next.survey.sections).toHaveLength(1);
     expect(next.survey.sections?.[0].id).toBe("sec-fixed");
     expect(next.survey.sections?.[0].order).toBe(0);
+  });
+
+  describe("reorderSections", () => {
+    function paged(): BuilderState {
+      const q = (id: string, sectionId: string | null, order: number) =>
+        ({ id, type: "short-answer", title: id, required: false, order, sectionId }) as Survey["questions"][number];
+      return state({
+        ...baseSurvey(),
+        sections: [
+          { id: "a", order: 0 },
+          { id: "b", order: 1 },
+          { id: "c", order: 2 },
+        ],
+        questions: [q("p1", null, 0), q("a1", "a", 1), q("b1", "b", 2), q("b2", "b", 3), q("c1", "c", 4), q("orphan", "gone", 5)],
+      });
+    }
+
+    it("moves a page to the drop target and renumbers section order", () => {
+      const next = builderReducer(paged(), { type: "reorderSections", activeId: "c", overId: "a" });
+      expect(next.survey.sections?.map((s) => [s.id, s.order])).toEqual([["c", 0], ["a", 1], ["b", 2]]);
+      expect(next.dirty).toBe(true);
+      expect(next.locallyDirty).toBe(true);
+    });
+
+    it("keeps each question on its page and puts question order into the new page flow", () => {
+      const next = builderReducer(paged(), { type: "reorderSections", activeId: "b", overId: "a" });
+      expect(next.survey.questions.map((q) => [q.id, q.sectionId, q.order])).toEqual([
+        ["p1", null, 0],
+        ["b1", "b", 1],
+        ["b2", "b", 2],
+        ["a1", "a", 3],
+        ["c1", "c", 4],
+        ["orphan", "gone", 5],
+      ]);
+    });
+
+    function withFirstPageHeading(): BuilderState {
+      const s = paged();
+      return { ...s, survey: { ...s.survey, settings: { ...s.survey.settings, firstPageTitle: "Intro", firstPageDescription: "Hello" } } };
+    }
+
+    it("turns Page 1 into a real page when it is moved, then reorders", () => {
+      const next = builderReducer(withFirstPageHeading(), {
+        type: "reorderSections",
+        activeId: FIRST_PAGE_ID,
+        overId: "b"
+      });
+      expect(next.survey.sections?.map((s) => [s.id, s.order, s.title, s.description])).toEqual([
+        ["a", 0, undefined, undefined],
+        ["b", 1, undefined, undefined],
+        ["s1-page-1", 2, "Intro", "Hello"],
+        ["c", 3, undefined, undefined],
+      ]);
+      expect(next.survey.settings).not.toHaveProperty("firstPageTitle");
+      expect(next.survey.settings).not.toHaveProperty("firstPageDescription");
+      expect(next.survey.questions.map((q) => [q.id, q.sectionId, q.order])).toEqual([
+        ["a1", "a", 0],
+        ["b1", "b", 1],
+        ["b2", "b", 2],
+        ["p1", "s1-page-1", 3],
+        ["c1", "c", 4],
+        ["orphan", "gone", 5],
+      ]);
+      expect(next.locallyDirty).toBe(true);
+    });
+
+    it("treats a whitespace-only section id as Page 1 when converting", () => {
+      const s = paged();
+      const questions = s.survey.questions.map((q) => (q.id === "p1" ? { ...q, sectionId: " " } : q));
+      const next = builderReducer({ ...s, survey: { ...s.survey, questions } }, {
+        type: "reorderSections",
+        activeId: FIRST_PAGE_ID,
+        overId: "b"
+      });
+      expect(next.survey.questions.find((q) => q.id === "p1")?.sectionId).toBe("s1-page-1");
+    });
+
+    it("keeps the question order when pages move in conversational mode", () => {
+      const s = paged();
+      const conversational = { ...s, survey: { ...s.survey, settings: { ...s.survey.settings, conversational: true } } };
+      const before = conversational.survey.questions.map((q) => q.id);
+      const next = builderReducer(conversational, { type: "reorderSections", activeId: "c", overId: "a" });
+      expect(next.survey.sections?.map((x) => x.id)).toEqual(["c", "a", "b"]);
+      expect(next.survey.questions.map((q) => q.id)).toEqual(before);
+    });
+
+    it("turns Page 1 into a real page when another page is dropped before it", () => {
+      const next = builderReducer(withFirstPageHeading(), {
+        type: "reorderSections",
+        activeId: "c",
+        overId: FIRST_PAGE_ID
+      });
+      expect(next.survey.sections?.map((s) => s.id)).toEqual(["c", "s1-page-1", "a", "b"]);
+      expect(next.survey.questions.filter((q) => q.sectionId == null)).toEqual([]);
+      expect(next.survey.questions.map((q) => q.id)).toEqual(["c1", "p1", "a1", "b1", "b2", "orphan"]);
+    });
+
+    it("gives the converted Page 1 the same id on every editor", () => {
+      const move = { type: "reorderSections", activeId: FIRST_PAGE_ID, overId: "a" } as const;
+      const one = builderReducer(withFirstPageHeading(), move);
+      const two = builderReducer(withFirstPageHeading(), move);
+      expect(one.survey.sections?.[1].id).toBe("s1-page-1");
+      expect(two.survey.sections?.map((s) => s.id)).toEqual(one.survey.sections?.map((s) => s.id));
+    });
+
+    it("derives a free id when the converted Page 1 id is taken", () => {
+      const s = paged().survey;
+      expect(firstPageSectionId(s)).toBe("s1-page-1");
+      const taken = { ...s, sections: [...(s.sections ?? []), { id: "s1-page-1", order: 3 }, { id: "s1-page-1-2", order: 4 }] };
+      expect(firstPageSectionId(taken)).toBe("s1-page-1-3");
+    });
+
+    it("leaves Page 1 implicit when it is not involved", () => {
+      const initial = withFirstPageHeading();
+      const next = builderReducer(initial, { type: "reorderSections", activeId: "c", overId: "a" });
+      expect(next.survey.sections?.map((s) => s.id)).toEqual(["c", "a", "b"]);
+      expect(next.survey.settings).toEqual(initial.survey.settings);
+      expect(next.survey.questions.find((q) => q.id === "p1")?.sectionId).toBeNull();
+    });
+
+    it("is a no-op for the same id or an unknown id", () => {
+      const initial = paged();
+      expect(builderReducer(initial, { type: "reorderSections", activeId: "a", overId: "a" })).toBe(initial);
+      expect(builderReducer(initial, { type: "reorderSections", activeId: "x", overId: "a" })).toBe(initial);
+      expect(builderReducer(initial, { type: "reorderSections", activeId: FIRST_PAGE_ID, overId: "x" })).toBe(initial);
+    });
   });
 
   it("updateQuestion patches only the targeted question", () => {

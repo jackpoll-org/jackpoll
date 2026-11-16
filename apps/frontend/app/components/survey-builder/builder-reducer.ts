@@ -10,6 +10,7 @@ import type {
 import { newId } from "@/app/components/question-types/helpers";
 import { getQuestionTypeDefinition } from "@/app/components/question-types/registry";
 import { PROTECTED_SETTINGS, type CollabContent } from "@/app/lib/collab/doc";
+import { questionsInPageOrder, sectionKey } from "@/app/lib/survey/pagination";
 
 export interface BuilderState {
   survey: Survey;
@@ -48,13 +49,15 @@ export type BuilderAction =
   | { type: "addSection"; id?: string }
   | { type: "updateSection"; id: string; patch: Partial<Section> }
   | { type: "removeSection"; id: string }
-  | { type: "moveSection"; id: string; direction: "up" | "down" }
+  | { type: "reorderSections"; activeId: string; overId: string }
   | { type: "setQuestionSection"; questionId: string; sectionId: string | null }
   // Multilingual content (issue #37)
   | { type: "setLanguages"; languages: string[]; defaultLanguage: string }
   | { type: "setTranslation"; locale: string; key: string; value: string }
   // Live co-editing: merge a remote document snapshot (issue #85)
   | { type: "applyRemote"; content: CollabContent };
+
+export const FIRST_PAGE_ID = "__first-page__";
 
 /** Reassign sequential `order` values after structural changes. */
 function reorder(questions: Question[]): Question[] {
@@ -219,14 +222,20 @@ function coreReducer(state: CoreState, action: BuilderAction): CoreState {
       return { survey: { ...state.survey, sections, questions }, dirty: true };
     }
 
-    case "moveSection": {
-      const sections = state.survey.sections ?? [];
-      const index = sections.findIndex((s) => s.id === action.id);
-      if (index < 0) return state;
-      const target = action.direction === "up" ? index - 1 : index + 1;
-      if (target < 0 || target >= sections.length) return state;
-      const next = reorderSections(arrayMove(sections, index, target));
-      return { survey: { ...state.survey, sections: next }, dirty: true };
+    case "reorderSections": {
+      if (action.activeId === action.overId) return state;
+      const base =
+        action.activeId === FIRST_PAGE_ID || action.overId === FIRST_PAGE_ID
+          ? convertFirstPage(state.survey, firstPageSectionId(state.survey))
+          : { survey: state.survey, id: FIRST_PAGE_ID };
+      const toId = (id: string) => (id === FIRST_PAGE_ID ? base.id : id);
+      const sections = base.survey.sections ?? [];
+      const from = sections.findIndex((s) => s.id === toId(action.activeId));
+      const to = sections.findIndex((s) => s.id === toId(action.overId));
+      if (from < 0 || to < 0) return state;
+      const survey = { ...base.survey, sections: reorderSections(arrayMove(sections, from, to)) };
+      const questions = reorder([...new Set(questionsInPageOrder(survey))]);
+      return { survey: { ...survey, questions }, dirty: true };
     }
 
     case "setQuestionSection": {
@@ -264,6 +273,28 @@ function coreReducer(state: CoreState, action: BuilderAction): CoreState {
     default:
       return state;
   }
+}
+
+export function firstPageSectionId(survey: Survey): string {
+  const taken = new Set((survey.sections ?? []).map((s) => s.id));
+  const base = `${survey.id}-page-1`;
+  let id = base;
+  for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+  return id;
+}
+
+function convertFirstPage(survey: Survey, id: string): { survey: Survey; id: string } {
+  const { firstPageTitle, firstPageDescription, ...settings } = survey.settings;
+  const section: Section = { id, title: firstPageTitle, description: firstPageDescription, order: 0 };
+  return {
+    id,
+    survey: {
+      ...survey,
+      settings,
+      sections: [section, ...(survey.sections ?? [])],
+      questions: survey.questions.map((q) => (sectionKey(q.sectionId) !== null ? q : { ...q, sectionId: id })),
+    },
+  };
 }
 
 /** Remove disabled locales and the default locale (canonical fields win). */

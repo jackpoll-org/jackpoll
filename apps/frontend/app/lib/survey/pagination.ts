@@ -17,6 +17,15 @@ export interface SurveyPage {
   questions: Question[];
 }
 
+export function hasImplicitFirstPage(survey: Survey): boolean {
+  return (
+    !survey.sections?.length ||
+    survey.questions.some((q) => sectionKey(q.sectionId) === null) ||
+    !!survey.settings.firstPageTitle ||
+    !!survey.settings.firstPageDescription
+  );
+}
+
 /**
  * Build the ordered, currently-visible pages for a survey. Conditional logic
  * (#6) hides questions and whole sections; empty pages are dropped.
@@ -58,7 +67,7 @@ function layoutAllPages(survey: Survey): SurveyPage[] {
   return layoutPages(survey, () => true, () => true);
 }
 
-function sectionKey(id: string | null | undefined): string | null {
+export function sectionKey(id: string | null | undefined): string | null {
   return id == null || /^[ \t\n\r\f\v]*$/.test(id) ? null : id;
 }
 

@@ -28,6 +28,7 @@ import { QuestionCard } from "./question-card";
 import { AddQuestionButton } from "./add-question-button";
 import { PageTabs } from "./page-tabs";
 import { BuilderSettings } from "./builder-settings";
+import { sectionKey } from "@/app/lib/survey/pagination";
 import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
 import { useTranslation } from "@/app/i18n/context";
 
@@ -56,7 +57,7 @@ function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
   const { survey, markSaved, reorderQuestions, locallyDirty, ready, activePageId, setAttemptedSave } =
     useBuilder();
   const pageQuestions = survey.questions.filter(
-    (q) => (q.sectionId ?? null) === activePageId,
+    (q) => sectionKey(q.sectionId) === activePageId,
   );
   const updateSurvey = useUpdateSurvey(surveyId);
   const [savingOverride, setSavingOverride] = useState(false);

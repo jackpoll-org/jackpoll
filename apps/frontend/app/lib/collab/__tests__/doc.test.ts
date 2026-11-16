@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as Y from "yjs";
 import { applyContentToDoc, docToContent, type CollabContent } from "../doc";
 import type { Question } from "@/app/types/survey";
+import { FIRST_PAGE_ID, builderReducer } from "@/app/components/survey-builder/builder-reducer";
 
 function q(id: string, title: string, order: number): Question {
   return {
@@ -45,6 +46,56 @@ function content(questions: Question[]): CollabContent {
 }
 
 describe("collab doc binding", () => {
+  it("syncs Page 1 turned into a real page to a peer", () => {
+    const base = { ...content([q("q1", "Q1", 0)]), sections: [{ id: "a", order: 0 }] };
+    base.settings = { ...base.settings, firstPageTitle: "Intro", firstPageDescription: "Hello" };
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    applyContentToDoc(a, base);
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+
+    const survey = { ...base, id: "s", ownerId: "o", createdAt: "", updatedAt: "" };
+    const next = builderReducer(
+      { survey, dirty: false, locallyDirty: false },
+      { type: "reorderSections", activeId: FIRST_PAGE_ID, overId: "a" },
+    ).survey;
+    applyContentToDoc(a, { ...next, sections: next.sections ?? [] });
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)));
+
+    const out = docToContent(b);
+    expect(out.sections.map((s) => [s.id, s.title, s.description])).toEqual([
+      ["a", undefined, undefined],
+      ["s-page-1", "Intro", "Hello"],
+    ]);
+    expect(out.settings).not.toHaveProperty("firstPageTitle");
+    expect(out.settings).not.toHaveProperty("firstPageDescription");
+    expect(out.questions.map((x) => x.sectionId)).toEqual(["s-page-1"]);
+  });
+
+  it("merges Page 1 moved by two editors at once into one page", () => {
+    const base = { ...content([q("q1", "Q1", 0)]), sections: [{ id: "a", order: 0 }] };
+    const survey = { ...base, id: "s", ownerId: "o", createdAt: "", updatedAt: "" };
+    const [a, b] = [new Y.Doc(), new Y.Doc()];
+    applyContentToDoc(a, base);
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+
+    for (const doc of [a, b]) {
+      const next = builderReducer(
+        { survey, dirty: false, locallyDirty: false },
+        { type: "reorderSections", activeId: FIRST_PAGE_ID, overId: "a" },
+      ).survey;
+      applyContentToDoc(doc, { ...next, sections: next.sections ?? [] });
+    }
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)));
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b, Y.encodeStateVector(a)));
+
+    for (const doc of [a, b]) {
+      const out = docToContent(doc);
+      expect(out.sections.map((s) => s.id)).toEqual(["a", "s-page-1"]);
+      expect(out.questions.map((x) => x.sectionId)).toEqual(["s-page-1"]);
+    }
+  });
+
   it("round-trips content through the Y.Doc, sorted by order", () => {
     const doc = new Y.Doc();
     applyContentToDoc(doc, content([q("b", "Two", 1), q("a", "One", 0)]));

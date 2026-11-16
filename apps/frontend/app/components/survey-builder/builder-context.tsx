@@ -17,7 +17,8 @@ import type {
   Survey,
   SurveySettings,
 } from "@/app/types/survey";
-import { builderReducer } from "./builder-reducer";
+import { FIRST_PAGE_ID, builderReducer, firstPageSectionId } from "./builder-reducer";
+import { hasImplicitFirstPage } from "@/app/lib/survey/pagination";
 import { useAuthContext } from "@/app/components/auth/auth-provider";
 import {
   CollabProvider,
@@ -79,7 +80,7 @@ interface BuilderContextValue {
   addSection: (id?: string) => void;
   updateSection: (id: string, patch: Partial<Section>) => void;
   removeSection: (id: string) => void;
-  moveSection: (id: string, direction: "up" | "down") => void;
+  reorderSections: (activeId: string, overId: string) => void;
   setQuestionSection: (questionId: string, sectionId: string | null) => void;
   // Multilingual content (issue #37)
   setLanguages: (languages: string[], defaultLanguage: string) => void;
@@ -186,7 +187,13 @@ export function BuilderProvider({
     (patch) => dispatch({ type: "updateSettings", patch }),
     [],
   );
-  const [activePageId, setActivePageId] = useState<string | null>(null);
+  const [activePageId, setActivePageId] = useState<string | null>(() =>
+    hasImplicitFirstPage(initialSurvey) ? null : (initialSurvey.sections?.[0]?.id ?? null),
+  );
+  const sections = state.survey.sections ?? [];
+  if (activePageId != null && !sections.some((s) => s.id === activePageId)) {
+    setActivePageId(hasImplicitFirstPage(state.survey) ? null : (sections[0]?.id ?? null));
+  }
   const [attemptedSave, setAttemptedSave] = useState(false);
 
   // ── Follow location (issue #85) ──────────────────────────────────
@@ -208,6 +215,7 @@ export function BuilderProvider({
     publishLocation();
   }, [activePageId, publishLocation]);
 
+  const sectionIdsKey = (state.survey.sections ?? []).map((s) => s.id).join("\n");
   // Follow mode: mirror the followed peer's page, then scroll to their question.
   useEffect(() => {
     if (followingClientId == null) return;
@@ -220,8 +228,11 @@ export function BuilderProvider({
     }
     // Switch to the peer's page first; this effect re-runs on the activePageId
     // change and then scrolls to their question once it's mounted.
-    if ((target.pageId ?? null) !== (activePageId ?? null)) {
-      setActivePageId(target.pageId ?? null);
+    const targetPageId = target.pageId ?? null;
+    const targetExists =
+      targetPageId == null || sectionIdsKey.split("\n").includes(targetPageId);
+    if (targetExists && targetPageId !== activePageId) {
+      setActivePageId(targetPageId);
       return;
     }
     if (target.questionId) {
@@ -229,7 +240,7 @@ export function BuilderProvider({
         .querySelector(`[data-question-id="${CSS.escape(target.questionId)}"]`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [presence, followingClientId, activePageId]);
+  }, [presence, followingClientId, activePageId, sectionIdsKey]);
   const addQuestion = useCallback<BuilderContextValue["addQuestion"]>(
     (type, sectionId, init) =>
       dispatch({ type: "addQuestion", questionType: type, sectionId, init }),
@@ -265,10 +276,16 @@ export function BuilderProvider({
     (id: string) => dispatch({ type: "removeSection", id }),
     [],
   );
-  const moveSection = useCallback(
-    (id: string, direction: "up" | "down") =>
-      dispatch({ type: "moveSection", id, direction }),
-    [],
+  const reorderSections = useCallback(
+    (activeId: string, overId: string) => {
+      const firstPageId = firstPageSectionId(state.survey);
+      dispatch({ type: "reorderSections", activeId, overId });
+      const movesFirstPage = activeId === FIRST_PAGE_ID || overId === FIRST_PAGE_ID;
+      if (movesFirstPage && activeId !== overId && activePageId == null) {
+        setActivePageId(firstPageId);
+      }
+    },
+    [activePageId, state.survey],
   );
   const setQuestionSection = useCallback<BuilderContextValue["setQuestionSection"]>(
     (questionId, sectionId) =>
@@ -349,7 +366,7 @@ export function BuilderProvider({
       addSection,
       updateSection,
       removeSection,
-      moveSection,
+      reorderSections,
       setQuestionSection,
       setLanguages,
       setTranslation,
@@ -381,7 +398,7 @@ export function BuilderProvider({
       addSection,
       updateSection,
       removeSection,
-      moveSection,
+      reorderSections,
       setQuestionSection,
       setLanguages,
       setTranslation,

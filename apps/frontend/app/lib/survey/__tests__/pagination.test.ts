@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAllPages, buildPages } from "../pagination";
+import { buildAllPages, buildPages, hasImplicitFirstPage } from "../pagination";
 import type { Question, Section, Survey } from "@/app/types/survey";
 
 function q(id: string, sectionId?: string | null, extra: Partial<Question> = {}): Question {
@@ -138,5 +138,38 @@ describe("buildAllPages", () => {
     ]);
     s.settings.conversational = true;
     expect(buildAllPages(s).flatMap((p) => p.questions.map((x) => x.id))).toEqual(["a", "b"]);
+  });
+});
+
+describe("hasImplicitFirstPage", () => {
+  it("keeps Page 1 for flat surveys, ungrouped questions or a Page 1 heading", () => {
+    expect(hasImplicitFirstPage(survey([]))).toBe(true);
+    expect(hasImplicitFirstPage(survey([q("a"), q("b", "s")], [{ id: "s", order: 0 }]))).toBe(true);
+    const titled = survey([q("b", "s")], [{ id: "s", order: 0 }]);
+    titled.settings.firstPageTitle = "Intro";
+    expect(hasImplicitFirstPage(titled)).toBe(true);
+  });
+
+  it("drops Page 1 once every question belongs to a page", () => {
+    expect(hasImplicitFirstPage(survey([q("a", "s")], [{ id: "s", order: 0 }]))).toBe(false);
+  });
+});
+
+describe("buildPages after Page 1 became a section", () => {
+  it("starts with the moved pages and shows no empty first page", () => {
+    const pages = buildPages(
+      survey(
+        [q("a", "s2"), q("b", "s1")],
+        [
+          { id: "s2", order: 0, title: "Second" },
+          { id: "s1", order: 1, title: "Intro", description: "Hello" },
+        ],
+      ),
+      {},
+    );
+    expect(pages.map((p) => [p.sectionId, p.title, p.description])).toEqual([
+      ["s2", "Second", undefined],
+      ["s1", "Intro", "Hello"],
+    ]);
   });
 });

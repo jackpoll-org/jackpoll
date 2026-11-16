@@ -38,6 +38,7 @@ import { getValidationRules } from "@/app/lib/survey/validation";
 import { ResultChartSelect } from "./result-chart-select";
 import { isAnswerable } from "@/app/lib/survey/content-block";
 import { storesResponses } from "@/app/lib/survey/response-storage";
+import { hasImplicitFirstPage, sectionKey } from "@/app/lib/survey/pagination";
 
 interface QuestionCardProps {
   question: Question;
@@ -72,6 +73,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
   const answerable = isAnswerable(question.type);
   const titleMissing = answerable && attemptedSave && !question.title.trim();
   const sections = survey.sections ?? [];
+  const hasFirstPage = hasImplicitFirstPage(survey);
   // Collaborators currently editing this question (issue #85).
   const peers = focusByQuestion.get(question.id) ?? [];
   const peer = peers[0];
@@ -264,7 +266,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
                 <div className="flex items-center gap-2">
                   <Label className="text-sm font-normal">{t("builder.question.pageLabel")}</Label>
                   <Select
-                    value={question.sectionId ?? "__none__"}
+                    value={sectionKey(question.sectionId) ?? "__none__"}
                     onValueChange={(v) =>
                       setQuestionSection(question.id, v === "__none__" ? null : v)
                     }
@@ -273,12 +275,15 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">
-                        {t("builder.page.numbered", { n: "1" })}
-                      </SelectItem>
+                      {hasFirstPage && (
+                        <SelectItem value="__none__">
+                          {t("builder.page.numbered", { n: "1" })}
+                        </SelectItem>
+                      )}
                       {sections.map((s, i) => (
                         <SelectItem key={s.id} value={s.id}>
-                          {s.title?.trim() || t("builder.page.numbered", { n: String(i + 2) })}
+                          {s.title?.trim() ||
+                            t("builder.page.numbered", { n: String(i + (hasFirstPage ? 2 : 1)) })}
                         </SelectItem>
                       ))}
                     </SelectContent>
