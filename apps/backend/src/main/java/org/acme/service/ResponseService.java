@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.acme.dto.ResponseDtos.AnswerDto;
 import org.acme.dto.ResponseDtos.CorrectionDto;
@@ -45,12 +46,16 @@ import org.acme.repository.ResponseRepository;
 import org.acme.repository.SurveyRepository;
 import org.acme.resource.ClientIp;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Status;
 import jakarta.transaction.Synchronization;
 import jakarta.transaction.TransactionSynchronizationRegistry;
 import jakarta.transaction.Transactional;
+import org.jboss.logging.Logger;
 
 /** Persists survey responses and aggregates them into dashboard results. */
 @ApplicationScoped
@@ -588,6 +593,7 @@ public class ResponseService {
                 var old = previous.get(a.questionId());
                 if (old != null && java.util.Objects.equals(old.value, a.value())) {
                     answer.awardedPoints = old.awardedPoints;
+                    answer.gradedMax = old.gradedMax;
                     answer.gradedAt = old.gradedAt;
                     answer.feedback = old.feedback;
                 }
@@ -757,6 +763,7 @@ public class ResponseService {
             throw badRequest("Points must be between 0 and " + QuizScoring.POINTS_LIMIT + ".");
         }
         answer.awardedPoints = points;
+        answer.gradedMax = points != null ? QuizScoring.pointsFor(q) : null;
         answer.gradedAt = points != null ? now : null;
     }
 
@@ -856,7 +863,7 @@ public class ResponseService {
             if (QuizScoring.isScorable(q)) {
                 var answer = answers.get(q.id);
                 if (!live && answer != null) {
-                    awarded += answer.awardedPoints != null ? answer.awardedPoints : autoPoints(q, answer.value);
+                    awarded += answer.awardedPoints != null ? settledPoints(q, answer) : autoPoints(q, answer.value);
                 }
                 continue;
             }
@@ -866,13 +873,81 @@ public class ResponseService {
             if (answer.awardedPoints == null) {
                 pending = true;
             } else {
-                awarded += answer.awardedPoints;
+                awarded += settledPoints(q, answer);
             }
         }
         response.score = awarded;
         response.gradingPending = pending;
         var passingScore = survey.settings != null ? survey.settings.passingScore : null;
         response.passed = pending || passingScore == null ? null : response.score >= passingScore;
+    }
+
+    private static final Instant BONUS_POINTS_SINCE = Instant.parse("2026-11-18T19:42:03Z");
+    private static final Logger LOG = Logger.getLogger(ResponseService.class);
+
+    private record SettledGrade(int points, int gradedMax) {}
+
+    private static SettledGrade settle(int awarded, Integer gradedMax, Instant gradedAt, int max) {
+        boolean bonusEra = gradedAt != null && !gradedAt.isBefore(BONUS_POINTS_SINCE);
+        int given = gradedMax != null ? gradedMax : bonusEra && awarded > max ? max : awarded;
+        return given > max
+            ? new SettledGrade(Math.min(awarded, max) + Math.max(0, awarded - given), max)
+            : new SettledGrade(awarded, given);
+    }
+
+    private static int settledPoints(Question q, ResponseAnswer answer) {
+        var settled = settle(answer.awardedPoints, answer.gradedMax, answer.gradedAt, QuizScoring.pointsFor(q));
+        answer.awardedPoints = settled.points();
+        answer.gradedMax = settled.gradedMax();
+        return settled.points();
+    }
+
+    private record PendingGrade(String answerId, int awarded, SettledGrade settled) {}
+
+    public void settleGradesWithoutMaximum(@Observes StartupEvent event) {
+        try {
+            QuarkusTransaction.requiringNew().call(this::gradesWithoutMaximum).forEach(this::storeSettledGrade);
+        } catch (RuntimeException e) {
+            LOG.error("Could not settle grades without a recorded maximum", e);
+        }
+    }
+
+    private List<PendingGrade> gradesWithoutMaximum() {
+        List<ResponseAnswer> answers = ResponseAnswer.list("awardedPoints is not null and gradedMax is null");
+        var questionsBySurvey = new HashMap<String, Map<String, Question>>();
+        var pending = new ArrayList<PendingGrade>();
+        for (var answer : answers) {
+            var questions = questionsBySurvey.computeIfAbsent(answer.response.surveyId, id ->
+                surveyRepository.findByIdOptional(id)
+                    .filter(survey -> survey.settings != null && survey.settings.isQuiz)
+                    .map(survey -> survey.questions.stream().collect(
+                        Collectors.toMap(q -> q.id, q -> q, (a, b) -> a)))
+                    .orElse(Map.of()));
+            var question = questions.get(answer.questionId);
+            var settled = question != null
+                ? settle(answer.awardedPoints, null, answer.gradedAt, QuizScoring.pointsFor(question))
+                : new SettledGrade(answer.awardedPoints, answer.awardedPoints);
+            pending.add(new PendingGrade(answer.id, answer.awardedPoints, settled));
+        }
+        return pending;
+    }
+
+    private void storeSettledGrade(PendingGrade grade) {
+        try {
+            QuarkusTransaction.requiringNew().run(() -> {
+                var em = responseRepository.getEntityManager();
+                em.createNativeQuery("set local lock_timeout = '3s'").executeUpdate();
+                em.createQuery("update ResponseAnswer a set a.awardedPoints = :points, a.gradedMax = :gradedMax"
+                        + " where a.id = :id and a.gradedMax is null and a.awardedPoints = :awarded")
+                    .setParameter("points", grade.settled().points())
+                    .setParameter("gradedMax", grade.settled().gradedMax())
+                    .setParameter("id", grade.answerId())
+                    .setParameter("awarded", grade.awarded())
+                    .executeUpdate();
+            });
+        } catch (RuntimeException e) {
+            LOG.warnf(e, "Could not settle grade %s", grade.answerId());
+        }
     }
 
     private static boolean isBlankAnswer(Object value) {

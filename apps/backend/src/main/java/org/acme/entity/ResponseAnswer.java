@@ -41,6 +41,9 @@ public class ResponseAnswer extends PanacheEntityBase {
     @Column(name = "awarded_points")
     public Integer awardedPoints;
 
+    @Column(name = "graded_max")
+    public Integer gradedMax;
+
     @Column(name = "graded_at")
     public Instant gradedAt;
 

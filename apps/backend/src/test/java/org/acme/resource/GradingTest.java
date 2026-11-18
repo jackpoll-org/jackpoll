@@ -4,14 +4,23 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
+import java.time.Instant;
+import org.acme.entity.ResponseAnswer;
+import org.acme.entity.Survey;
+import org.acme.service.ResponseService;
 import org.junit.jupiter.api.Test;
 
 /** Student-by-student grading of manually scored answers (public #6). */
 @QuarkusTest
 class GradingTest {
+
+    @Inject
+    ResponseService responseService;
 
     private static final String SURVEYS = "/api/v1/surveys";
     private static final String EDIT = "/api/v1/public/responses";
@@ -513,11 +522,99 @@ class GradingTest {
 
     @Test
     @TestSecurity(user = "owner-1")
-    void aGradeAboveWhatTheQuestionIsWorthNowCountsAsBonus() {
+    void anOverrideNeverCountsMoreThanTheQuestionIsWorthNow() {
         var quiz = createQuiz();
         String responseId = submit(quiz, "Essay").extract().path("data.id");
         grade(quiz, responseId, quiz.essay(), 5).statusCode(200).body("data.score", is(6));
 
+        setEssayPoints(quiz, 2);
+
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data[0].score", is(3))
+            .body("data[0].maxScore", is(3));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void aBonusGradeKeepsItsBonusWhenTheQuestionsPointsChange() {
+        var quiz = createQuiz();
+        String responseId = submit(quiz, "Brilliant answer").extract().path("data.id");
+        grade(quiz, responseId, quiz.essay(), 7).statusCode(200).body("data.score", is(8));
+
+        setEssayPoints(quiz, 2);
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data[0].score", is(5))
+            .body("data[0].maxScore", is(3))
+            .body("data[0].answers.find { it.questionId == '" + quiz.essay() + "' }.awardedPoints", is(4));
+
+        setEssayPoints(quiz, 10);
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data[0].score", is(5))
+            .body("data[0].maxScore", is(11));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void aKeptBonusGradeKeepsItsMaximumWhenTheRespondentEdits() {
+        var quiz = createQuiz();
+        var created = submit(quiz, "Original").extract();
+        String responseId = created.path("data.id");
+        String token = created.path("data.editToken");
+        grade(quiz, responseId, quiz.essay(), 7).statusCode(200);
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"" + quiz.essay() + "\",\"value\":\"Original\"}]}")
+            .when().put(EDIT + "/" + token)
+            .then().statusCode(200);
+
+        setEssayPoints(quiz, 2);
+
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data[0].score", is(4));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void gradesSavedBeforeTheirMaximumWasRecordedGetItOnStartup() {
+        var quiz = createQuiz();
+        String lowered = submit(quiz, "Old essay").extract().path("data.id");
+        String bonus = submit(quiz, "New essay").extract().path("data.id");
+        grade(quiz, lowered, quiz.essay(), 5).statusCode(200);
+        grade(quiz, bonus, quiz.essay(), 7).statusCode(200);
+        forgetGradedMax(lowered, quiz.essay(), Instant.parse("2026-11-01T00:00:00Z"));
+        forgetGradedMax(bonus, quiz.essay(), Instant.now());
+        QuarkusTransaction.requiringNew().run(() -> {
+            Survey survey = Survey.findById(quiz.id());
+            survey.questions.stream().filter(q -> q.id.equals(quiz.essay())).forEach(q -> q.points = 2);
+        });
+
+        responseService.settleGradesWithoutMaximum(null);
+
+        String essay = "' }.answers.find { it.questionId == '" + quiz.essay() + "' }.awardedPoints";
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data.find { it.id == '" + lowered + essay, is(2))
+            .body("data.find { it.id == '" + bonus + essay, is(7));
+        setEssayPoints(quiz, 1);
+        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
+            .then().statusCode(200)
+            .body("data.find { it.id == '" + lowered + "' }.score", is(2))
+            .body("data.find { it.id == '" + bonus + "' }.score", is(7));
+    }
+
+    private static void forgetGradedMax(String responseId, String questionId, Instant gradedAt) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            ResponseAnswer answer = ResponseAnswer
+                .find("response.id = ?1 and questionId = ?2", responseId, questionId).firstResult();
+            answer.gradedMax = null;
+            answer.gradedAt = gradedAt;
+        });
+    }
+
+    private static void setEssayPoints(Quiz quiz, int points) {
         String p = quiz.id().substring(0, 8);
         given().contentType(ContentType.JSON)
             .body("""
@@ -529,16 +626,11 @@ class GradingTest {
                      "order":0,"points":1,"correctAnswers":["ok-%1$s"],
                      "options":[{"id":"ok-%1$s","label":"Yes"},{"id":"no-%1$s","label":"No"}]},
                     {"id":"essay-%1$s","type":"long-answer","title":"Primary vs foreign key",
-                     "required":false,"order":1,"points":2}
+                     "required":false,"order":1,"points":%2$d}
                   ]
                 }
-                """.formatted(p))
+                """.formatted(p, points))
             .when().put(SURVEYS + "/" + quiz.id())
             .then().statusCode(200);
-
-        given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
-            .then().statusCode(200)
-            .body("data[0].score", is(6))
-            .body("data[0].maxScore", is(3));
     }
 }
