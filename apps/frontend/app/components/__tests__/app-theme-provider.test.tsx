@@ -1,6 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppThemeProvider, useForceLightTheme } from "../app-theme-provider";
+import { AppThemeProvider, ForceLightTheme, useForceLightTheme } from "../app-theme-provider";
 
 let pathname = "/";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
@@ -67,5 +67,17 @@ describe("AppThemeProvider", () => {
       </AppThemeProvider>,
     );
     await waitFor(() => expect(html()).toContain("dark"));
+  });
+
+  it("keeps a forced light theme while another page part does not force it", async () => {
+    pathname = "/s/abc";
+    render(
+      <AppThemeProvider>
+        <ForceLightTheme />
+        <ForceLight force={false} />
+      </AppThemeProvider>,
+    );
+    await waitFor(() => expect(html()).toContain("light"));
+    expect(html()).not.toContain("dark");
   });
 });

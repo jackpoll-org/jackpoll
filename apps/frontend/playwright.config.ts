@@ -6,6 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
  * suite runs without a live backend and stays fast and stable in CI.
  */
 const PORT = Number(process.env.E2E_PORT ?? 3100);
+export const API_PORT = Number(process.env.E2E_API_PORT ?? 3101);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -31,5 +32,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: { NEXT_PUBLIC_API_URL: `http://localhost:${API_PORT}` },
   },
 });

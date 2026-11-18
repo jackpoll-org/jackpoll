@@ -5,6 +5,8 @@ import { SURVEY_ENDPOINTS } from "@/app/lib/survey/constants";
 import { previewSurvey, surveyMetadata } from "@/app/lib/og/image";
 import { serverLocale, serverT } from "@/app/i18n/server";
 import { SurveyNoscript } from "@/app/components/survey-player/survey-noscript";
+import { ForceLightTheme } from "@/app/components/app-theme-provider";
+import { forcesLightTheme } from "@/app/lib/theme/public-theme";
 
 const loadSurvey = cache((slug: string) => previewSurvey(() => resolveLinkApi(slug)));
 
@@ -24,6 +26,7 @@ export default async function Layout({
   const [survey, t, locale] = await Promise.all([loadSurvey(slug), serverT(), serverLocale()]);
   return (
     <>
+      {survey && forcesLightTheme(survey.settings) && <ForceLightTheme />}
       <SurveyNoscript survey={survey} locale={locale} notice={t("player.noscript")} />
       {children}
     </>

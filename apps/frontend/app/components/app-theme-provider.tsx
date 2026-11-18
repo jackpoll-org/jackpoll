@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import { PUBLIC_THEME_STORAGE_KEY, isPublicPath } from "@/app/lib/theme/public-theme";
@@ -29,8 +29,17 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 
 export function useForceLightTheme(force: boolean) {
   const setForceLight = useContext(ForceLightContext);
-  useEffect(() => {
-    setForceLight(force);
+  useLayoutEffect(() => {
+    if (!force) return;
+    setForceLight(true);
     return () => setForceLight(false);
   }, [force, setForceLight]);
+}
+
+const FORCE_LIGHT_SCRIPT =
+  'var d=document.documentElement;d.classList.remove("dark");d.classList.add("light");d.style.colorScheme="light"';
+
+export function ForceLightTheme() {
+  useForceLightTheme(true);
+  return <script dangerouslySetInnerHTML={{ __html: FORCE_LIGHT_SCRIPT }} />;
 }
