@@ -87,7 +87,9 @@ describe("GradingView", () => {
   it("shows one submission with its answers, files and position", () => {
     render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
 
-    expect(screen.getByRole("heading", { name: "Student b" })).toBeTruthy();
+    const heading = screen.getByRole("heading", { name: "Student b" });
+    const next = screen.getByRole("button", { name: /grading.next$/ });
+    expect(next.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText(/grading.position 2 2/)).toBeTruthy();
     expect(screen.getByText(/identifies a row/)).toBeTruthy();
     expect(screen.getByRole("img", { name: "erm.png" })).toBeTruthy();
@@ -146,15 +148,30 @@ describe("GradingView", () => {
     }
   });
 
-  it("does not save points above the maximum", () => {
+  it("saves points above the maximum as bonus", () => {
     render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
     const input = screen.getAllByLabelText("grading.points")[0];
 
-    fireEvent.change(input, { target: { value: "9" } });
+    fireEvent.change(input, { target: { value: "7" } });
+    expect(screen.getByText("grading.bonusHint 2")).toBeTruthy();
+    fireEvent.blur(input);
+
+    expect(mutate).toHaveBeenCalledWith(
+      { responseId: "b", grades: [{ questionId: "essay", points: 7 }] },
+      expect.anything(),
+    );
+  });
+
+  it("does not save points above the bonus limit", () => {
+    render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+    const input = screen.getAllByLabelText("grading.points")[0];
+
+    fireEvent.change(input, { target: { value: "1001" } });
     fireEvent.blur(input);
 
     expect(mutate).not.toHaveBeenCalled();
-    expect(screen.getByText(/grading.invalidPoints 5/)).toBeTruthy();
+    expect(screen.getByText(/grading.invalidPoints 1000/)).toBeTruthy();
+    expect(screen.queryByText(/grading.bonusHint/)).toBeNull();
   });
 
   it("moves between submissions in submission order, keeping the session", () => {
@@ -365,11 +382,13 @@ describe("GradingView overrides and review", () => {
 });
 
 describe("parsePoints", () => {
-  it("accepts whole numbers in range and blank to clear", () => {
-    expect(parsePoints("3", 5)).toBe(3);
-    expect(parsePoints("", 5)).toBeNull();
-    expect(parsePoints("2.5", 5)).toBe("invalid");
-    expect(parsePoints("-1", 5)).toBe("invalid");
+  it("accepts whole numbers up to the bonus limit and blank to clear", () => {
+    expect(parsePoints("3")).toBe(3);
+    expect(parsePoints("1000")).toBe(1000);
+    expect(parsePoints("")).toBeNull();
+    expect(parsePoints("2.5")).toBe("invalid");
+    expect(parsePoints("-1")).toBe("invalid");
+    expect(parsePoints("1001")).toBe("invalid");
   });
 });
 

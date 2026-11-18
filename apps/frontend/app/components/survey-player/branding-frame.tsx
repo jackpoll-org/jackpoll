@@ -5,12 +5,17 @@ import type { CSSProperties } from "react";
 import { useTranslation } from "@/app/i18n/context";
 import type { Survey } from "@/app/types/survey";
 import { LegalLinks } from "@/app/components/legal/legal-links";
+import { readableForeground } from "@/app/lib/theme/public-theme";
 
 /** Override the theme accent for a branded public surface (issue #30). */
 export function brandingStyle(survey: Survey): CSSProperties | undefined {
   const accent = survey.settings.accentColor;
   return accent
-    ? ({ "--primary": accent, "--ring": accent } as CSSProperties)
+    ? ({
+        "--primary": accent,
+        "--ring": accent,
+        "--primary-foreground": readableForeground(accent),
+      } as CSSProperties)
     : undefined;
 }
 

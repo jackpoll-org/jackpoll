@@ -91,16 +91,6 @@ export function QuestionGradingView({ surveyId, questionId, sessionId }: Questio
     <div className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8">
       <div className="grid gap-3">
         <BackLink href={backHref} label={t("grading.back")} />
-        <div className="grid gap-1">
-          <p className="text-sm text-muted-foreground">
-            {t("grading.byQuestion.position", { n: String(index + 1), total: String(gradable.length) })}
-            {" · "}
-            {t("grading.byQuestion.maxPoints", { max: String(maxPointsFor(question)) })}
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight break-words">
-            {question.title || t("results.untitledQuestion")}
-          </h1>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" disabled={index <= 0} onClick={() => goTo(gradable[index - 1].id)}>
             <ChevronLeft className="size-4" /> {t("grading.byQuestion.previous")}
@@ -122,6 +112,16 @@ export function QuestionGradingView({ surveyId, questionId, sessionId }: Questio
           )}
           {ungraded > 0 && <Badge variant="secondary">{t("grading.byQuestion.ungraded", { n: String(ungraded) })}</Badge>}
           {isAutoScored(question) && <Badge variant="outline">{t("grading.autoScored")}</Badge>}
+        </div>
+        <div className="grid gap-1">
+          <p className="text-sm text-muted-foreground">
+            {t("grading.byQuestion.position", { n: String(index + 1), total: String(gradable.length) })}
+            {" · "}
+            {t("grading.byQuestion.maxPoints", { max: String(maxPointsFor(question)) })}
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight break-words">
+            {question.title || t("results.untitledQuestion")}
+          </h1>
         </div>
       </div>
 

@@ -20,6 +20,8 @@ import { RespondentThemeToggle } from "@/app/components/survey-player/respondent
 import { surveyBackgroundStyle } from "@/app/components/survey-player/branding-frame";
 import { LegalLinks } from "@/app/components/legal/legal-links";
 import { useTranslation } from "@/app/i18n/context";
+import { useForceLightTheme } from "@/app/components/app-theme-provider";
+import { forcesLightTheme } from "@/app/lib/theme/public-theme";
 import type { Survey } from "@/app/types/survey";
 
 /** Public entry page: enter an access code to open a survey (issue #15). */
@@ -29,6 +31,7 @@ export default function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [survey, setSurvey] = useState<Survey | null>(null);
   const resolve = useResolveAccessCode();
+  useForceLightTheme(!!survey && forcesLightTheme(survey.settings));
 
   // A `?code=` (e.g. from the lobby QR) prefills and opens the survey directly.
   useEffect(() => {

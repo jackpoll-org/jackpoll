@@ -17,11 +17,11 @@ import { useGradeQuestion } from "@/app/hooks/survey";
 import { useSaveAfterPause } from "@/app/hooks/use-save-after-pause";
 import { useTranslation } from "@/app/i18n/context";
 import { formatAnswer } from "@/app/lib/survey/export";
-import { maxPointsFor, sharedPoints, type AnswerGroup } from "@/app/lib/survey/grading";
+import { maxPointsFor, POINTS_LIMIT, sharedPoints, type AnswerGroup } from "@/app/lib/survey/grading";
 import type { Question, UploadedFile } from "@/app/types/survey";
 import { AnswerFeedbackField } from "./answer-feedback-field";
 import { ChoiceAnswer } from "./choice-answer";
-import { FileList, parsePoints } from "./grading-view";
+import { BonusHint, FileList, parsePoints } from "./grading-view";
 
 interface AnswerGroupCardProps {
   surveyId: string;
@@ -142,7 +142,7 @@ function PointsField({ surveyId, question, responseIds, initial, placeholder, la
   const [saved, setSaved] = useState(initial);
   const [dirty, setDirty] = useState(false);
   const [failed, setFailed] = useState(false);
-  const parsed = parsePoints(text, max);
+  const parsed = parsePoints(text);
   const invalid = parsed === "invalid";
 
   if (initial !== shownInitial) {
@@ -182,7 +182,7 @@ function PointsField({ surveyId, question, responseIds, initial, placeholder, la
           type="number"
           inputMode="numeric"
           min={0}
-          max={max}
+          max={POINTS_LIMIT}
           step={1}
           className="w-24 tabular-nums"
           aria-invalid={invalid}
@@ -199,9 +199,10 @@ function PointsField({ surveyId, question, responseIds, initial, placeholder, la
           }}
         />
         <span className="text-sm text-muted-foreground tabular-nums">/ {max}</span>
+        <BonusHint points={parsed} max={max} />
       </div>
       {invalid && (
-        <p className="text-xs text-destructive">{t("grading.invalidPoints", { max: String(max) })}</p>
+        <p className="text-xs text-destructive">{t("grading.invalidPoints", { max: String(POINTS_LIMIT) })}</p>
       )}
     </div>
   );

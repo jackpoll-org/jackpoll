@@ -64,7 +64,9 @@ describe("QuestionGradingView", () => {
   it("groups identical answers and grades the whole group at once", () => {
     render(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
 
-    expect(screen.getByRole("heading", { name: "Explain keys" })).toBeTruthy();
+    const heading = screen.getByRole("heading", { name: "Explain keys" });
+    const next = screen.getByRole("button", { name: /grading.byQuestion.next/ });
+    expect(next.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("grading.byQuestion.count 2")).toBeTruthy();
     expect(screen.getByText("grading.byQuestion.ungraded 2")).toBeTruthy();
 
@@ -78,6 +80,26 @@ describe("QuestionGradingView", () => {
         grades: [
           { responseId: "1", points: 3 },
           { responseId: "2", points: 3 },
+        ],
+      },
+      expect.anything(),
+    );
+  });
+
+  it("grades a group above the maximum as bonus", () => {
+    render(<QuestionGradingView surveyId="s1" questionId="essay" sessionId={null} />);
+
+    const groupInput = screen.getByLabelText("grading.byQuestion.pointsForAll");
+    fireEvent.change(groupInput, { target: { value: "8" } });
+    expect(screen.getByText("grading.bonusHint 3")).toBeTruthy();
+    fireEvent.blur(groupInput);
+
+    expect(gradeMutate).toHaveBeenCalledWith(
+      {
+        questionId: "essay",
+        grades: [
+          { responseId: "1", points: 8 },
+          { responseId: "2", points: 8 },
         ],
       },
       expect.anything(),

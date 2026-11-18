@@ -9,6 +9,8 @@ import { Spinner } from "@/app/components/ui/spinner";
 import { RespondentThemeToggle } from "@/app/components/survey-player/respondent-theme-toggle";
 import { surveyBackgroundStyle } from "@/app/components/survey-player/branding-frame";
 import { useTranslation } from "@/app/i18n/context";
+import { useForceLightTheme } from "@/app/components/app-theme-provider";
+import { forcesLightTheme } from "@/app/lib/theme/public-theme";
 import { LegalLinks } from "@/app/components/legal/legal-links";
 
 /**
@@ -20,6 +22,7 @@ export default function ShareLinkPage() {
   const params = useParams<{ slug: string }>();
   const { t } = useTranslation();
   const { data: survey, isLoading, isError, error } = usePublicLink(params.slug);
+  useForceLightTheme(!!survey && forcesLightTheme(survey.settings));
 
   if (isLoading) {
     return (

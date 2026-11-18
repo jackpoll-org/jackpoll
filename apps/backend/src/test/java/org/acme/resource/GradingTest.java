@@ -98,13 +98,28 @@ class GradingTest {
 
     @Test
     @TestSecurity(user = "owner-1")
+    void pointsAboveTheMaximumCountAsBonus() {
+        var quiz = createQuiz();
+        String responseId = submit(quiz, "Brilliant answer").extract().path("data.id");
+
+        grade(quiz, responseId, quiz.essay(), 7).statusCode(200)
+            .body("data.score", is(8))
+            .body("data.maxScore", is(6))
+            .body("data.passed", is(true))
+            .body("data.answers.find { it.questionId == '" + quiz.essay() + "' }.awardedPoints", is(7));
+        grade(quiz, responseId, quiz.mc(), 3).statusCode(200).body("data.score", is(10));
+        grade(quiz, responseId, quiz.essay(), 1000).statusCode(200).body("data.score", is(1003));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
     void rejectsInvalidGrades() {
         var quiz = createQuiz();
         String responseId = submit(quiz, "Some text").extract().path("data.id");
 
-        grade(quiz, responseId, quiz.essay(), 6).statusCode(400);   // above max
-        grade(quiz, responseId, quiz.essay(), -1).statusCode(400);  // negative
-        grade(quiz, responseId, quiz.mc(), 2).statusCode(400);      // auto-scored, above max
+        grade(quiz, responseId, quiz.essay(), 1001).statusCode(400);
+        grade(quiz, responseId, quiz.essay(), -1).statusCode(400);
+        grade(quiz, responseId, quiz.mc(), 1001).statusCode(400);
         grade(quiz, responseId, "nope", 1).statusCode(400);         // unknown question
         given().contentType(ContentType.JSON)                          // no body → validation error, not a 500
             .when().put(SURVEYS + "/" + quiz.id() + "/responses/" + responseId + "/grades")
@@ -325,7 +340,7 @@ class GradingTest {
 
         given().contentType(ContentType.JSON)
             .body("{\"grades\":[{\"responseId\":\"" + first + "\",\"points\":5},"
-                + "{\"responseId\":\"" + second + "\",\"points\":9}]}")
+                + "{\"responseId\":\"" + second + "\",\"points\":1001}]}")
             .when().put(url)
             .then().statusCode(400);
         given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
@@ -498,7 +513,7 @@ class GradingTest {
 
     @Test
     @TestSecurity(user = "owner-1")
-    void anOverrideNeverCountsMoreThanTheQuestionIsWorthNow() {
+    void aGradeAboveWhatTheQuestionIsWorthNowCountsAsBonus() {
         var quiz = createQuiz();
         String responseId = submit(quiz, "Essay").extract().path("data.id");
         grade(quiz, responseId, quiz.essay(), 5).statusCode(200).body("data.score", is(6));
@@ -523,7 +538,7 @@ class GradingTest {
 
         given().when().get(SURVEYS + "/" + quiz.id() + "/responses")
             .then().statusCode(200)
-            .body("data[0].score", is(3))
+            .body("data[0].score", is(6))
             .body("data[0].maxScore", is(3));
     }
 }

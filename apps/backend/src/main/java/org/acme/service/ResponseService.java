@@ -661,7 +661,8 @@ public class ResponseService {
     /**
      * Set teacher-awarded points on a response's manually graded answers —
      * owner and editors only. Each grade must target a manually graded
-     * question the respondent answered, within 0..its points.
+     * question the respondent answered, within 0..1000; points above
+     * the question's maximum count as bonus.
      */
     @Transactional
     public ResponseDto grade(String userId, String surveyId, String responseId, List<GradeDto> grades) {
@@ -752,9 +753,8 @@ public class ResponseService {
 
     private static void setGrade(Question q, SurveyResponse response, Integer points, Instant now) {
         var answer = answerTo(q, response);
-        int max = QuizScoring.pointsFor(q);
-        if (points != null && (points < 0 || points > max)) {
-            throw badRequest("Points must be between 0 and " + max + ".");
+        if (points != null && (points < 0 || points > QuizScoring.POINTS_LIMIT)) {
+            throw badRequest("Points must be between 0 and " + QuizScoring.POINTS_LIMIT + ".");
         }
         answer.awardedPoints = points;
         answer.gradedAt = points != null ? now : null;
@@ -856,9 +856,7 @@ public class ResponseService {
             if (QuizScoring.isScorable(q)) {
                 var answer = answers.get(q.id);
                 if (!live && answer != null) {
-                    awarded += answer.awardedPoints != null
-                        ? Math.min(answer.awardedPoints, QuizScoring.pointsFor(q))
-                        : autoPoints(q, answer.value);
+                    awarded += answer.awardedPoints != null ? answer.awardedPoints : autoPoints(q, answer.value);
                 }
                 continue;
             }
@@ -868,7 +866,7 @@ public class ResponseService {
             if (answer.awardedPoints == null) {
                 pending = true;
             } else {
-                awarded += Math.min(answer.awardedPoints, QuizScoring.pointsFor(q));
+                awarded += answer.awardedPoints;
             }
         }
         response.score = awarded;

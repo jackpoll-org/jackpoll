@@ -75,6 +75,54 @@ class ExportResourceTest {
 
     @Test
     @TestSecurity(user = "owner-1")
+    void exportsScoreAndGradeForQuizzes() throws Exception {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Graded quiz\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String p = id.substring(0, 8);
+        given().contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Graded quiz", "status": "published",
+                  "settings": {"isQuiz": true,
+                               "gradingScale": [{"label":"1","minScore":2},{"label":"5","minScore":0}]},
+                  "questions": [
+                    {"id":"mc-%1$s","type":"multiple-choice","title":"SQL?","required":false,
+                     "order":0,"points":2,"correctAnswers":["ok-%1$s"],
+                     "options":[{"id":"ok-%1$s","label":"Yes"},{"id":"no-%1$s","label":"No"}]}
+                  ]
+                }
+                """.formatted(p))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"mc-" + p + "\",\"value\":\"ok-" + p + "\"}]}")
+            .when().post(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(201);
+
+        byte[] body = given()
+            .when().get(SURVEYS + "/" + id + "/export/xlsx")
+            .then().statusCode(200)
+            .extract().asByteArray();
+
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(body))) {
+            var sheet = wb.getSheet("Responses");
+            var head = sheet.getRow(0);
+            var row = sheet.getRow(1);
+            org.junit.jupiter.api.Assertions.assertEquals("Score", head.getCell(3).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("Max score", head.getCell(4).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("Grade", head.getCell(5).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals(2.0, row.getCell(3).getNumericCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals(2.0, row.getCell(4).getNumericCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("1", row.getCell(5).getStringCellValue());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
     void exportsEmptySurveyWithoutError() {
         String id = given()
             .contentType(ContentType.JSON)

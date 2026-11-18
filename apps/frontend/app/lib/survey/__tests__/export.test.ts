@@ -119,6 +119,24 @@ describe("buildResponsesCsv", () => {
     expect(lines[1]).toContain("5.0");
   });
 
+  it("adds score and grade columns when responses carry them", () => {
+    const csv = buildResponsesCsv(survey, [
+      {
+        id: "r1",
+        submittedAt: "2026-06-11T10:00:00Z",
+        score: 14,
+        maxScore: 27,
+        grade: "4",
+        answers: [{ questionId: "q1", value: "Ada" }],
+      },
+      { id: "r2", submittedAt: "2026-06-11T11:00:00Z", answers: [] },
+    ]);
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("Response ID,Submitted at,Duration (s),Score,Max score,Grade,Name");
+    expect(lines[1]).toBe("r1,2026-06-11T10:00:00Z,,14,27,4,Ada");
+    expect(lines[2]).toBe("r2,2026-06-11T11:00:00Z,,,,,");
+  });
+
   it("neutralises spreadsheet formulas and quotes carriage returns", () => {
     const answers = ["=HYPERLINK(\"x\")", "+1", "-1", "@SUM(A1)", "\tcmd", "a\rb"];
     const csv = buildResponsesCsv(

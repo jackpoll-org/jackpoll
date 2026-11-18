@@ -32,6 +32,7 @@ import {
   isManuallyGraded,
   maxPointsFor,
   nextPendingIndex,
+  POINTS_LIMIT,
 } from "@/app/lib/survey/grading";
 import type { Question, SurveyResponseDto, UploadedFile } from "@/app/types/survey";
 import { AnswerFeedbackField } from "./answer-feedback-field";
@@ -122,21 +123,6 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
     <div className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8">
       <div className="grid gap-3">
         <BackLink href={backHref} label={t("grading.back")} />
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-bold tracking-tight">
-              {response.respondentName || response.respondentToken || t("grading.anonymous")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t("grading.position", {
-                n: String(index + 1),
-                total: String(ordered.length),
-              })}{" "}
-              · {new Date(response.submittedAt).toLocaleString()}
-            </p>
-          </div>
-          <ScoreSummary response={response} />
-        </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" disabled={index <= 0} onClick={() => goTo(index - 1)}>
             <ChevronLeft className="size-4" /> {t("grading.previous")}
@@ -169,6 +155,21 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
               </Link>
             </Button>
           )}
+        </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-bold tracking-tight">
+              {response.respondentName || response.respondentToken || t("grading.anonymous")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("grading.position", {
+                n: String(index + 1),
+                total: String(ordered.length),
+              })}{" "}
+              · {new Date(response.submittedAt).toLocaleString()}
+            </p>
+          </div>
+          <ScoreSummary response={response} />
         </div>
       </div>
 
@@ -366,7 +367,7 @@ function PointsInput({
   const [dirty, setDirty] = useState(false);
   const [failed, setFailed] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
-  const parsed = parsePoints(text, max);
+  const parsed = parsePoints(text);
   const invalid = parsed === "invalid";
 
   function save() {
@@ -403,7 +404,7 @@ function PointsInput({
           type="number"
           inputMode="numeric"
           min={0}
-          max={max}
+          max={POINTS_LIMIT}
           step={1}
           className="w-20 tabular-nums"
           aria-invalid={invalid}
@@ -421,6 +422,7 @@ function PointsInput({
           }}
         />
         <span className="text-sm text-muted-foreground tabular-nums">/ {max}</span>
+        <BonusHint points={parsed} max={max} />
         {justSaved && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Check className="size-3.5" /> {t("grading.saved")}
@@ -434,17 +436,27 @@ function PointsInput({
       )}
       {invalid && (
         <p className="text-xs text-destructive">
-          {t("grading.invalidPoints", { max: String(max) })}
+          {t("grading.invalidPoints", { max: String(POINTS_LIMIT) })}
         </p>
       )}
     </div>
   );
 }
 
-/** "" clears the grade (null); otherwise a whole number within 0..max. */
-export function parsePoints(text: string, max: number): number | null | "invalid" {
+/** "" clears the grade (null); otherwise a whole number within 0..POINTS_LIMIT. */
+export function parsePoints(text: string): number | null | "invalid" {
   const trimmed = text.trim();
   if (trimmed === "") return null;
   const n = Number(trimmed);
-  return Number.isInteger(n) && n >= 0 && n <= max ? n : "invalid";
+  return Number.isInteger(n) && n >= 0 && n <= POINTS_LIMIT ? n : "invalid";
+}
+
+export function BonusHint({ points, max }: { points: number | null | "invalid"; max: number }) {
+  const { t } = useTranslation();
+  if (typeof points !== "number" || points <= max) return null;
+  return (
+    <Badge variant="secondary" className="tabular-nums">
+      {t("grading.bonusHint", { n: String(points - max) })}
+    </Badge>
+  );
 }

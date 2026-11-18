@@ -19,7 +19,7 @@ public final class QuizScoring {
     private static final Set<QuestionType> CHOICE =
         EnumSet.of(QuestionType.MULTIPLE_CHOICE, QuestionType.DROPDOWN, QuestionType.CHECKBOXES);
 
-    private static final int POINTS_LIMIT = 1000;
+    static final int POINTS_LIMIT = 1000;
 
     private QuizScoring() {}
 

@@ -89,6 +89,7 @@ export function ResponsesPanel({
         isGradable(q, survey.settings.liveMode === true),
       ) ?? null)
     : null;
+  const withGrade = survey.settings.isQuiz && (survey.settings.gradingScale?.length ?? 0) > 0;
   const filtered = all.filter((r) => {
     const t = new Date(r.submittedAt).getTime();
     if (from && t < new Date(from).getTime()) return false;
@@ -224,6 +225,7 @@ export function ResponsesPanel({
                 )}
                 <TableHead>{t("results.responses.colDuration")}</TableHead>
                 {survey.settings.isQuiz && <TableHead>{t("results.responses.colScore")}</TableHead>}
+                {withGrade && <TableHead>{t("results.responses.colGrade")}</TableHead>}
                 <TableHead className="text-right">{t("results.responses.colActions")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -259,6 +261,7 @@ export function ResponsesPanel({
                       )}
                     </TableCell>
                   )}
+                  {withGrade && <TableCell className="font-medium">{r.grade ?? "—"}</TableCell>}
                   <TableCell className="text-right">
                     {survey.settings.isQuiz && (
                       <Button variant="ghost" size="icon" asChild>

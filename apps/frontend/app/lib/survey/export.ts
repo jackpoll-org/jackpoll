@@ -68,11 +68,15 @@ export function buildResponsesCsv(
 ): string {
   const questions = questionsInPageOrder(survey).filter((q) => isAnswerable(q.type));
   const withToken = responses.some((r) => r.respondentToken);
+  const withScore = responses.some((r) => r.score != null);
+  const withGrade = responses.some((r) => r.grade);
   const header = [
     "Response ID",
     "Submitted at",
     "Duration (s)",
     ...(withToken ? ["Token"] : []),
+    ...(withScore ? ["Score", "Max score"] : []),
+    ...(withGrade ? ["Grade"] : []),
     ...questions.map((q) => q.title || "Untitled question"),
   ];
 
@@ -83,6 +87,8 @@ export function buildResponsesCsv(
       response.submittedAt,
       response.durationMs != null ? (response.durationMs / 1000).toFixed(1) : "",
       ...(withToken ? [response.respondentToken ?? ""] : []),
+      ...(withScore ? [response.score ?? "", response.maxScore ?? ""] : []),
+      ...(withGrade ? [response.grade ?? ""] : []),
       ...questions.map((q) => formatAnswer(q, byQuestion.get(q.id))),
     ];
   });

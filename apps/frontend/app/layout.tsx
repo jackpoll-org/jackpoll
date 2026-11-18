@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
 import { ActiveThemeProvider } from "@/app/components/active-theme";
+import { AppThemeProvider } from "@/app/components/app-theme-provider";
 import { AuthProvider } from "@/app/components/auth/auth-provider";
 import { I18nProvider } from "@/app/i18n/context";
 import { serverLocale, serverT } from "@/app/i18n/server";
@@ -120,30 +120,27 @@ export default async function RootLayout({
               `window.__LIVE_RESULTS_ENABLED__=${process.env.LIVE_RESULTS_ENABLED !== "false"};`,
           }}
         />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <ActiveThemeProvider initialTheme={themeSettings}>
-            <I18nProvider initialLocale={initialLocale}>
-              <InstanceLegalProvider value={instanceLegal()}>
-                <RegistrationProvider enabled={canRegister}>
-                  <OfflineBanner />
-                  <AuthProvider>{children}</AuthProvider>
-                  <noscript>
-                    <LegalLinks />
-                  </noscript>
-                  <PwaRegister />
-                  <DeepLinks />
-                  <OfflineSync />
-                  <Toaster position="top-center" richColors />
-                </RegistrationProvider>
-              </InstanceLegalProvider>
-            </I18nProvider>
-          </ActiveThemeProvider>
-        </ThemeProvider>
+        <ActiveThemeProvider initialTheme={themeSettings}>
+          <I18nProvider initialLocale={initialLocale}>
+            <InstanceLegalProvider value={instanceLegal()}>
+              <RegistrationProvider enabled={canRegister}>
+                <OfflineBanner />
+                <AuthProvider>
+                  <AppThemeProvider>
+                    {children}
+                    <Toaster position="top-center" richColors />
+                  </AppThemeProvider>
+                </AuthProvider>
+                <noscript>
+                  <LegalLinks />
+                </noscript>
+                <PwaRegister />
+                <DeepLinks />
+                <OfflineSync />
+              </RegistrationProvider>
+            </InstanceLegalProvider>
+          </I18nProvider>
+        </ActiveThemeProvider>
       </body>
     </html>
   );

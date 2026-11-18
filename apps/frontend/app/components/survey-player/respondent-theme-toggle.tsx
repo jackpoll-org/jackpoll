@@ -10,9 +10,10 @@ import { useTranslation } from "@/app/i18n/context";
  * changer). Uses next-themes so it only flips the colour mode for this viewer.
  */
 export function RespondentThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme, forcedTheme } = useTheme();
   const { t } = useTranslation();
   const dark = resolvedTheme === "dark";
+  if (forcedTheme) return null;
   return (
     <Button
       variant="ghost"
