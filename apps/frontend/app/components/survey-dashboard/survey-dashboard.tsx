@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FileText, LayoutGrid, List, Search, X } from "lucide-react";
 import {
   DndContext,
@@ -46,6 +46,7 @@ import { InvitationsBanner } from "./invitations-banner";
 import { useAuthContext } from "@/app/components/auth/auth-provider";
 import { resolveFolderDrop, resolveReorder } from "@/app/lib/survey/folder-dnd";
 import { sortSurveys, type SortBy } from "@/app/lib/survey/sort";
+import { splitByOwner } from "@/app/lib/survey/sidebar-tree";
 import { useTranslation } from "@/app/i18n/context";
 import {
   useListDensity,
@@ -55,38 +56,60 @@ import {
 
 type StatusFilter = "all" | "draft" | "published" | "closed";
 
+function parseStatus(value: string | null): StatusFilter {
+  return value === "draft" || value === "published" || value === "closed" ? value : "all";
+}
+
 export function SurveyDashboard() {
   const { t } = useTranslation();
   const { data, isLoading, isError, error } = useSurveys();
   const allSurveys = data?.surveys ?? [];
   const { user } = useAuthContext();
-  const myId = user?.id;
-  // Split owned vs. shared-with-me (surveys someone else added me to, #8). The
-  // owner's own folder UI only operates on owned surveys; shared ones live in a
-  // dedicated "Shared with me" folder.
-  const surveys = myId ? allSurveys.filter((s) => s.ownerId === myId) : allSurveys;
-  const sharedSurveys = myId
-    ? allSurveys.filter((s) => s.ownerId !== myId)
-    : [];
+  const { owned: surveys, shared: sharedSurveys } = splitByOwner(allSurveys, user?.id);
   const customTemplates = useCustomTemplates().data ?? [];
   const folders = useFolders().data ?? [];
   const organize = useOrganizeSurvey();
   const reorder = useReorderSurveys();
 
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const autoCreate = params.get("new") === "1";
-  const deepLinkedFolder = params.get("folder");
+  const status = parseStatus(params.get("status"));
+  const openFolderId = params.get("folder");
+  const paramsKey = params.toString();
 
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
   // Default sort + list density come from the user's Settings (#settings).
   const [sort, setSort] = useListSort();
   const [density] = useListDensity();
   const [view, setView] = useListView();
-  const [openFolderId, setOpenFolderId] = useState<string | null>(
-    deepLinkedFolder ?? null,
-  );
   const [tag, setTag] = useState<string | null>(null);
+  const [urlSync, setUrlSync] = useState({ key: paramsKey, pending: null as string | null });
+  if (urlSync.key !== paramsKey) {
+    if (paramsKey !== urlSync.pending) {
+      setQuery("");
+      setTag(null);
+    }
+    setUrlSync({ key: paramsKey, pending: null });
+  }
+
+  function updateUrl(changes: Record<string, string | null>, mode: "push" | "replace") {
+    const next = new URLSearchParams(params);
+    next.delete("new");
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    const nextKey = next.toString();
+    if (nextKey === paramsKey) return;
+    setUrlSync((sync) => ({ ...sync, pending: nextKey }));
+    router[mode](nextKey ? `${pathname}?${nextKey}` : pathname, { scroll: false });
+  }
+
+  const setOpenFolderId = (folderId: string | null) => updateUrl({ folder: folderId }, "push");
+  const setStatus = (value: StatusFilter) =>
+    updateUrl({ status: value === "all" ? null : value }, "replace");
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   // Drag activates from the card's grip handle (survey-card.tsx), so a small
@@ -296,7 +319,7 @@ export function SurveyDashboard() {
               surveys={baseFiltered}
               sort={sort as SortBy}
               onTagClick={setTag}
-              initialExpandedId={openFolderId}
+              expandFolderId={openFolderId}
             />
           ) : (
             <>

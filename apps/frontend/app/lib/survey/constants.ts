@@ -4,8 +4,7 @@
 export const surveyKeys = {
   all: ["surveys"] as const,
   lists: () => [...surveyKeys.all, "list"] as const,
-  list: (page: number, limit: number) =>
-    [...surveyKeys.lists(), { page, limit }] as const,
+  listAll: () => [...surveyKeys.lists(), "all"] as const,
   details: () => [...surveyKeys.all, "detail"] as const,
   detail: (id: string) => [...surveyKeys.details(), id] as const,
   public: (id: string) => [...surveyKeys.all, "public", id] as const,
@@ -119,5 +118,4 @@ export const RESULTS_POLL_INTERVAL_MS = 15000;
 /** How often (ms) the notification bell polls for the unread count (issue #89). */
 export const NOTIFICATIONS_POLL_INTERVAL_MS = 30000;
 
-/** Default page size for the survey dashboard list. */
-export const DEFAULT_PAGE_SIZE = 20;
+export const SURVEY_LIST_PAGE_SIZE = 100;

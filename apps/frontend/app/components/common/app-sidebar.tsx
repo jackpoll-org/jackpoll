@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Settings } from "lucide-react";
 import {
   Sidebar,
@@ -18,7 +18,6 @@ import {
 } from "@/app/components/ui/sidebar";
 import { NavUser } from "@/app/components/common/nav-user";
 import { SidebarSurveys } from "@/app/components/common/sidebar-surveys";
-import { SidebarFolders } from "@/app/components/common/sidebar-folders";
 import { useTranslation } from "@/app/i18n/context";
 import { LegalNav } from "@/app/components/legal/legal-nav";
 
@@ -29,6 +28,7 @@ export function isNavItemActive(pathname: string, href: string): boolean {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useTranslation();
   const { setOpenMobile } = useSidebar();
 
@@ -36,7 +36,7 @@ export function AppSidebar() {
   // page (#91). On desktop, `openMobile` is unused so this is a no-op there.
   useEffect(() => {
     setOpenMobile(false);
-  }, [pathname, setOpenMobile]);
+  }, [pathname, searchParams, setOpenMobile]);
 
   return (
     <Sidebar collapsible="icon">
@@ -63,7 +63,6 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarSurveys />
-              <SidebarFolders />
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild

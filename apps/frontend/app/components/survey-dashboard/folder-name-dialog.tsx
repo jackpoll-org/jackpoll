@@ -19,6 +19,8 @@ interface FolderNameDialogProps {
   title: string;
   submitLabel: string;
   initialName?: string;
+  placeholder?: string;
+  allowEmpty?: boolean;
   pending?: boolean;
   onSubmit: (name: string) => void;
 }
@@ -33,6 +35,8 @@ export function FolderNameDialog({
   title,
   submitLabel,
   initialName = "",
+  placeholder,
+  allowEmpty = false,
   pending = false,
   onSubmit,
 }: FolderNameDialogProps) {
@@ -55,14 +59,14 @@ export function FolderNameDialog({
           onSubmit={(e) => {
             e.preventDefault();
             const trimmed = name.trim();
-            if (trimmed) onSubmit(trimmed);
+            if (trimmed || allowEmpty) onSubmit(trimmed);
           }}
           className="grid gap-4"
         >
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={t("dashboard.folder.namePrompt")}
+            placeholder={placeholder ?? t("dashboard.folder.namePrompt")}
             autoFocus
             maxLength={80}
           />
@@ -74,7 +78,7 @@ export function FolderNameDialog({
             >
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={!name.trim() || pending}>
+            <Button type="submit" disabled={(!allowEmpty && !name.trim()) || pending}>
               {pending && <Spinner className="size-4" />}
               {submitLabel}
             </Button>

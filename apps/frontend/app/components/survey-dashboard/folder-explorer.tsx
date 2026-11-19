@@ -20,11 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { MoreVertical } from "lucide-react";
-import {
-  useCreateFolder,
-  useDeleteFolder,
-  useRenameFolder,
-} from "@/app/hooks/survey";
+import { useDeleteFolder } from "@/app/hooks/survey";
+import { useFolderDialog } from "@/app/hooks/use-folder-dialog";
 import {
   folderDropId,
   UNFILED_DROP_ID,
@@ -40,8 +37,8 @@ interface FolderExplorerProps {
   surveys: Survey[];
   sort: SortBy;
   onTagClick: (tag: string) => void;
-  /** Folder to auto-expand on mount (e.g. from a sidebar deep-link). */
-  initialExpandedId?: string | null;
+  /** Folder to expand whenever it changes (e.g. from a sidebar deep-link). */
+  expandFolderId?: string | null;
 }
 
 /**
@@ -56,17 +53,20 @@ export function FolderExplorer({
   surveys,
   sort,
   onTagClick,
-  initialExpandedId,
+  expandFolderId,
 }: FolderExplorerProps) {
   const { t } = useTranslation();
-  const createFolder = useCreateFolder();
-  const renameFolder = useRenameFolder();
   const deleteFolder = useDeleteFolder();
-  const [dialog, setDialog] = useState<{ mode: "create" | "rename"; folder?: Folder } | null>(null);
+  const folderDialog = useFolderDialog();
 
   const [expanded, setExpanded] = useState<Set<string>>(
-    () => new Set(initialExpandedId ? [initialExpandedId] : []),
+    () => new Set(expandFolderId ? [expandFolderId] : []),
   );
+  const [seenExpandId, setSeenExpandId] = useState(expandFolderId);
+  if (seenExpandId !== expandFolderId) {
+    setSeenExpandId(expandFolderId);
+    if (expandFolderId) setExpanded((prev) => new Set(prev).add(expandFolderId));
+  }
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -85,34 +85,6 @@ export function FolderExplorer({
 
   const rootSurveys = inFolder(null);
 
-  function handleCreate() {
-    setDialog({ mode: "create" });
-  }
-
-  function handleRename(folder: Folder) {
-    setDialog({ mode: "rename", folder });
-  }
-
-  async function submitDialog(name: string) {
-    try {
-      if (dialog?.mode === "rename" && dialog.folder) {
-        if (name === dialog.folder.name) return setDialog(null);
-        await renameFolder.mutateAsync({ id: dialog.folder.id, name });
-        toast.success(t("dashboard.folder.renamed"));
-      } else {
-        await createFolder.mutateAsync(name);
-        toast.success(t("dashboard.folder.created"));
-      }
-      setDialog(null);
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t(dialog?.mode === "rename" ? "dashboard.folder.renameFailed" : "dashboard.folder.createFailed"),
-      );
-    }
-  }
-
   async function handleDelete(folder: Folder) {
     if (!window.confirm(t("dashboard.folder.deleteConfirm"))) return;
     try {
@@ -125,15 +97,7 @@ export function FolderExplorer({
 
   return (
     <div className="grid gap-2">
-      <FolderNameDialog
-        open={!!dialog}
-        onOpenChange={(o) => !o && setDialog(null)}
-        title={dialog?.mode === "rename" ? t("dashboard.folder.rename") : t("dashboard.folder.new")}
-        submitLabel={dialog?.mode === "rename" ? t("dashboard.folder.rename") : t("common.add")}
-        initialName={dialog?.folder?.name ?? ""}
-        pending={createFolder.isPending || renameFolder.isPending}
-        onSubmit={submitDialog}
-      />
+      <FolderNameDialog {...folderDialog.dialogProps} />
       {folders.map((folder) => (
         <ExplorerFolderRow
           key={folder.id}
@@ -141,7 +105,7 @@ export function FolderExplorer({
           surveys={inFolder(folder.id)}
           open={expanded.has(folder.id)}
           onToggle={() => toggle(folder.id)}
-          onRename={() => handleRename(folder)}
+          onRename={() => folderDialog.openRename(folder)}
           onDelete={() => handleDelete(folder)}
           onTagClick={onTagClick}
         />
@@ -151,7 +115,7 @@ export function FolderExplorer({
         variant="ghost"
         size="sm"
         className="w-fit gap-1 text-muted-foreground"
-        onClick={handleCreate}
+        onClick={folderDialog.openCreate}
       >
         <Plus className="size-4" />
         {t("dashboard.folder.new")}

@@ -68,7 +68,7 @@ import {
   updateSurveyApi,
 } from "@/app/lib/survey/api";
 import {
-  DEFAULT_PAGE_SIZE,
+  SURVEY_LIST_PAGE_SIZE,
   RESULTS_POLL_INTERVAL_MS,
   NOTIFICATIONS_POLL_INTERVAL_MS,
   foldersKey,
@@ -97,15 +97,30 @@ import { useCurrentUser } from "@/app/hooks/auth";
 
 // ── useSurveys (list) ─────────────────────────────────────────────
 
-export function useSurveys(page = 0, limit = DEFAULT_PAGE_SIZE) {
+export function useSurveys() {
   return useQuery({
-    queryKey: surveyKeys.list(page, limit),
+    queryKey: surveyKeys.listAll(),
     queryFn: async () => {
-      const res = await listSurveysApi(page, limit);
-      if (!res.success || !res.data) {
-        throw new Error(localizeServerError(res.error ?? "Failed to load surveys"));
+      const load = async (page: number) => {
+        const res = await listSurveysApi(page, SURVEY_LIST_PAGE_SIZE);
+        if (!res.success || !res.data) {
+          throw new Error(localizeServerError(res.error ?? "Failed to load surveys"));
+        }
+        return res;
+      };
+      const first = await load(0);
+      const total = first.meta?.total ?? first.data!.length;
+      const pageCount = Math.ceil(total / SURVEY_LIST_PAGE_SIZE);
+      const rest = await Promise.all(
+        Array.from({ length: Math.max(pageCount - 1, 0) }, (_, i) => load(i + 1)),
+      );
+      const byId = new Map<string, Survey>();
+      for (const res of [first, ...rest]) {
+        for (const survey of res.data!) {
+          if (!byId.has(survey.id)) byId.set(survey.id, survey);
+        }
       }
-      return { surveys: res.data, meta: res.meta };
+      return { surveys: [...byId.values()], meta: first.meta };
     },
   });
 }

@@ -11,15 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
-import {
-  useCreateFolder,
-  useDeleteFolder,
-  useRenameFolder,
-} from "@/app/hooks/survey";
+import { useDeleteFolder } from "@/app/hooks/survey";
+import { useFolderDialog } from "@/app/hooks/use-folder-dialog";
 import { folderDropId, ALL_DROP_ID } from "@/app/lib/survey/folder-dnd";
 import { useTranslation } from "@/app/i18n/context";
 import type { Folder, Survey } from "@/app/types/survey";
-import { useState } from "react";
 import { FolderNameDialog } from "./folder-name-dialog";
 
 interface FolderBarProps {
@@ -38,42 +34,12 @@ interface FolderBarProps {
  */
 export function FolderBar({ folders, surveys, openFolderId, onOpen }: FolderBarProps) {
   const { t } = useTranslation();
-  const createFolder = useCreateFolder();
-  const renameFolder = useRenameFolder();
   const deleteFolder = useDeleteFolder();
-  const [dialog, setDialog] = useState<{ mode: "create" | "rename"; folder?: Folder } | null>(null);
+  const folderDialog = useFolderDialog();
 
   const counts = new Map<string, number>();
   for (const s of surveys) {
     if (s.folderId) counts.set(s.folderId, (counts.get(s.folderId) ?? 0) + 1);
-  }
-
-  function handleCreate() {
-    setDialog({ mode: "create" });
-  }
-
-  function handleRename(folder: Folder) {
-    setDialog({ mode: "rename", folder });
-  }
-
-  async function submitDialog(name: string) {
-    try {
-      if (dialog?.mode === "rename" && dialog.folder) {
-        if (name === dialog.folder.name) return setDialog(null);
-        await renameFolder.mutateAsync({ id: dialog.folder.id, name });
-        toast.success(t("dashboard.folder.renamed"));
-      } else {
-        await createFolder.mutateAsync(name);
-        toast.success(t("dashboard.folder.created"));
-      }
-      setDialog(null);
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t(dialog?.mode === "rename" ? "dashboard.folder.renameFailed" : "dashboard.folder.createFailed"),
-      );
-    }
   }
 
   async function handleDelete(folder: Folder) {
@@ -87,17 +53,7 @@ export function FolderBar({ folders, surveys, openFolderId, onOpen }: FolderBarP
     }
   }
 
-  const dialogEl = (
-    <FolderNameDialog
-      open={!!dialog}
-      onOpenChange={(o) => !o && setDialog(null)}
-      title={dialog?.mode === "rename" ? t("dashboard.folder.rename") : t("dashboard.folder.new")}
-      submitLabel={dialog?.mode === "rename" ? t("dashboard.folder.rename") : t("common.add")}
-      initialName={dialog?.folder?.name ?? ""}
-      pending={createFolder.isPending || renameFolder.isPending}
-      onSubmit={submitDialog}
-    />
-  );
+  const dialogEl = <FolderNameDialog {...folderDialog.dialogProps} />;
 
   const openFolder = folders.find((f) => f.id === openFolderId) ?? null;
 
@@ -119,7 +75,7 @@ export function FolderBar({ folders, surveys, openFolderId, onOpen }: FolderBarP
             label={t("dashboard.folder.menu")}
             renameLabel={t("dashboard.folder.rename")}
             deleteLabel={t("dashboard.folder.delete")}
-            onRename={() => handleRename(openFolder)}
+            onRename={() => folderDialog.openRename(openFolder)}
             onDelete={() => handleDelete(openFolder)}
           />
           <Button variant="ghost" size="sm" onClick={() => onOpen(null)}>
@@ -148,7 +104,7 @@ export function FolderBar({ folders, surveys, openFolderId, onOpen }: FolderBarP
               label={t("dashboard.folder.menu")}
               renameLabel={t("dashboard.folder.rename")}
               deleteLabel={t("dashboard.folder.delete")}
-              onRename={() => handleRename(folder)}
+              onRename={() => folderDialog.openRename(folder)}
               onDelete={() => handleDelete(folder)}
             />
           }
@@ -159,7 +115,7 @@ export function FolderBar({ folders, surveys, openFolderId, onOpen }: FolderBarP
       <Button
         variant="outline"
         className="h-auto min-h-[4.5rem] flex-col gap-1 border-dashed px-4 text-muted-foreground"
-        onClick={handleCreate}
+        onClick={folderDialog.openCreate}
       >
         <Plus className="size-5" />
         <span className="text-xs">{t("dashboard.folder.new")}</span>
