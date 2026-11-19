@@ -585,6 +585,11 @@ export const en = {
   "results.colors.useDefault": "Use theme default",
   "results.colors.saved": "Chart colors saved",
   "results.colors.reset": "Chart colors reset to theme default",
+  "results.colors.question.customize": "Colors for this question",
+  "results.colors.question.help":
+    "These colors apply only to this question's charts and word cloud, for you, the presenter view and participants.",
+  "results.colors.question.useSurvey": "Use survey colors",
+  "results.colors.question.reset": "This question now uses the survey colors",
   "results.preview.show": "Show preview submissions",
   "results.preview.delete": "Delete preview data",
   "results.preview.deleted": "Deleted {count} preview submission(s)",
@@ -2009,6 +2014,11 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "results.colors.useDefault": "Theme-Standard verwenden",
   "results.colors.saved": "Diagrammfarben gespeichert",
   "results.colors.reset": "Diagrammfarben auf Theme-Standard zurückgesetzt",
+  "results.colors.question.customize": "Farben für diese Frage",
+  "results.colors.question.help":
+    "Diese Farben gelten nur für die Diagramme und die Wortwolke dieser Frage – für dich, die Präsentationsansicht und die Teilnehmenden.",
+  "results.colors.question.useSurvey": "Umfragefarben verwenden",
+  "results.colors.question.reset": "Diese Frage verwendet jetzt die Umfragefarben",
   "results.preview.show": "Test-Einsendungen anzeigen",
   "results.preview.delete": "Testdaten löschen",
   "results.preview.deleted": "{count} Test-Einsendung(en) gelöscht",

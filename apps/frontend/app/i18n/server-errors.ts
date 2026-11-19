@@ -1,6 +1,8 @@
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "./translations";
 
 const EXACT_DE: Record<string, string> = {
+  "A color palette can have at most 10 colors, each written as #rgb or #rrggbb.":
+    "Eine Farbpalette kann höchstens 10 Farben haben, jeweils als #rgb oder #rrggbb.",
   "A paragraph answer is too long.": "Eine Absatz-Antwort ist zu lang.",
   "A rating answer is out of range.": "Eine Bewertung liegt außerhalb des gültigen Bereichs.",
   "A survey can have at most 10 webhooks.": "Eine Umfrage kann höchstens 10 Webhooks haben.",

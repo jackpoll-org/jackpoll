@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import {
   Card,
@@ -40,6 +40,7 @@ import {
   type ChartType,
 } from "@/app/lib/survey/result-chart";
 import { choiceCountsToWords, countsToWords } from "@/app/lib/results/wordcloud";
+import { resolvePalette } from "@/app/lib/results/palette";
 
 export type { ChartType };
 
@@ -111,8 +112,9 @@ function ChoiceWordcloud({ data, colors }: { data: BarDatum[]; colors?: string[]
 interface QuestionResultCardProps {
   result: QuestionResult;
   question?: Question;
-  /** Owner-configured chart palette override (survey settings). */
+  /** Survey palette; the question's own palette takes precedence. */
   colors?: string[] | null;
+  action?: ReactNode;
   /** Reports the on-screen chart type selection so PDF export can match it (#). */
   onChartTypeChange?: (questionId: string, type: ChartType) => void;
 }
@@ -157,10 +159,12 @@ function QuotaSummary({ question }: { question?: Question }) {
 export function QuestionResultCard({
   result,
   question,
-  colors,
+  colors: surveyColors,
+  action,
   onChartTypeChange,
 }: QuestionResultCardProps) {
   const { t, locale } = useTranslation();
+  const colors = resolvePalette(question, surveyColors);
   const labels = labelMap(question);
   const label = (id: string) => labels[id] ?? id;
 
@@ -382,9 +386,12 @@ export function QuestionResultCard({
           <CardTitle className="text-base font-medium">
             {result.title || t("results.untitledQuestion")}
           </CardTitle>
-          <Badge variant="secondary" className="shrink-0">
-            {t("results.answered", { count: String(result.answered) })}
-          </Badge>
+          <div className="flex shrink-0 items-center gap-1">
+            {action}
+            <Badge variant="secondary" className="shrink-0">
+              {t("results.answered", { count: String(result.answered) })}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>{body()}</CardContent>

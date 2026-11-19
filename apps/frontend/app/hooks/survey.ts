@@ -93,6 +93,7 @@ import type {
   UpdateSurveyRequest,
 } from "@/app/types/survey";
 import { localizeServerError } from "@/app/i18n/server-errors";
+import { useCurrentUser } from "@/app/hooks/auth";
 
 // ── useSurveys (list) ─────────────────────────────────────────────
 
@@ -480,6 +481,19 @@ export function useCollaborators(surveyId: string | undefined) {
     },
     enabled: !!surveyId,
   });
+}
+
+export function useCanEditSurvey(survey: Survey | undefined): boolean {
+  const user = useCurrentUser();
+  const userId = user.data?.id;
+  const isOwner = !!survey && !!userId && survey.ownerId === userId;
+  const collaborators = useCollaborators(survey && userId && !isOwner ? survey.id : undefined);
+  return (
+    isOwner ||
+    !!collaborators.data?.some(
+      (c) => c.userId === userId && c.role === "editor" && c.status === "ACCEPTED",
+    )
+  );
 }
 
 export function useAddCollaborator(surveyId: string) {

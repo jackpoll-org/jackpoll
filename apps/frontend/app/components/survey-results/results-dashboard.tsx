@@ -34,6 +34,7 @@ import {
   useDeletePreviewResponses,
   useResponses,
   useSurvey,
+  useCanEditSurvey,
   useSurveyResults,
 } from "@/app/hooks/survey";
 import { useLiveResultsSocket } from "@/app/hooks/results-live";
@@ -45,7 +46,7 @@ import { exportResultsPdf } from "@/app/lib/survey/pdf-export";
 import type { QuizStats } from "@/app/types/survey";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { QuestionResultCard, type ChartType } from "./question-result-card";
-import { ChartColorsDialog } from "./chart-colors-dialog";
+import { ChartColorsDialog, QuestionColorsDialog } from "./chart-colors-dialog";
 import { ResultBarChart } from "./result-charts";
 import { ResponsesPanel } from "./responses-panel";
 import { SessionPicker } from "./session-picker";
@@ -111,6 +112,7 @@ function downloadBlob(filename: string, blob: Blob): void {
 export function ResultsDashboard({ surveyId }: { surveyId: string }) {
   const { t, locale } = useTranslation();
   const survey = useSurvey(surveyId);
+  const canEdit = useCanEditSurvey(survey.data);
   const [showPreview, setShowPreview] = useState(false);
   // Live quizzes: narrow everything on this page to one round (one "start
   // game"), or show all rounds (null). A round that no longer exists (e.g.
@@ -273,7 +275,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
             <RefreshCw className="size-4" />
             {t("results.refresh")}
           </Button>
-          {survey.data && <ChartColorsDialog survey={survey.data} />}
+          {survey.data && canEdit && <ChartColorsDialog survey={survey.data} />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" disabled={!responses.data?.length || exporting}>
@@ -367,6 +369,11 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
                   result={result}
                   question={questionById.get(result.questionId)}
                   colors={survey.data?.settings.colorPalette}
+                  action={
+                    survey.data && canEdit ? (
+                      <QuestionColorsDialog survey={survey.data} questionId={result.questionId} />
+                    ) : undefined
+                  }
                   onChartTypeChange={(id, t) =>
                     setChartTypes((prev) =>
                       prev[id] === t ? prev : { ...prev, [id]: t },

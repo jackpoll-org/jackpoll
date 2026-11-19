@@ -142,7 +142,9 @@ public class SurveyService {
         }
         var previous = survey.settings;
         var scoringBefore = scoringSignature(survey);
+        var palettesBefore = colorPalettes(survey);
         mapper.applyUpdate(survey, req);
+        ensureValidPalettes(survey, palettesBefore);
         if (!owner && survey.settings != null) {
             survey.settings.ogShowOwner = previous == null ? null : previous.ogShowOwner;
             survey.settings.retentionDays = previous == null ? null : previous.retentionDays;
@@ -171,6 +173,40 @@ public class SurveyService {
         if (!scoringBefore.equals(scoringSignature(survey))) {
             responseService.rescore(survey);
         }
+    }
+
+    private static final int MAX_PALETTE_COLORS = 10;
+    private static final java.util.regex.Pattern HEX_COLOR =
+        java.util.regex.Pattern.compile("#(?:[0-9a-fA-F]{3}){1,2}");
+
+    private static java.util.List<Object> colorPalettes(Survey survey) {
+        var palettes = new java.util.ArrayList<Object>();
+        if (survey.settings != null && survey.settings.colorPalette != null) {
+            palettes.add(survey.settings.colorPalette);
+        }
+        if (survey.questions != null) {
+            for (var q : survey.questions) {
+                if (q.settings != null && q.settings.get("colorPalette") != null) {
+                    palettes.add(q.settings.get("colorPalette"));
+                }
+            }
+        }
+        return palettes;
+    }
+
+    private static void ensureValidPalettes(Survey survey, java.util.List<Object> before) {
+        for (var palette : colorPalettes(survey)) {
+            if (!before.contains(palette) && !isValidPalette(palette)) {
+                throw new IllegalArgumentException(
+                    "A color palette can have at most 10 colors, each written as #rgb or #rrggbb.");
+            }
+        }
+    }
+
+    private static boolean isValidPalette(Object palette) {
+        return palette instanceof java.util.List<?> colors
+            && colors.size() <= MAX_PALETTE_COLORS
+            && colors.stream().allMatch(c -> c instanceof String s && HEX_COLOR.matcher(s).matches());
     }
 
     private static void ensureSafeButtonLinks(SurveySettings settings) {

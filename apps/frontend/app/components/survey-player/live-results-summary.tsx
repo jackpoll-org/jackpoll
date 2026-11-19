@@ -40,6 +40,7 @@ export function LiveResultsSummary({ survey }: { survey: Survey }) {
           key={result.questionId}
           result={result}
           question={questionById.get(result.questionId)}
+          colors={survey.settings.colorPalette}
         />
       ))}
     </div>
