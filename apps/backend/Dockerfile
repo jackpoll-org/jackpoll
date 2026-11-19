@@ -30,4 +30,5 @@ RUN chmod 755 /app/docker-entrypoint.sh
 USER quarkus
 EXPOSE 8080
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
+ENV JDK_JAVA_OPTIONS="-XX:-UseBASE64Intrinsics"
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

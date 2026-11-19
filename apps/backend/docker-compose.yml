@@ -67,6 +67,7 @@ services:
     command: start-dev --import-realm
     environment:
       KC_DB: postgres
+      JAVA_OPTS_APPEND: "-XX:-UseBASE64Intrinsics"
       KC_DB_URL: jdbc:postgresql://postgres:5432/survey
       KC_DB_USERNAME: survey
       KC_DB_PASSWORD: survey
