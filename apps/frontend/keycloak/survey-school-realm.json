@@ -71,7 +71,8 @@
         "web-origins",
         "profile",
         "roles",
-        "email"
+        "email",
+        "kc-admin-api"
       ],
       "optionalClientScopes": [
         "offline_access",

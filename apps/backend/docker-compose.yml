@@ -62,7 +62,7 @@ services:
 
   # Keycloak for user management & authentication
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.2
+    image: quay.io/keycloak/keycloak:26.8.2
     container_name: survey-keycloak
     command: start-dev --import-realm
     environment:
