@@ -11,7 +11,7 @@ vi.mock("@/app/lib/auth/refresh", () => ({
 
 const urls: string[] = [];
 const protocols: (string[] | undefined)[] = [];
-const sockets: { onclose: (() => void) | null }[] = [];
+const sockets: { onopen: (() => void) | null; onclose: (() => void) | null }[] = [];
 
 class FakeWebSocket {
   static CONNECTING = 0;
@@ -39,6 +39,44 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("ResultsLiveSocket", () => {
+  it("reports when the connection opens and drops", () => {
+    vi.useFakeTimers();
+    const changes: boolean[] = [];
+    const socket = new ResultsLiveSocket("s1", () => {}, { onConnectionChange: (open) => changes.push(open) });
+    sockets[0].onclose?.();
+    expect(changes).toEqual([false]);
+    vi.advanceTimersByTime(2_000);
+    sockets[1].onopen?.();
+    sockets[1].onclose?.();
+    expect(changes).toEqual([false, true, false]);
+    socket.destroy();
+    vi.useRealTimers();
+  });
+
+  it("reports a drop when a zombie socket is replaced on wake", () => {
+    const changes: boolean[] = [];
+    const socket = new ResultsLiveSocket("s1", () => {}, { onConnectionChange: (open) => changes.push(open) });
+    sockets[0].onopen?.();
+    (sockets[0] as unknown as { readyState: number }).readyState = FakeWebSocket.OPEN;
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(changes).toEqual([true, false]);
+    expect(sockets).toHaveLength(2);
+    socket.destroy();
+  });
+
+  it("ignores a late close from a socket replaced while it was closing", () => {
+    const changes: boolean[] = [];
+    const socket = new ResultsLiveSocket("s1", () => {}, { onConnectionChange: (open) => changes.push(open) });
+    sockets[0].onopen?.();
+    const closing = sockets[0];
+    (closing as unknown as { readyState: number }).readyState = 2;
+    document.dispatchEvent(new Event("visibilitychange"));
+    sockets[1].onopen?.();
+    closing.onclose?.();
+    expect(changes).toEqual([true, false, true]);
+    socket.destroy();
+  });
+
   it("connects anonymous viewers to the plain results room", () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     const socket = new ResultsLiveSocket("s1", () => {});

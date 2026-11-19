@@ -32,6 +32,7 @@ public class ApiKeyGuard {
         if (current == null) return;
         boolean exposesOrPurges = next.showLiveResults() != current.showLiveResults
             || next.postSubmitSummary() != current.postSubmitSummary
+            || next.postSubmitCombinedWordcloud() != current.postSubmitCombinedWordcloud
             || next.studentResults() != current.studentResults
             || next.resultsReleased() != current.resultsReleased
             || !Objects.equals(next.retentionDays(), current.retentionDays)

@@ -12,6 +12,12 @@ export interface PlacedWord {
   /** Word centre, relative to the centre of the cloud area. */
   x: number;
   y: number;
+  key?: string;
+  color?: string;
+}
+
+interface SizedWord extends cloud.Word {
+  source: CloudWord;
 }
 
 export interface CloudLayoutOptions {
@@ -37,13 +43,14 @@ export function layoutCloud(
 ): Promise<{ placed: PlacedWord[]; dropped: CloudWord[] }> {
   if (words.length === 0) return Promise.resolve({ placed: [], dropped: [] });
   const maxValue = Math.max(...words.map((w) => w.value));
-  const sized: cloud.Word[] = words.map((w) => ({
+  const sized: SizedWord[] = words.map((w) => ({
     text: w.text,
     size: cloudFontSize(w.value, maxValue, opts),
+    source: w,
   }));
 
   return new Promise((resolve) => {
-    cloud()
+    cloud<SizedWord>()
       .size([opts.width, opts.height])
       .words(sized)
       .padding(2)
@@ -59,9 +66,11 @@ export function layoutCloud(
           size: w.size ?? 0,
           x: w.x ?? 0,
           y: w.y ?? 0,
+          key: w.source.key,
+          color: w.source.color,
         }));
-        const shown = new Set(placed.map((w) => w.text));
-        const dropped = words.filter((w) => !shown.has(w.text));
+        const shown = new Set(out.map((w) => w.source));
+        const dropped = words.filter((w) => !shown.has(w));
         resolve({ placed, dropped });
       })
       .start();

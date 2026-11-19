@@ -315,7 +315,10 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
                 />
               )}
 
-              {survey.settings.showLiveResults && liveResultsApplicable(question.type) && (
+              {(survey.settings.postSubmitCombinedWordcloud
+                ? question.type === "wordcloud"
+                : survey.settings.showLiveResults) &&
+                liveResultsApplicable(question.type) && (
                 <div className="flex items-center gap-2">
                   <Label
                     htmlFor={`live-${question.id}`}

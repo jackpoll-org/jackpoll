@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { invalidateResponseData } from "@/app/hooks/survey";
 import { surveyKeys } from "@/app/lib/survey/constants";
@@ -19,8 +19,9 @@ import type { SurveyResults } from "@/app/types/survey";
 export function useLiveResultsSocket(
   surveyId: string | undefined,
   enabled = true,
-): void {
+): boolean {
   const queryClient = useQueryClient();
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     if (!surveyId || !enabled || !liveResultsEnabled()) return;
@@ -37,7 +38,12 @@ export function useLiveResultsSocket(
         old ? mergeWordcloudDeltas(old, message.deltas) : old;
       queryClient.setQueryData(surveyKeys.results(surveyId), merge);
       queryClient.setQueryData(surveyKeys.liveResults(surveyId), merge);
-    });
-    return () => socket.destroy();
+    }, { onConnectionChange: setConnected });
+    return () => {
+      socket.destroy();
+      setConnected(false);
+    };
   }, [surveyId, enabled, queryClient]);
+
+  return connected;
 }

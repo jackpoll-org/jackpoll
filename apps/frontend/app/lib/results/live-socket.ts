@@ -37,6 +37,7 @@ export interface ResultsLiveSocketOptions {
    * (lobby check-ins), which the backend keeps off every player's phone.
    */
   role?: "host";
+  onConnectionChange?: (open: boolean) => void;
 }
 
 function resultsUrl(surveyId: string, role?: "host"): string {
@@ -106,10 +107,11 @@ export class ResultsLiveSocket {
     // never sent a close/error frame (locked screen, flaky mobile network,
     // carrier NAT timeout). Force-drop and reopen it rather than trusting
     // readyState, so a phone waking up always gets a fresh connection.
-    if (rs === WebSocket.OPEN && this.ws) {
+    if (this.ws) {
       this.ws.onclose = null; // don't also trigger the automatic reconnect-on-close path
       this.ws.onerror = null;
-      this.ws.close();
+      if (rs === WebSocket.OPEN) this.ws.close();
+      this.options.onConnectionChange?.(false);
     }
     this.connect();
   };
@@ -136,11 +138,13 @@ export class ResultsLiveSocket {
     ws.onopen = () => {
       opened = true;
       if (this.withBearer) this.retriedBearer = false;
+      this.options.onConnectionChange?.(true);
     };
     ws.onmessage = (e) =>
       this.onMessage(typeof e.data === "string" ? e.data : "");
     ws.onclose = (e) => {
       if (this.closed) return;
+      this.options.onConnectionChange?.(false);
       if (e?.code === FORBIDDEN) {
         // A failed attempt before open can be the network, not a refused sign-in:
         // when the anonymous fallback is refused, try signed in once more.

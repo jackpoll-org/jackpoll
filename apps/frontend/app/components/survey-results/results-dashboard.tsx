@@ -46,6 +46,8 @@ import { exportResultsPdf } from "@/app/lib/survey/pdf-export";
 import type { QuizStats } from "@/app/types/survey";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { QuestionResultCard, type ChartType } from "./question-result-card";
+import { CombinedWordcloudCard } from "./combined-wordcloud-card";
+import { countWordcloudQuestions } from "@/app/lib/results/combined-wordcloud";
 import { ChartColorsDialog, QuestionColorsDialog } from "./chart-colors-dialog";
 import { ResultBarChart } from "./result-charts";
 import { ResponsesPanel } from "./responses-panel";
@@ -363,6 +365,9 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
             </Card>
           ) : (
             <div className="grid gap-4">
+              {survey.data && results.data && countWordcloudQuestions(survey.data.questions) >= 2 && (
+                <CombinedWordcloudCard questions={survey.data.questions} results={results.data.questions} />
+              )}
               {results.data?.questions.map((result) => (
                 <QuestionResultCard
                   key={result.questionId}

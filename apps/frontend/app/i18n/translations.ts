@@ -278,6 +278,10 @@ export const en = {
   "builder.settings.liveResults": "Live results",
   "builder.settings.liveResultsToggle": "Let respondents see live results (off by default)",
   "builder.settings.postSubmitSummary": "Show a results summary after submitting",
+  "builder.settings.postSubmitCombinedWordcloud":
+    "After submitting, show the combined word cloud of all word-cloud questions",
+  "builder.settings.postSubmitCombinedWordcloudHelp":
+    "Respondents then see only the word clouds' words, live — no other results, even if live results are on.",
   "builder.settings.liveResultsHelp":
     "Free-text and file-upload answers are never shown. Toggle individual questions in the Edit tab.",
   "builder.settings.availability": "Availability",
@@ -917,6 +921,8 @@ export const en = {
   "wordcloud.optionCount": "{count} option(s)",
   "wordcloud.live": "Live",
   "wordcloud.notShown": "Not enough room for: {words}",
+  "wordcloud.combined.title": "All word clouds",
+  "wordcloud.combined.legend": "Colour key",
   "results.present": "Present",
   "results.exitPresent": "Exit",
 
@@ -1714,6 +1720,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.settings.liveResultsToggle":
     "Teilnehmenden Live-Ergebnisse zeigen (standardmäßig aus)",
   "builder.settings.postSubmitSummary": "Nach dem Absenden eine Ergebnisübersicht zeigen",
+  "builder.settings.postSubmitCombinedWordcloud":
+    "Nach dem Absenden die gemeinsame Wortwolke aller Wortwolken-Fragen zeigen",
+  "builder.settings.postSubmitCombinedWordcloudHelp":
+    "Teilnehmende sehen dann live nur die Wörter der Wortwolken – keine anderen Ergebnisse, auch wenn Live-Ergebnisse an sind.",
   "builder.settings.liveResultsHelp":
     "Freitext- und Datei-Upload-Antworten werden nie gezeigt. Einzelne Fragen schaltest du im Bearbeiten-Tab um.",
   "builder.settings.availability": "Verfügbarkeit",
@@ -2355,6 +2365,8 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "wordcloud.optionCount": "{count} Option(en)",
   "wordcloud.live": "Live",
   "wordcloud.notShown": "Kein Platz für: {words}",
+  "wordcloud.combined.title": "Alle Wortwolken",
+  "wordcloud.combined.legend": "Farblegende",
   "results.present": "Präsentieren",
   "results.exitPresent": "Beenden",
 

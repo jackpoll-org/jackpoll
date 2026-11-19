@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { Question, Survey } from "@/app/types/survey";
 
@@ -89,5 +89,31 @@ describe("QuestionCard page dropdown", () => {
       ["__none__", "Page 1"],
       ["a", "Page 2"],
     ]);
+  });
+});
+
+describe("QuestionCard live results switch", () => {
+  const cloud: Question = { id: "w1", type: "wordcloud", title: "Words", required: false, order: 0, sectionId: null };
+
+  it("shows the switch for a word cloud when only the combined word cloud is on", () => {
+    mock.survey = survey([cloud], [], { postSubmitCombinedWordcloud: true });
+    render(<QuestionCard question={cloud} index={0} total={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "builder.question.more" }));
+    expect(screen.getByText("builder.showInLiveResults")).toBeTruthy();
+  });
+
+  it("hides the switch when neither live results nor the combined word cloud is on", () => {
+    mock.survey = survey([cloud], [], {});
+    render(<QuestionCard question={cloud} index={0} total={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "builder.question.more" }));
+    expect(screen.queryByText("builder.showInLiveResults")).toBeNull();
+  });
+
+  it("hides the switch for other questions while the combined word cloud is on", () => {
+    const choice: Question = { id: "c1", type: "multiple-choice", title: "Pick", required: false, order: 0, sectionId: null, options: [] };
+    mock.survey = survey([choice], [], { showLiveResults: true, postSubmitCombinedWordcloud: true });
+    render(<QuestionCard question={choice} index={0} total={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "builder.question.more" }));
+    expect(screen.queryByText("builder.showInLiveResults")).toBeNull();
   });
 });

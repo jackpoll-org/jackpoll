@@ -4,6 +4,8 @@
 export interface CloudWord {
   text: string;
   value: number;
+  key?: string;
+  color?: string;
 }
 
 /**

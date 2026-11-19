@@ -77,6 +77,22 @@ export function BuilderSettings() {
             </Label>
           </div>
         )}
+        <div className="flex items-center gap-2">
+          <Switch
+            id="post-submit-combined-wordcloud"
+            checked={settings.postSubmitCombinedWordcloud ?? false}
+            disabled={stateless}
+            onCheckedChange={(c) => updateSettings({ postSubmitCombinedWordcloud: c })}
+          />
+          <Label htmlFor="post-submit-combined-wordcloud" className="font-normal">
+            {t("builder.settings.postSubmitCombinedWordcloud")}
+          </Label>
+        </div>
+        {settings.postSubmitCombinedWordcloud && (
+          <p className="text-xs text-muted-foreground">
+            {t("builder.settings.postSubmitCombinedWordcloudHelp")}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           {t("builder.settings.liveResultsHelp")}
         </p>

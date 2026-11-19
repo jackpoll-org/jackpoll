@@ -16,6 +16,7 @@ export function storageConflict(survey: Survey): "settings" | "questions" | null
   if (
     s.liveMode ||
     s.showLiveResults ||
+    s.postSubmitCombinedWordcloud ||
     s.studentResults ||
     s.allowEditResponses ||
     s.onePerBrowser ||

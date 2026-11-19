@@ -26,6 +26,7 @@ import { resolvePiping } from "@/app/lib/survey/piping";
 import { normalizeRedirectUrl } from "@/app/lib/survey/redirect";
 import { trackEvent } from "@/app/lib/survey/track";
 import { LiveResultsSummary } from "./live-results-summary";
+import { CombinedWordcloudLive } from "./combined-wordcloud-live";
 import { LiveParticipant } from "@/app/components/live/live-participant";
 import { BrandingHeader, PoweredBy, brandingStyle } from "./branding-frame";
 import { useInstanceLegal } from "@/app/components/legal/instance-legal-context";
@@ -1089,7 +1090,11 @@ function ConfirmationScreen({
       {result?.corrections && result.corrections.length > 0 && (
         <AnswerCorrections survey={survey} answers={answers} corrections={result.corrections} />
       )}
-      {showSummary && <LiveResultsSummary survey={survey} />}
+      {survey.settings.postSubmitCombinedWordcloud ? (
+        <CombinedWordcloudLive survey={survey} />
+      ) : (
+        showSummary && <LiveResultsSummary survey={survey} />
+      )}
       <PoweredBy survey={survey} />
     </div>
   );

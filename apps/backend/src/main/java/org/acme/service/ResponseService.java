@@ -411,7 +411,7 @@ public class ResponseService {
      */
     private String buildResultsBroadcast(Survey survey, SubmitResponseRequest req) {
         try {
-            if (survey.settings == null || !survey.settings.showLiveResults
+            if (survey.settings == null || !survey.settings.sharesLiveResults()
                 || req.answers() == null) {
                 return "updated";
             }
@@ -1121,7 +1121,7 @@ public class ResponseService {
         var survey = surveyRepository.findByIdOptional(surveyId)
             .filter(s -> s.status == SurveyStatus.PUBLISHED)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + surveyId));
-        if (survey.settings == null || !survey.settings.showLiveResults) {
+        if (survey.settings == null || !survey.settings.sharesLiveResults()) {
             throw new ForbiddenAccessException("Live results are not enabled.");
         }
         var responses = responseRepository.findBySurvey(surveyId);
@@ -1129,13 +1129,21 @@ public class ResponseService {
             .filter(q -> liveAllowed(survey, q))
             .map(q -> aggregateQuestion(q, responses))
             .toList();
+        if (survey.settings.postSubmitCombinedWordcloud) {
+            var wordCounts = questions.stream()
+                .map(q -> new QuestionResultDto(
+                    q.questionId(), q.type(), q.title(), 0, q.optionCounts(), null, null, null, null, null))
+                .toList();
+            return new SurveyResultsDto(survey.id, survey.title, 0, null, null, wordCounts, null);
+        }
         return new SurveyResultsDto(
             survey.id, survey.title, responses.size(), null, null, questions, null);
     }
 
     /** Server-side guard: free-text and file-upload answers are never exposed. */
     private static boolean liveAllowed(Survey survey, Question q) {
-        if (survey.settings == null || !survey.settings.showLiveResults) return false;
+        if (survey.settings == null || !survey.settings.sharesLiveResults()) return false;
+        if (survey.settings.postSubmitCombinedWordcloud && q.type != QuestionType.WORDCLOUD) return false;
         if (!q.type.isAnswerable() || (survey.settings.isQuiz && QuizScoring.scoresOrder(q))) return false;
         switch (q.type) {
             case SHORT_ANSWER, LONG_ANSWER, FILE_UPLOAD, SIGNATURE, DATE -> {

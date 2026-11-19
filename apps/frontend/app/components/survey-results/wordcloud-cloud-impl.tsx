@@ -66,7 +66,9 @@ export function WordcloudCloud({
   const [layout, setLayout] = useState<CloudLayout | null>(null);
   // Parents rebuild the words array on every render; relayout only when the
   // words or counts actually change, not on each re-render.
-  const wordsKey = words.map((w) => `${w.text}\u0000${w.value}`).join("\u0001");
+  const wordsKey = words
+    .map((w) => `${w.key ?? w.text}\u0000${w.value}\u0000${w.color ?? ""}`)
+    .join("\u0001");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by content via wordsKey
   const stableWords = useMemo(() => words, [wordsKey]);
 
@@ -105,7 +107,7 @@ export function WordcloudCloud({
               // Keying by text+size remounts a word only when its count changes
               // (or it's new), so just those words replay the pop animation while
               // unchanged words quietly re-position on relayout.
-              <g key={`${w.text}-${w.size}`} transform={`translate(${w.x}, ${w.y})`}>
+              <g key={`${w.key ?? w.text}-${w.size}`} transform={`translate(${w.x}, ${w.y})`}>
                 <text
                   className="wordcloud-pop"
                   textAnchor="middle"
@@ -113,7 +115,7 @@ export function WordcloudCloud({
                   fontFamily={CLOUD_FONT}
                   fontWeight={CLOUD_FONT_WEIGHT}
                   fontSize={w.size}
-                  fill={palette[i % palette.length]}
+                  fill={w.color ?? palette[i % palette.length]}
                   style={{
                     userSelect: "none",
                     transformBox: "fill-box",

@@ -36,6 +36,7 @@ export const PROTECTED_SETTINGS = [
   "ogShowOwner",
   "showLiveResults",
   "postSubmitSummary",
+  "postSubmitCombinedWordcloud",
   "studentResults",
   "resultsReleased",
 ] as const satisfies readonly (keyof SurveySettings)[];

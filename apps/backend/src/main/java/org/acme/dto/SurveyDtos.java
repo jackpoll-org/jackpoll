@@ -147,7 +147,8 @@ public final class SurveyDtos {
         boolean doNotStoreResponses,
         @Size(max = 10) java.util.List<@NotNull @Valid CompletionButtonDto> completionButtons,
         boolean hideSubmitAnother,
-        @Size(max = 80) String submitAnotherLabel
+        @Size(max = 80) String submitAnotherLabel,
+        boolean postSubmitCombinedWordcloud
     ) {}
 
     public record CompletionButtonDto(

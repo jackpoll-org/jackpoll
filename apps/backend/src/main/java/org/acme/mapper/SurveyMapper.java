@@ -142,7 +142,8 @@ public class SurveyMapper {
                     b.id, b.label, b.action, b.url, b.newTab, b.enabled))
                 .toList(),
             s.hideSubmitAnother,
-            s.submitAnotherLabel
+            s.submitAnotherLabel,
+            s.postSubmitCombinedWordcloud
         );
     }
 
@@ -309,6 +310,7 @@ public class SurveyMapper {
         s.responseLimit = d.responseLimit();
         s.showLiveResults = d.showLiveResults();
         s.postSubmitSummary = d.postSubmitSummary();
+        s.postSubmitCombinedWordcloud = d.postSubmitCombinedWordcloud();
         s.accentColor = d.accentColor();
         s.backgroundColor = d.backgroundColor();
         s.logoUrl = d.logoUrl();

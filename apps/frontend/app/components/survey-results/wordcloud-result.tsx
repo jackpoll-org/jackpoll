@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
@@ -44,6 +44,8 @@ interface WordcloudResultProps {
   colors?: string[] | null;
   /** "absolute" for free-text words, "relative" for choice options. */
   scale?: CloudScale;
+  live?: boolean;
+  legend?: ReactNode;
 }
 
 /**
@@ -52,7 +54,7 @@ interface WordcloudResultProps {
  * as a chart option for choice questions. The data refreshes live via the
  * results WebSocket (see hooks/results-live.ts) or polling fallback.
  */
-export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudResultProps) {
+export function WordcloudResult({ words, countLabel, colors, scale, live: liveOverride, legend }: WordcloudResultProps) {
   const { t } = useTranslation();
   const { ref, width } = useElementSize();
   // In presentation mode the cloud fills whatever the viewport leaves below the
@@ -62,7 +64,8 @@ export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudR
   const [presenting, setPresenting] = useState(false);
   // Resolve the live flag after mount so SSR and first client render match
   // (liveResultsEnabled reads window).
-  const [live, setLive] = useState(false);
+  const [liveEnabled, setLive] = useState(false);
+  const live = liveOverride ?? liveEnabled;
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLive(liveResultsEnabled());
@@ -164,6 +167,7 @@ export function WordcloudResult({ words, countLabel, colors, scale }: WordcloudR
           />
         )}
       </div>
+      {legend}
     </div>
   );
 }

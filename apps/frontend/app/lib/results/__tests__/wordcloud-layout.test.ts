@@ -31,7 +31,7 @@ vi.mock("d3-cloud", () => ({
           words
             .filter((w) => !w.text.startsWith("TOO-LONG"))
             .filter((w) => !calls.size || fontSize(w) * w.text.length * 0.6 <= calls.size[0])
-            .map((w, i) => ({ text: w.text, size: fontSize(w), x: i * 10, y: -i * 5 })),
+            .map((w, i) => Object.assign(w, { size: fontSize(w), x: i * 10, y: -i * 5 })),
         );
         return api;
       },
@@ -72,6 +72,24 @@ describe("layoutCloud", () => {
 
     expect(placed.map((w) => w.text)).toEqual(["Simple"]);
     expect(dropped).toEqual([{ text: "TOO-LONG an entire sentence as an option", value: 2 }]);
+  });
+
+  it("carries each word's key and colour and tells duplicate texts apart", async () => {
+    const shared = { text: "fun", value: 2 };
+    const { placed, dropped } = await layoutCloud(
+      [
+        { ...shared, key: "q1:fun", color: "#111111" },
+        { ...shared, key: "q2:fun", color: "#222222" },
+        { text: "TOO-LONG words", value: 1, key: "q2:long", color: "#333333" },
+      ],
+      opts,
+    );
+
+    expect(placed.map((w) => [w.key, w.color])).toEqual([
+      ["q1:fun", "#111111"],
+      ["q2:fun", "#222222"],
+    ]);
+    expect(dropped.map((w) => w.key)).toEqual(["q2:long"]);
   });
 
   it("returns nothing to place for no words", async () => {

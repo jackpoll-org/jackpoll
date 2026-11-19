@@ -160,6 +160,7 @@ public class SurveyService {
         if (editLink && survey.settings != null) {
             survey.settings.showLiveResults = previous != null && previous.showLiveResults;
             survey.settings.postSubmitSummary = previous != null && previous.postSubmitSummary;
+            survey.settings.postSubmitCombinedWordcloud = previous != null && previous.postSubmitCombinedWordcloud;
             survey.settings.studentResults = previous != null && previous.studentResults;
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
@@ -231,7 +232,7 @@ public class SurveyService {
         var s = survey.settings;
         if (s == null || s.storesResponses()) return;
         boolean ownerNotify = s.ownerNotify != null && !"off".equals(s.ownerNotify);
-        if (s.liveMode || s.showLiveResults || s.studentResults || s.allowEditResponses || s.onePerBrowser
+        if (s.liveMode || s.sharesLiveResults() || s.studentResults || s.allowEditResponses || s.onePerBrowser
             || (s.responseLimit != null && s.responseLimit > 0) || s.requireRespondentToken
             || ownerNotify || s.respondentReceipts
             || shareLinks.findBySurvey(survey.id).map(link -> link.maxResponses != null).orElse(false)) {

@@ -8,6 +8,8 @@ import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/app/components/ui/button";
 import { QuestionResultCard } from "@/app/components/survey-results/question-result-card";
+import { CombinedWordcloudCard } from "@/app/components/survey-results/combined-wordcloud-card";
+import { countWordcloudQuestions } from "@/app/lib/results/combined-wordcloud";
 import { CountdownOverlay } from "./countdown-overlay";
 import { Leaderboard } from "./leaderboard";
 import { LobbyView } from "./lobby-view";
@@ -359,6 +361,11 @@ function PresenterInner({ survey }: { survey: Survey }) {
               <Podium surveyId={survey.id} />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                {results.data && countWordcloudQuestions(survey.questions) >= 2 && (
+                  <div className="w-full text-left text-foreground">
+                    <CombinedWordcloudCard questions={survey.questions} results={results.data.questions} />
+                  </div>
+                )}
                 <p>{t("live.ended")}</p>
                 <Button asChild variant="outline">
                   <Link href={`/surveys/${survey.id}/results`}>

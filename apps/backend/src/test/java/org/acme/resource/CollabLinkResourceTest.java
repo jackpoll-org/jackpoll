@@ -131,7 +131,8 @@ class CollabLinkResourceTest {
             .body("""
                 {"title":"Owner settings","status":"draft",
                  "settings":{"retentionDays":1,"retentionAnonymize":true,"ogShowOwner":true,
-                   "showLiveResults":true,"resultsReleased":true}}
+                   "showLiveResults":true,"postSubmitSummary":true,"postSubmitCombinedWordcloud":true,
+                   "resultsReleased":true}}
                 """)
             .when().put(COLLAB + "/" + slug)
             .then().statusCode(200);
@@ -142,6 +143,8 @@ class CollabLinkResourceTest {
             .body("data.settings.retentionAnonymize", is(false))
             .body("data.settings.ogShowOwner", nullValue())
             .body("data.settings.showLiveResults", is(false))
+            .body("data.settings.postSubmitSummary", is(false))
+            .body("data.settings.postSubmitCombinedWordcloud", is(false))
             .body("data.settings.resultsReleased", is(false));
     }
 

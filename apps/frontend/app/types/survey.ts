@@ -144,6 +144,7 @@ export interface SurveySettings {
   // Live results (issue #21) — default off.
   showLiveResults: boolean;
   postSubmitSummary: boolean;
+  postSubmitCombinedWordcloud?: boolean;
   // Branding (issue #30) — shown on public pages.
   accentColor?: string;
   /** Custom page background colour respondents see (any CSS colour). */

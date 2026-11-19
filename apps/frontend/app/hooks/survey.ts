@@ -937,7 +937,11 @@ export function useDeletePreviewResponses(surveyId: string) {
   });
 }
 
-export function useLiveResults(surveyId: string | undefined, enabled: boolean) {
+export function useLiveResults(
+  surveyId: string | undefined,
+  enabled: boolean,
+  refetchInterval: number | false = false,
+) {
   return useQuery({
     queryKey: surveyKeys.liveResults(surveyId ?? "unknown"),
     queryFn: async () => {
@@ -949,6 +953,7 @@ export function useLiveResults(surveyId: string | undefined, enabled: boolean) {
     },
     enabled: !!surveyId && enabled,
     retry: false,
+    refetchInterval,
   });
 }
 

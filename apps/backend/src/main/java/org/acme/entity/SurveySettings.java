@@ -34,6 +34,7 @@ public class SurveySettings {
     // Live results (issue #21) — master switch + post-submit summary, default off.
     public boolean showLiveResults;
     public boolean postSubmitSummary;
+    public boolean postSubmitCombinedWordcloud;
 
     // Branding (issue #30) — shown on public-facing pages.
     public String accentColor;
@@ -129,6 +130,10 @@ public class SurveySettings {
     public java.util.List<CompletionButton> completionButtons;
     public boolean hideSubmitAnother;
     public String submitAnotherLabel;
+
+    public boolean sharesLiveResults() {
+        return showLiveResults || postSubmitCombinedWordcloud;
+    }
 
     public boolean storesResponses() {
         return !(isQuiz && doNotStoreResponses);
