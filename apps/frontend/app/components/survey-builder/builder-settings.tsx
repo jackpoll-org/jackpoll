@@ -46,6 +46,14 @@ export function BuilderSettings() {
   const settings = survey.settings;
   const stateless = !storesResponses(settings);
   const conflict = storageConflict(survey);
+  const wordclouds = survey.questions.filter((q) => q.type === "wordcloud");
+  const combinedWordcloudHint = settings.liveMode
+    ? "builder.settings.combinedWordcloudLiveMode"
+    : wordclouds.length === 0
+      ? "builder.settings.combinedWordcloudNoQuestion"
+      : wordclouds.every((q) => q.showInLiveResults === false)
+        ? "builder.settings.combinedWordcloudHidden"
+        : null;
 
   return (
     <div className="grid gap-4">
@@ -91,6 +99,11 @@ export function BuilderSettings() {
         {settings.postSubmitCombinedWordcloud && (
           <p className="text-xs text-muted-foreground">
             {t("builder.settings.postSubmitCombinedWordcloudHelp")}
+          </p>
+        )}
+        {settings.postSubmitCombinedWordcloud && combinedWordcloudHint && (
+          <p role="status" className="text-xs text-destructive">
+            {t(combinedWordcloudHint)}
           </p>
         )}
         <p className="text-xs text-muted-foreground">

@@ -314,6 +314,7 @@ export function SurveyPlayer({
         result={result}
         answers={answers}
         isEditing={isEditing}
+        preview={preview}
         queued={queuedOffline}
         allowAnother={!isEditing && !oncePerBrowser && !requireToken}
         onReset={() => {
@@ -953,6 +954,7 @@ function ConfirmationScreen({
   result,
   answers,
   isEditing,
+  preview,
   queued,
   allowAnother,
   onReset,
@@ -961,6 +963,7 @@ function ConfirmationScreen({
   result: SurveyResponseDto | null;
   answers: Record<string, AnswerValue>;
   isEditing: boolean;
+  preview: boolean;
   queued: boolean;
   allowAnother: boolean;
   onReset: () => void;
@@ -1091,7 +1094,7 @@ function ConfirmationScreen({
         <AnswerCorrections survey={survey} answers={answers} corrections={result.corrections} />
       )}
       {survey.settings.postSubmitCombinedWordcloud ? (
-        <CombinedWordcloudLive survey={survey} />
+        <CombinedWordcloudLive survey={survey} answers={answers} preview={preview} />
       ) : (
         showSummary && <LiveResultsSummary survey={survey} />
       )}

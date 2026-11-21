@@ -282,6 +282,12 @@ export const en = {
     "After submitting, show the combined word cloud of all word-cloud questions",
   "builder.settings.postSubmitCombinedWordcloudHelp":
     "Respondents then see only the word clouds' words, live — no other results, even if live results are on.",
+  "builder.settings.combinedWordcloudNoQuestion":
+    "Add a word-cloud question — without one, nothing is shown after submitting.",
+  "builder.settings.combinedWordcloudHidden":
+    "All word-cloud questions are hidden from live results, so nothing is shown after submitting. Turn on live results for at least one in the Edit tab.",
+  "builder.settings.combinedWordcloudLiveMode":
+    "Live mode is on: participants see the live view instead of the confirmation page, so the combined word cloud isn't shown.",
   "builder.settings.liveResultsHelp":
     "Free-text and file-upload answers are never shown. Toggle individual questions in the Edit tab.",
   "builder.settings.availability": "Availability",
@@ -921,6 +927,10 @@ export const en = {
   "wordcloud.optionCount": "{count} option(s)",
   "wordcloud.live": "Live",
   "wordcloud.notShown": "Not enough room for: {words}",
+  "wordcloud.combined.previewNote":
+    "Preview: only your own words are shown. Once the survey is published, participants see everyone's words.",
+  "wordcloud.combined.loadFailed":
+    "The word cloud couldn't be loaded.",
   "wordcloud.combined.title": "All word clouds",
   "wordcloud.combined.legend": "Colour key",
   "results.present": "Present",
@@ -1724,6 +1734,12 @@ export const de: Partial<Record<TranslationKey, string>> = {
     "Nach dem Absenden die gemeinsame Wortwolke aller Wortwolken-Fragen zeigen",
   "builder.settings.postSubmitCombinedWordcloudHelp":
     "Teilnehmende sehen dann live nur die Wörter der Wortwolken – keine anderen Ergebnisse, auch wenn Live-Ergebnisse an sind.",
+  "builder.settings.combinedWordcloudNoQuestion":
+    "Füge eine Wortwolken-Frage hinzu – ohne sie wird nach dem Absenden nichts gezeigt.",
+  "builder.settings.combinedWordcloudHidden":
+    "Alle Wortwolken-Fragen sind aus den Live-Ergebnissen ausgeblendet, daher wird nach dem Absenden nichts gezeigt. Schalte im Bearbeiten-Tab für mindestens eine die Live-Ergebnisse ein.",
+  "builder.settings.combinedWordcloudLiveMode":
+    "Der Live-Modus ist an: Teilnehmende sehen die Live-Ansicht statt der Bestätigungsseite, daher wird die gemeinsame Wortwolke nicht gezeigt.",
   "builder.settings.liveResultsHelp":
     "Freitext- und Datei-Upload-Antworten werden nie gezeigt. Einzelne Fragen schaltest du im Bearbeiten-Tab um.",
   "builder.settings.availability": "Verfügbarkeit",
@@ -2365,6 +2381,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "wordcloud.optionCount": "{count} Option(en)",
   "wordcloud.live": "Live",
   "wordcloud.notShown": "Kein Platz für: {words}",
+  "wordcloud.combined.previewNote":
+    "Vorschau: Es werden nur deine eigenen Wörter gezeigt. Sobald die Umfrage veröffentlicht ist, sehen Teilnehmende die Wörter aller.",
+  "wordcloud.combined.loadFailed":
+    "Die Wortwolke konnte nicht geladen werden.",
   "wordcloud.combined.title": "Alle Wortwolken",
   "wordcloud.combined.legend": "Farblegende",
   "results.present": "Präsentieren",

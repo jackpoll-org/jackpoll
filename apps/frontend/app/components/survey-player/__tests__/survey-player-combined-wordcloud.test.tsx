@@ -150,6 +150,52 @@ describe("SurveyPlayer combined word cloud", () => {
     expect(screen.queryByTestId("combined-wordcloud")).toBeNull();
   });
 
+  it("shows a short message instead of hiding when live results fail to load", async () => {
+    mocks.liveResults.mockReturnValue({ isLoading: false, isError: true, data: undefined });
+    await submit(survey);
+
+    expect(screen.getByText("Thanks!")).toBeTruthy();
+    expect(screen.getByText("wordcloud.combined.loadFailed")).toBeTruthy();
+    expect(screen.queryByTestId("combined-wordcloud")).toBeNull();
+  });
+
+  it("keeps the last cloud when a later refetch fails", async () => {
+    mocks.liveResults.mockReturnValue({ isLoading: false, isError: true, data: live });
+    await submit(survey);
+
+    expect(screen.getByTestId("combined-wordcloud")).toBeTruthy();
+    expect(screen.queryByText("wordcloud.combined.loadFailed")).toBeNull();
+  });
+
+  it("previews the cloud from the tester's own words without fetching live results", async () => {
+    mocks.liveResults.mockReturnValue({ isLoading: false, isError: true, data: undefined });
+    render(<SurveyPlayer survey={{ ...survey, status: "draft" } as Survey} preview />);
+    const [hopes] = screen.getAllByPlaceholderText("wordcloud.addWord");
+    fireEvent.change(hopes, { target: { value: "sunshine" } });
+    fireEvent.keyDown(hopes, { key: "Enter" });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "common.submit" }));
+    });
+
+    expect(screen.getByText("Thanks!")).toBeTruthy();
+    expect(screen.getByTestId("cloud-words").textContent).toBe("sunshine");
+    expect(screen.getByText("wordcloud.combined.previewNote")).toBeTruthy();
+    expect(screen.queryByText("wordcloud.combined.loadFailed")).toBeNull();
+    expect(mocks.liveResults).not.toHaveBeenCalled();
+    expect(mocks.socket).not.toHaveBeenCalled();
+  });
+
+  it("shows only the preview note when the tester entered no words", async () => {
+    render(<SurveyPlayer survey={{ ...survey, status: "draft" } as Survey} preview />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "common.submit" }));
+    });
+
+    expect(screen.getByText("wordcloud.combined.previewNote")).toBeTruthy();
+    expect(screen.queryByTestId("cloud-words")).toBeNull();
+    expect(mocks.liveResults).not.toHaveBeenCalled();
+  });
+
   it("keeps the regular summary when the setting is off", async () => {
     mocks.liveResults.mockReturnValue({ isLoading: false, isError: false, data: live });
     render(

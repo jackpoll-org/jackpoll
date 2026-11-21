@@ -140,3 +140,35 @@ describe("BuilderSettings response storage", () => {
     expect(saveLaterSwitch()).not.toBeChecked();
   });
 });
+
+describe("BuilderSettings combined word cloud hints", () => {
+  const cloud = { id: "q1", type: "wordcloud", title: "Hopes", required: false, order: 0 } as Survey["questions"][number];
+
+  function renderWith(settings: Partial<Survey["settings"]>, questions: Survey["questions"]) {
+    survey = { ...baseSurvey({ postSubmitCombinedWordcloud: true, ...settings }), questions };
+    render(<BuilderSettings />);
+  }
+
+  it("warns when the survey has no word-cloud question", () => {
+    renderWith({}, []);
+    expect(screen.getByText("builder.settings.combinedWordcloudNoQuestion")).toBeTruthy();
+  });
+
+  it("warns when every word-cloud question is hidden from live results", () => {
+    renderWith({}, [{ ...cloud, showInLiveResults: false }]);
+    expect(screen.getByText("builder.settings.combinedWordcloudHidden")).toBeTruthy();
+  });
+
+  it("warns that live mode replaces the confirmation page", () => {
+    renderWith({ liveMode: true }, [cloud]);
+    expect(screen.getByText("builder.settings.combinedWordcloudLiveMode")).toBeTruthy();
+  });
+
+  it("shows no hint when a visible word-cloud question exists or the setting is off", () => {
+    renderWith({}, [cloud]);
+    expect(screen.queryByText(/builder\.settings\.combinedWordcloud(NoQuestion|Hidden|LiveMode)/)).toBeNull();
+    cleanup();
+    renderWith({ postSubmitCombinedWordcloud: false }, []);
+    expect(screen.queryByText("builder.settings.combinedWordcloudNoQuestion")).toBeNull();
+  });
+});
