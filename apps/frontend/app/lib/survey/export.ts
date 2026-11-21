@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import type {
   Option,
   Question,
+  QuestionResult,
   RespondentToken,
   Survey,
   SurveyResponseDto,
@@ -65,8 +66,16 @@ function csvCell(raw: string): string {
 export function buildResponsesCsv(
   survey: Survey,
   responses: SurveyResponseDto[],
+  resultQuestions: Pick<QuestionResult, "questionId" | "title" | "type">[] = [],
 ): string {
-  const questions = questionsInPageOrder(survey).filter((q) => isAnswerable(q.type));
+  const current = questionsInPageOrder(survey).filter((q) => isAnswerable(q.type));
+  const known = new Set(current.map((q) => q.id));
+  const questions = [
+    ...current,
+    ...resultQuestions
+      .filter((q) => !known.has(q.questionId))
+      .map((q) => ({ id: q.questionId, title: q.title, type: q.type }) as Question),
+  ];
   const withToken = responses.some((r) => r.respondentToken);
   const withScore = responses.some((r) => r.score != null);
   const withGrade = responses.some((r) => r.grade);

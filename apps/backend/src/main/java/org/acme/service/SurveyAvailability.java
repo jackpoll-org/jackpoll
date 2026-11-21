@@ -16,6 +16,18 @@ public final class SurveyAvailability {
     private SurveyAvailability() {}
 
     public static void ensureOpen(Survey survey, long currentResponseCount) {
+        ensureWithinWindow(survey);
+        var settings = survey.settings;
+        if (settings == null) return;
+
+        if (settings.responseLimit != null && settings.responseLimit > 0
+            && currentResponseCount >= settings.responseLimit) {
+            throw new ForbiddenAccessException(
+                "This survey has reached its response limit.");
+        }
+    }
+
+    public static void ensureWithinWindow(Survey survey) {
         var settings = survey.settings;
         if (settings == null) return;
 
@@ -38,12 +50,6 @@ public final class SurveyAvailability {
             } catch (java.time.format.DateTimeParseException ignored) {
                 // malformed → no date limit
             }
-        }
-
-        if (settings.responseLimit != null && settings.responseLimit > 0
-            && currentResponseCount >= settings.responseLimit) {
-            throw new ForbiddenAccessException(
-                "This survey has reached its response limit.");
         }
     }
 }

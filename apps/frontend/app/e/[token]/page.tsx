@@ -9,6 +9,7 @@ import { useTranslation } from "@/app/i18n/context";
 import type { AnswerValue } from "@/app/lib/survey/validation";
 import type { AnswerInput } from "@/app/types/survey";
 import { LegalLinks } from "@/app/components/legal/legal-links";
+import { needsOpenRun } from "@/app/lib/survey/runs";
 
 /**
  * Edit-after-submission page (issue #40): re-opens an already submitted response
@@ -21,7 +22,7 @@ export default function EditResponsePage() {
 
   const editQuery = useResponseForEdit(params.token);
   const edit = editQuery.data;
-  const surveyQuery = usePublicSurvey(edit?.surveyId);
+  const surveyQuery = usePublicSurvey(edit?.surveyId, edit?.runId ?? undefined);
   const survey = surveyQuery.data;
 
   const initialAnswers = useMemo(() => {
@@ -47,6 +48,15 @@ export default function EditResponsePage() {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-muted-foreground">{t("edit.linkUnavailable")}</p>
+        <LegalLinks />
+      </div>
+    );
+  }
+
+  if (survey && needsOpenRun(survey)) {
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-sm text-muted-foreground">{t("runs.player.notOpen")}</p>
         <LegalLinks />
       </div>
     );

@@ -57,7 +57,7 @@ public final class ResponseDtos {
         @Size(max = 5000) String feedback
     ) {}
 
-    public record RespondedRequest(@NotNull @Size(max = 256) String clientId) {}
+    public record RespondedRequest(@NotNull @Size(max = 256) String clientId, @Size(max = 36) String runId) {}
 
     public record RespondedDto(boolean responded) {}
 
@@ -93,7 +93,8 @@ public final class ResponseDtos {
          *  Null falls back to the survey owner's language. */
         @Size(max = 16) String locale,
         /** Questions the player showed, so corrections skip ones hidden by branching. */
-        @Size(max = 1000) List<@NotNull @Size(max = 128) String> shownQuestionIds
+        @Size(max = 1000) List<@NotNull @Size(max = 128) String> shownQuestionIds,
+        @Size(max = 36) String runId
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -134,6 +135,7 @@ public final class ResponseDtos {
     /** The data needed to re-open a response for editing (issue #40). */
     public record ResponseEditView(
         String surveyId,
+        String runId,
         ResponseDto response
     ) {}
 
@@ -195,5 +197,7 @@ public final class ResponseDtos {
     public record LeaderboardEntryDto(String name, long score) {}
 
     /** One run of a live quiz, for the results page's session picker. */
-    public record LiveSessionDto(String id, String startedAt, long responses, long players) {}
+    public record LiveSessionDto(
+        String id, String startedAt, long responses, long players,
+        String kind, String label, String opensAt, String closesAt) {}
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { ApiError } from "@/app/lib/survey/api";
-import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
+import { RunGate } from "@/app/components/survey-player/run-gate";
 import { usePublicLink } from "@/app/hooks/survey";
 import { Spinner } from "@/app/components/ui/spinner";
 import { RespondentThemeToggle } from "@/app/components/survey-player/respondent-theme-toggle";
@@ -21,7 +21,8 @@ import { LegalLinks } from "@/app/components/legal/legal-links";
 export default function ShareLinkPage() {
   const params = useParams<{ slug: string }>();
   const { t } = useTranslation();
-  const { data: survey, isLoading, isError, error } = usePublicLink(params.slug);
+  const runId = useSearchParams().get("run") ?? undefined;
+  const { data: survey, isLoading, isError, error, refetch } = usePublicLink(params.slug, runId);
   useForceLightTheme(!!survey && forcesLightTheme(survey.settings));
 
   if (isLoading) {
@@ -56,7 +57,7 @@ export default function ShareLinkPage() {
         <div className="mb-4 flex justify-end gap-1">
           <RespondentThemeToggle />
         </div>
-        <SurveyPlayer survey={survey} analytics />
+        <RunGate survey={survey} onRefresh={() => void refetch()} />
       </div>
     </div>
   );

@@ -48,7 +48,7 @@ public class LiveSessionService {
         session.surveyId = surveyId;
         session.startedAt = Instant.now();
         sessions.persist(session);
-        return new LiveSessionDto(session.id, session.startedAt.toString(), 0, 0);
+        return new LiveSessionDto(session.id, session.startedAt.toString(), 0, 0, session.kind, null, null, null);
     }
 
     private static final int MAX_LEADERBOARD = 50;
@@ -75,18 +75,21 @@ public class LiveSessionService {
             .toList();
     }
 
-    /** The survey's sessions, newest first, with answer and player counts. Owner only. */
+    /** The survey's sessions, newest first, with answer and player counts. */
     @Transactional
-    public List<LiveSessionDto> list(String ownerId, String surveyId) {
-        surveyService.requireOwner(ownerId, surveyId);
+    public List<LiveSessionDto> list(String userId, String surveyId) {
+        var survey = surveyService.requireReadable(userId, surveyId);
+        boolean live = survey.settings != null && survey.settings.liveMode;
         var stats = new HashMap<String, long[]>();
         for (Object[] row : responses.sessionStats(surveyId)) {
             stats.put((String) row[0], new long[] {(Long) row[1], (Long) row[2]});
         }
         return sessions.findBySurvey(surveyId).stream()
+            .filter(s -> !live || !s.isScheduled())
             .map(s -> {
                 var counts = stats.getOrDefault(s.id, new long[] {0, 0});
-                return new LiveSessionDto(s.id, s.startedAt.toString(), counts[0], counts[1]);
+                return new LiveSessionDto(s.id, s.startedAt.toString(), counts[0], counts[1], s.kind, s.label,
+                    s.opensAt != null ? s.opensAt.toString() : null, s.closesAt != null ? s.closesAt.toString() : null);
             })
             .toList();
     }

@@ -13,7 +13,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Spinner } from "@/app/components/ui/spinner";
-import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
+import { AccessCodeRunGate } from "@/app/components/survey-player/run-gate";
 import { useResolveAccessCode } from "@/app/hooks/survey";
 import { useTranslation } from "@/app/i18n/context";
 import type { Survey } from "@/app/types/survey";
@@ -48,7 +48,7 @@ export function JoinByCodeDialog() {
     setError(null);
     if (!code.trim()) return;
     try {
-      const result = await resolve.mutateAsync(code.trim());
+      const result = await resolve.mutateAsync({ code: code.trim() });
       setSurvey(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("join.notFound"));
@@ -78,7 +78,7 @@ export function JoinByCodeDialog() {
               <ArrowLeft className="size-4" />
               {t("common.back")}
             </Button>
-            <SurveyPlayer survey={survey} analytics />
+            <AccessCodeRunGate survey={survey} />
           </div>
         ) : (
           <>

@@ -16,6 +16,7 @@ export const surveyKeys = {
   analytics: (id: string) => [...surveyKeys.all, "analytics", id] as const,
   responses: (id: string) => [...surveyKeys.all, "responses", id] as const,
   liveSessions: (id: string) => [...surveyKeys.all, "live-sessions", id] as const,
+  runs: (id: string) => [...surveyKeys.all, "runs", id] as const,
   liveLeaderboard: (id: string) => [...surveyKeys.all, "live-leaderboard", id] as const,
   collaborators: (id: string) => [...surveyKeys.all, "collaborators", id] as const,
   invitations: () => [...surveyKeys.all, "invitations"] as const,
@@ -87,6 +88,9 @@ export const SURVEY_ENDPOINTS = {
   liveState: (id: string) => `/surveys/${encodeURIComponent(id)}/live/state`,
   liveJoin: (id: string) => `/surveys/${encodeURIComponent(id)}/live/join`,
   liveSessions: (id: string) => `/surveys/${encodeURIComponent(id)}/live/sessions`,
+  runs: (id: string) => `/surveys/${encodeURIComponent(id)}/runs`,
+  run: (id: string, runId: string) =>
+    `/surveys/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}`,
   liveLeaderboard: (id: string) => `/surveys/${encodeURIComponent(id)}/live/leaderboard`,
   shareLink: (id: string) => `/surveys/${encodeURIComponent(id)}/share-link`,
   shareLinkRotate: (id: string) => `/surveys/${encodeURIComponent(id)}/share-link/rotate`,

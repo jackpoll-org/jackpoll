@@ -11,7 +11,6 @@ import org.acme.entity.AccessCode;
 import org.acme.entity.SurveyStatus;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.exception.ResourceNotFoundException;
-import org.acme.mapper.SurveyMapper;
 import org.acme.repository.AccessCodeRepository;
 import org.acme.repository.SurveyRepository;
 
@@ -41,7 +40,7 @@ public class AccessCodeService {
     org.acme.repository.ResponseRepository responses;
 
     @Inject
-    SurveyMapper mapper;
+    RunService runService;
 
     @Inject
     SpamProtectionService signer;
@@ -79,15 +78,14 @@ public class AccessCodeService {
     }
 
     /** Public: resolve an entered code to its published survey plus the token that unlocks it. */
-    public ResolvedAccess resolve(String rawCode) {
+    public ResolvedAccess resolve(String rawCode, String runId) {
         var normalized = normalize(rawCode);
         var entity = codes.findByCode(normalized)
             .orElseThrow(() -> new ResourceNotFoundException("Code not found."));
         var survey = surveys.findByIdOptional(entity.surveyId)
             .filter(s -> s.status == SurveyStatus.PUBLISHED)
             .orElseThrow(() -> new ResourceNotFoundException("Code not found."));
-        SurveyAvailability.ensureOpen(survey, responses.countBySurvey(entity.surveyId));
-        return new ResolvedAccess(mapper.toDto(survey, false), accessToken(entity));
+        return new ResolvedAccess(runService.publicView(survey, runId), accessToken(entity));
     }
 
     /**

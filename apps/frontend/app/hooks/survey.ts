@@ -633,11 +633,11 @@ export function useUpdateShareLink(surveyId: string) {
   });
 }
 
-export function usePublicLink(slug: string | undefined) {
+export function usePublicLink(slug: string | undefined, runId?: string) {
   return useQuery({
-    queryKey: surveyKeys.publicLink(slug ?? "unknown"),
+    queryKey: [...surveyKeys.publicLink(slug ?? "unknown"), ...(runId ? [runId] : [])],
     queryFn: async () => {
-      const res = await resolveLinkApi(slug!);
+      const res = await resolveLinkApi(slug!, runId);
       if (!res.success || !res.data) {
         throw new Error(localizeServerError(res.error ?? "This link is not available."));
       }
@@ -698,8 +698,8 @@ export function useUpdateAccessCode(surveyId: string) {
 
 export function useResolveAccessCode() {
   return useMutation({
-    mutationFn: async (code: string) => {
-      const res = await resolveAccessCodeApi(code);
+    mutationFn: async ({ code, runId }: { code: string; runId?: string }) => {
+      const res = await resolveAccessCodeApi(code, runId);
       if (!res.success || !res.data) {
         throw new Error(localizeServerError(res.error ?? "Code not found."));
       }
@@ -776,11 +776,11 @@ export function usePublicCollab(slug: string | undefined) {
 
 // ── usePublicSurvey (embed / anonymous fill, issue #7) ────────────
 
-export function usePublicSurvey(id: string | undefined) {
+export function usePublicSurvey(id: string | undefined, runId?: string) {
   return useQuery({
-    queryKey: surveyKeys.public(id ?? "unknown"),
+    queryKey: [...surveyKeys.public(id ?? "unknown"), ...(runId ? [runId] : [])],
     queryFn: async () => {
-      const res = await getPublicSurveyApi(id!);
+      const res = await getPublicSurveyApi(id!, runId);
       if (!res.success || !res.data) {
         throw new Error(localizeServerError(res.error ?? "Survey not available"));
       }
@@ -906,6 +906,7 @@ export function useSurveyResults(
   includePreview = false,
   /** Narrow to one live quiz session; null/undefined = all sessions. */
   sessionId?: string | null,
+  enabled = true,
 ) {
   return useQuery({
     queryKey: [
@@ -919,7 +920,7 @@ export function useSurveyResults(
       }
       return res.data;
     },
-    enabled: !!surveyId,
+    enabled: !!surveyId && enabled,
     // Poll so new responses appear without a manual reload.
     refetchInterval: RESULTS_POLL_INTERVAL_MS,
   });
@@ -941,11 +942,12 @@ export function useLiveResults(
   surveyId: string | undefined,
   enabled: boolean,
   refetchInterval: number | false = false,
+  runId?: string,
 ) {
   return useQuery({
-    queryKey: surveyKeys.liveResults(surveyId ?? "unknown"),
+    queryKey: [...surveyKeys.liveResults(surveyId ?? "unknown"), ...(runId ? [runId] : [])],
     queryFn: async () => {
-      const res = await getLiveResultsApi(surveyId!);
+      const res = await getLiveResultsApi(surveyId!, runId);
       if (!res.success || !res.data) {
         throw new Error(localizeServerError(res.error ?? "Live results unavailable"));
       }
@@ -1036,11 +1038,11 @@ export function useReviewResponse(surveyId: string) {
   });
 }
 
-export function useHasResponded(surveyId: string, clientId: string | null) {
+export function useHasResponded(surveyId: string, clientId: string | null, runId?: string) {
   return useQuery({
-    queryKey: [...surveyKeys.public(surveyId), "responded", clientId],
+    queryKey: [...surveyKeys.public(surveyId), "responded", clientId, runId],
     queryFn: async () => {
-      const res = await hasRespondedApi(surveyId, clientId!);
+      const res = await hasRespondedApi(surveyId, clientId!, runId);
       return res.success && res.data?.responded === true;
     },
     enabled: !!clientId,
@@ -1087,6 +1089,7 @@ export function useResponses(
   surveyId: string | undefined,
   /** Narrow to one live quiz session; null/undefined = all sessions. */
   sessionId?: string | null,
+  enabled = true,
 ) {
   return useQuery({
     queryKey: [...surveyKeys.responses(surveyId ?? "unknown"), { sessionId: sessionId ?? null }],
@@ -1097,7 +1100,7 @@ export function useResponses(
       }
       return res.data;
     },
-    enabled: !!surveyId,
+    enabled: !!surveyId && enabled,
   });
 }
 

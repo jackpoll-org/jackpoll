@@ -53,6 +53,12 @@ public class SurveyAutoCloseService {
     @Inject
     NotificationPreferenceRepository notificationPrefs;
 
+    @Inject
+    RunService runService;
+
+    @Inject
+    org.acme.repository.LiveSessionRepository liveSessions;
+
     @Scheduled(every = "5m")
     @Transactional
     void closeExpiredSurveys() {
@@ -62,6 +68,22 @@ public class SurveyAutoCloseService {
                 survey.status = SurveyStatus.CLOSED;
                 notifyAutoClosed(survey);
             }
+        }
+        snapshotOpenedRuns();
+        freezeLateResponses();
+    }
+
+    void freezeLateResponses() {
+        for (var surveyId : responses.surveysWithRunsAndUnassignedResponses()) {
+            surveys.findByIdOptional(surveyId).ifPresent(runService::freezeEarlierResponses);
+        }
+    }
+
+    void snapshotOpenedRuns() {
+        for (var run : liveSessions.findDueSnapshots(Instant.now())) {
+            surveys.findByIdOptional(run.surveyId)
+                .filter(survey -> survey.status == SurveyStatus.PUBLISHED && runService.hasRuns(survey))
+                .ifPresent(survey -> runService.takeSnapshot(survey, run));
         }
     }
 
@@ -75,7 +97,7 @@ public class SurveyAutoCloseService {
                 // malformed → no date limit
             }
         }
-        if (settings.responseLimit != null && settings.responseLimit > 0) {
+        if (settings.responseLimit != null && settings.responseLimit > 0 && !runService.hasRuns(survey)) {
             long count = responses.countBySurvey(survey.id);
             if (count >= settings.responseLimit) return true;
         }

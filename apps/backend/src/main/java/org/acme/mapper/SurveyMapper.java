@@ -70,7 +70,10 @@ public class SurveyMapper {
             s.defaultLanguage,
             s.i18n,
             s.createdAt != null ? s.createdAt.toString() : null,
-            s.updatedAt != null ? s.updatedAt.toString() : null
+            s.updatedAt != null ? s.updatedAt.toString() : null,
+            null,
+            null,
+            null
         );
     }
 
@@ -270,6 +273,37 @@ public class SurveyMapper {
         s.questions.addAll(orderedQuestions);
         var sections = req.sections() == null ? s.sections : fromSectionDtos(req.sections());
         s.sections = withReferencedSections(sections, s.questions);
+    }
+
+    public Survey fromSnapshot(Survey master, SurveyDto snapshot) {
+        var s = new Survey();
+        s.id = master.id;
+        s.ownerId = master.ownerId;
+        s.status = master.status;
+        s.settings = master.settings;
+        s.tags = master.tags;
+        s.folderId = master.folderId;
+        s.createdAt = master.createdAt;
+        s.updatedAt = master.updatedAt;
+        s.title = snapshot.title();
+        s.description = snapshot.description();
+        s.languages = snapshot.languages() != null ? snapshot.languages() : new ArrayList<>();
+        s.defaultLanguage = snapshot.defaultLanguage();
+        s.i18n = snapshot.i18n();
+        var liveOptions = new java.util.HashMap<String, QuestionOption>();
+        master.questions.forEach(q -> q.options.forEach(o -> liveOptions.put(o.id, o)));
+        var order = 0;
+        for (var qd : snapshot.questions() != null ? snapshot.questions() : List.<QuestionDto>of()) {
+            var q = fromQuestionDto(qd, s, order++);
+            for (var o : q.options) {
+                var live = liveOptions.get(o.id);
+                o.capacity = live != null ? live.capacity : null;
+                o.used = live != null ? live.used : 0;
+            }
+            s.questions.add(q);
+        }
+        s.sections = withReferencedSections(fromSectionDtos(snapshot.sections()), s.questions);
+        return s;
     }
 
     private static List<Section> withReferencedSections(List<Section> sections, List<Question> questions) {

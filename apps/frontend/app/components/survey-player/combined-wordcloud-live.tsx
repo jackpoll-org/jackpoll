@@ -61,7 +61,12 @@ function LiveWordcloud({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
   const hasClouds = liveClouds(survey.questions).length > 0;
   const connected = useLiveResultsSocket(survey.id, hasClouds);
-  const live = useLiveResults(survey.id, hasClouds, connected ? false : RESULTS_POLL_INTERVAL_MS);
+  const live = useLiveResults(
+    survey.id,
+    hasClouds,
+    connected ? false : RESULTS_POLL_INTERVAL_MS,
+    survey.run?.id,
+  );
   const { refetch } = live;
 
   useEffect(() => {

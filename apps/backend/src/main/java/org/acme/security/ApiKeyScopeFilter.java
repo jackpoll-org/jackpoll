@@ -7,6 +7,7 @@ import org.acme.dto.ApiResponse;
 import org.acme.exception.RateLimitedException;
 import org.acme.resource.FolderResource;
 import org.acme.resource.ResponseResource;
+import org.acme.resource.RunResource;
 import org.acme.resource.ShareLinkResource;
 import org.acme.resource.SurveyResource;
 import org.acme.service.ApiKeyService;
@@ -32,6 +33,7 @@ public class ApiKeyScopeFilter implements ContainerRequestFilter {
         SurveyResource.class, ApiKeyService.SCOPE_SURVEYS,
         FolderResource.class, ApiKeyService.SCOPE_SURVEYS,
         ShareLinkResource.class, ApiKeyService.SCOPE_SURVEYS,
+        RunResource.class, ApiKeyService.SCOPE_SURVEYS,
         ResponseResource.class, ApiKeyService.SCOPE_RESPONSES);
 
     @Inject

@@ -25,6 +25,7 @@ import { matchOutcome } from "@/app/lib/survey/outcomes";
 import { resolvePiping } from "@/app/lib/survey/piping";
 import { normalizeRedirectUrl } from "@/app/lib/survey/redirect";
 import { trackEvent } from "@/app/lib/survey/track";
+import { runErrorCode, type RunErrorCode } from "@/app/lib/survey/runs";
 import { LiveResultsSummary } from "./live-results-summary";
 import { CombinedWordcloudLive } from "./combined-wordcloud-live";
 import { LiveParticipant } from "@/app/components/live/live-participant";
@@ -43,7 +44,7 @@ import {
   useBeginToken,
   useEditResponse,
 } from "@/app/hooks/survey";
-import { accessTokenFor, altchaChallengeUrl } from "@/app/lib/survey/api";
+import { accessTokenFor, altchaChallengeUrl, ApiError } from "@/app/lib/survey/api";
 import { validCaptcha } from "@/app/lib/survey/captcha";
 import { getClientId } from "@/app/lib/survey/client-id";
 import { formatResultCode } from "@/app/lib/survey/grading";
@@ -123,6 +124,8 @@ export function SurveyPlayer({
   initialDraftToken,
   editToken,
   preview = false,
+  runId,
+  onRunError,
 }: {
   survey: Survey;
   /** Enable the cookieless analytics beacon — set on public surfaces only (#34). */
@@ -135,6 +138,8 @@ export function SurveyPlayer({
   initialDraftToken?: string;
   /** When set, the player edits an existing response in place (issue #40). */
   editToken?: string;
+  runId?: string;
+  onRunError?: (code: RunErrorCode, nextOpensAt?: string) => void;
 }) {
   const { t, locale } = useTranslation();
   const instancePrivacy = useInstanceLegal().links.privacy;
@@ -172,6 +177,7 @@ export function SurveyPlayer({
   const saveDraft = useSaveDraft(survey.id);
   const deleteDraft = useDeleteDraft();
   const saveLater = allowsSaveLater(survey.settings);
+  const draftKey = runId ? `${survey.id}:${runId}` : survey.id;
 
   // Spam & bot protection (issue #31) — only on public surfaces.
   const honeypot = useRef("");
@@ -180,7 +186,7 @@ export function SurveyPlayer({
   const requireCaptcha = analytics && survey.settings.requireCaptcha;
   const oncePerBrowser = analytics && !preview && !isEditing && survey.settings.onePerBrowser;
   const [onceClientId] = useState(() => (oncePerBrowser ? getClientId() || null : null));
-  const alreadyResponded = useHasResponded(survey.id, onceClientId).data;
+  const alreadyResponded = useHasResponded(survey.id, onceClientId, runId).data;
 
   // Optional respondent receipt (issue #24).
   const offerReceipt = analytics && !!survey.settings.respondentReceipts;
@@ -207,10 +213,10 @@ export function SurveyPlayer({
     if (localRestored.current || initialAnswers) return;
     localRestored.current = true;
     if (!saveLater) {
-      clearLocalDraft(survey.id);
+      clearLocalDraft(draftKey);
       return;
     }
-    const stored = loadLocalDraft(survey.id);
+    const stored = loadLocalDraft(draftKey);
     if (stored && Object.keys(stored.answers).length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnswers(stored.answers as Record<string, AnswerValue>);
@@ -221,10 +227,10 @@ export function SurveyPlayer({
   // Autosave answers locally whenever they change (instant, offline-friendly).
   useEffect(() => {
     if (!saveLater || submitted || Object.keys(answers).length === 0) return;
-    saveLocalDraft(survey.id, answers);
+    saveLocalDraft(draftKey, answers);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSavedAt(nowMs());
-  }, [answers, submitted, survey.id, saveLater]);
+  }, [answers, submitted, draftKey, saveLater]);
 
   // Paginate by section (#28); flat surveys collapse to a single page.
   const pages = useMemo(() => buildPages(survey, answers), [survey, answers]);
@@ -324,7 +330,7 @@ export function SurveyPlayer({
           setAnswers({});
           setErrors({});
           setPage(0);
-          clearLocalDraft(survey.id);
+          clearLocalDraft(draftKey);
         }}
       />
     );
@@ -424,6 +430,7 @@ export function SurveyPlayer({
       beginToken: analytics ? (beginToken ?? undefined) : undefined,
       captcha: requireCaptcha && captcha ? await validCaptcha(survey.id, captcha) : undefined,
       preview: preview || undefined,
+      runId,
     });
     if (analytics) trackEvent(survey.id, "submit");
   }
@@ -521,12 +528,13 @@ export function SurveyPlayer({
       // respondent has no account we could look one up from.
       locale,
       shownQuestionIds: visible.map((q) => q.id),
+      runId,
     };
 
     const finishSubmitted = () => {
       setSubmitted(true);
       // A draft is no longer needed once the response is recorded (#26).
-      clearLocalDraft(survey.id);
+      clearLocalDraft(draftKey);
       if (draftToken.current) {
         void deleteDraft.mutateAsync(draftToken.current).catch(() => {});
       }
@@ -594,6 +602,11 @@ export function SurveyPlayer({
         return;
       }
       void hNotify(NotificationType.Error);
+      const runError = runErrorCode(err);
+      if (runError && onRunError) {
+        onRunError(runError, err instanceof ApiError ? err.nextOpensAt : undefined);
+        return;
+      }
       toast.error(err instanceof Error ? err.message : t("player.submitFailed"));
     }
   }
@@ -630,6 +643,7 @@ export function SurveyPlayer({
     const draft = await saveDraft.mutateAsync({
       token: draftToken.current,
       answers: answersToInputs(answers),
+      runId,
     });
     draftToken.current = draft.token;
     return draft.token;

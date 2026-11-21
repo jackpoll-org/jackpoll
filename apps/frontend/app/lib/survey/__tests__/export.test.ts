@@ -157,6 +157,29 @@ describe("buildResponsesCsv", () => {
     ]);
   });
 
+  it("adds columns for questions only older run versions asked", () => {
+    const csv = buildResponsesCsv(
+      survey,
+      [
+        {
+          id: "r1",
+          submittedAt: "2026-06-11T10:00:00Z",
+          answers: [
+            { questionId: "q1", value: "Ada" },
+            { questionId: "old", value: "Kept" },
+          ],
+        },
+      ],
+      [
+        { questionId: "q1", title: "Name", type: "short-answer" },
+        { questionId: "old", title: "Former question", type: "short-answer" },
+      ],
+    );
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("Response ID,Submitted at,Duration (s),Name,Former question");
+    expect(lines[1]).toBe("r1,2026-06-11T10:00:00Z,,Ada,Kept");
+  });
+
   it("leaves content blocks out of the columns (public #7)", () => {
     const withContent: Survey = {
       ...survey,

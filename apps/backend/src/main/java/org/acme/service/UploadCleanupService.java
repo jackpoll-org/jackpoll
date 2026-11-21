@@ -31,7 +31,7 @@ public class UploadCleanupService {
     static final Duration GRACE = Duration.ofDays(7);
     private static final List<String> TABLES = List.of(
         "surveys", "questions", "question_options", "response_answers",
-        "response_drafts", "templates"
+        "response_drafts", "templates", "live_sessions"
     );
     private static final String KEY_PATTERN = "uploads(/|%2[Ff])([A-Za-z0-9-]+\\.[a-z0-9]+)";
 

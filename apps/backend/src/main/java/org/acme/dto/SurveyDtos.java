@@ -6,6 +6,8 @@ import java.util.Map;
 import org.acme.entity.QuestionType;
 import org.acme.entity.SurveyStatus;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -149,7 +151,19 @@ public final class SurveyDtos {
         boolean hideSubmitAnother,
         @Size(max = 80) String submitAnotherLabel,
         boolean postSubmitCombinedWordcloud
-    ) {}
+    ) {
+        public SurveySettingsDto withoutContent() {
+            return new SurveySettingsDto(allowMultipleResponses, null, null, showProgressBar, shuffleQuestions,
+                isQuiz, timeLimit, passingScore, showCorrectAnswers, opensAt, closesAt, responseLimit,
+                showLiveResults, postSubmitSummary, accentColor, backgroundColor, logoUrl, headerImageUrl,
+                showPoweredBy, minSubmitSeconds, rateLimit, onePerBrowser, requireCaptcha, ownerNotify,
+                respondentReceipts, allowEditResponses, conversational, null, retentionDays, retentionAnonymize,
+                privacyNotice, requireConsent, requireRespondentName, requireRespondentToken, liveMode,
+                liveQuestionSeconds, liveHideQuestionOnDevices, null, null, colorPalette, ogShowTitle,
+                ogShowDescription, ogShowOwner, ogShowQuestion, ogStyle, null, studentResults, resultsReleased,
+                disableSaveLater, doNotStoreResponses, null, hideSubmitAnother, null, postSubmitCombinedWordcloud);
+        }
+    }
 
     public record CompletionButtonDto(
         @NotBlank @Size(max = 64) String id,
@@ -206,8 +220,44 @@ public final class SurveyDtos {
         String defaultLanguage,
         Map<String, Map<String, String>> i18n,
         String createdAt,
-        String updatedAt
-    ) {}
+        String updatedAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) List<RunDtos.PublicRunDto> runs,
+        @JsonInclude(JsonInclude.Include.NON_NULL) RunDtos.PublicRunDto run,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Boolean hasRuns
+    ) {
+        private static final java.util.Set<String> SURVEY_LEVEL_I18N = java.util.Set.of("title", "description");
+
+        public SurveyDto withRuns(List<RunDtos.PublicRunDto> runs, RunDtos.PublicRunDto run, boolean hasRuns) {
+            return new SurveyDto(id, ownerId, ownerName, title, description, status, settings, questions,
+                sections, tags, folderId, sortPosition, languages, defaultLanguage, i18n, createdAt, updatedAt,
+                runs, run, hasRuns);
+        }
+
+        public SurveyDto withQuestions(List<QuestionDto> questions) {
+            return new SurveyDto(id, ownerId, ownerName, title, description, status, settings, questions,
+                sections, tags, folderId, sortPosition, languages, defaultLanguage, i18n, createdAt, updatedAt,
+                runs, run, hasRuns);
+        }
+
+        public SurveyDto withoutContent() {
+            return new SurveyDto(id, ownerId, ownerName, title, description, status,
+                settings != null ? settings.withoutContent() : null, List.of(), List.of(), tags, folderId, sortPosition, languages, defaultLanguage, surveyLevelI18n(), createdAt,
+                updatedAt, runs, run, hasRuns);
+        }
+
+        private Map<String, Map<String, String>> surveyLevelI18n() {
+            if (i18n == null) return null;
+            var out = new java.util.LinkedHashMap<String, Map<String, String>>();
+            i18n.forEach((locale, fields) -> {
+                var kept = new java.util.LinkedHashMap<String, String>();
+                if (fields != null) fields.forEach((key, text) -> {
+                    if (SURVEY_LEVEL_I18N.contains(key)) kept.put(key, text);
+                });
+                out.put(locale, kept);
+            });
+            return out;
+        }
+    }
 
     /** Lightweight organize update from the dashboard (issue #33). */
     public record OrganizeRequest(

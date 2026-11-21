@@ -17,6 +17,7 @@ import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -43,6 +44,7 @@ public class PublicAccessResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response resolve(
         @Valid EnterCodeRequest req,
+        @QueryParam("run") String run,
         @HeaderParam("X-Forwarded-For") String forwardedFor,
         @Context HttpServerRequest http
     ) {
@@ -50,6 +52,6 @@ public class PublicAccessResource {
         if (!rateLimiter.allow("access-code|" + ClientIp.bucket(ip), rateLimitMax, rateLimitWindowSeconds)) {
             throw new RateLimitedException("Too many attempts. Please wait a moment and try again.");
         }
-        return Response.ok(ApiResponse.ok(accessCodeService.resolve(req.code()))).build();
+        return Response.ok(ApiResponse.ok(accessCodeService.resolve(req.code(), run))).build();
     }
 }

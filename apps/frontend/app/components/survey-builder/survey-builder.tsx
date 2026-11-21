@@ -28,6 +28,7 @@ import { QuestionCard } from "./question-card";
 import { AddQuestionButton } from "./add-question-button";
 import { PageTabs } from "./page-tabs";
 import { BuilderSettings } from "./builder-settings";
+import { RunOpenBanner, RunsCard } from "./runs-card";
 import { sectionKey } from "@/app/lib/survey/pagination";
 import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
 import { useTranslation } from "@/app/i18n/context";
@@ -60,6 +61,7 @@ function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
     (q) => sectionKey(q.sectionId) === activePageId,
   );
   const updateSurvey = useUpdateSurvey(surveyId);
+  const showRuns = ownerActions && !survey.settings.liveMode;
   const [savingOverride, setSavingOverride] = useState(false);
 
   // One save path for both owner (REST) and passwordless collab (slug), shared
@@ -151,6 +153,7 @@ function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
         }
         ownerActions={ownerActions}
       />
+      {showRuns && <RunOpenBanner surveyId={surveyId} />}
 
       <Tabs defaultValue="edit" className="mt-6">
         <TabsList>
@@ -189,7 +192,8 @@ function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
           <SurveyPlayer survey={survey} preview />
         </TabsContent>
 
-        <TabsContent value="settings">
+        <TabsContent value="settings" className="grid gap-4">
+          {showRuns && <RunsCard />}
           <BuilderSettings />
         </TabsContent>
       </Tabs>

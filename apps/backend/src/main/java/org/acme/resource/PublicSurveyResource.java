@@ -30,6 +30,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -67,9 +68,9 @@ public class PublicSurveyResource {
     @GET
     @Path("/{id}")
     @PermitAll
-    public Response getPublished(@PathParam("id") String id) {
+    public Response getPublished(@PathParam("id") String id, @QueryParam("run") String run) {
         accessCodes.requireAccess(id);
-        return Response.ok(ApiResponse.ok(surveyService.getPublished(id))).build();
+        return Response.ok(ApiResponse.ok(surveyService.getPublished(id, run))).build();
     }
 
     /** Cookieless analytics beacon (issue #34) — view / start / submit. */
@@ -93,13 +94,14 @@ public class PublicSurveyResource {
     @PermitAll
     public Response liveResults(
         @PathParam("id") String id,
+        @QueryParam("run") String run,
         @HeaderParam("X-Forwarded-For") String forwardedFor,
         @Context HttpServerRequest http
     ) {
         // Every call aggregates all responses, so it shares the anonymous budget.
         rateLimiter.requirePublicWrite("live-results", id, ClientIp.of(forwardedFor, http));
         accessCodes.requireAccess(id);
-        return Response.ok(ApiResponse.ok(responseService.liveResults(id))).build();
+        return Response.ok(ApiResponse.ok(responseService.liveResults(id, run))).build();
     }
 
     /** Save &amp; resume (issue #26): create or update an anonymous draft. */
@@ -134,7 +136,7 @@ public class PublicSurveyResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response responded(@PathParam("id") String id, @Valid @NotNull RespondedRequest req) {
         return Response.ok(ApiResponse.ok(
-            new RespondedDto(responseService.hasResponded(id, req.clientId())))).build();
+            new RespondedDto(responseService.hasResponded(id, req.clientId(), req.runId())))).build();
     }
 
     @POST

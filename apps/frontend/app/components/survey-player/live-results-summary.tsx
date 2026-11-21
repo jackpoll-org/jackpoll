@@ -10,7 +10,7 @@ import { useTranslation } from "@/app/i18n/context";
 /** Post-submit live results summary shown to respondents (issue #21). */
 export function LiveResultsSummary({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
-  const live = useLiveResults(survey.id, true);
+  const live = useLiveResults(survey.id, true, false, survey.run?.id);
   // Push updates so the cloud grows live as others submit.
   useLiveResultsSocket(survey.id);
 

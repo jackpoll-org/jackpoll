@@ -9,6 +9,7 @@ import { useTranslation } from "@/app/i18n/context";
 import type { AnswerValue } from "@/app/lib/survey/validation";
 import type { AnswerInput } from "@/app/types/survey";
 import { LegalLinks } from "@/app/components/legal/legal-links";
+import { needsOpenRun } from "@/app/lib/survey/runs";
 
 /**
  * Resume page (issue #26): restores a saved draft by its token and reopens the
@@ -20,7 +21,7 @@ export default function ResumeDraftPage() {
 
   const draftQuery = useDraft(params.token);
   const draft = draftQuery.data;
-  const surveyQuery = usePublicSurvey(draft?.surveyId);
+  const surveyQuery = usePublicSurvey(draft?.surveyId, draft?.runId ?? undefined);
   const survey = surveyQuery.data;
 
   const initialAnswers = useMemo(() => {
@@ -51,6 +52,15 @@ export default function ResumeDraftPage() {
     );
   }
 
+  if (survey && needsOpenRun(survey)) {
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-sm text-muted-foreground">{t("runs.player.notOpen")}</p>
+        <LegalLinks />
+      </div>
+    );
+  }
+
   if (surveyQuery.isError || !survey) {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-3 px-4 text-center">
@@ -73,6 +83,7 @@ export default function ResumeDraftPage() {
           analytics
           initialAnswers={initialAnswers}
           initialDraftToken={draft.token}
+          runId={survey.run?.id}
         />
       </div>
     </div>

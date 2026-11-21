@@ -100,7 +100,7 @@ public class EmailService {
      * was answered in.
      */
     public void sendReceipt(String toEmail, String surveyTitle, boolean isQuiz,
-                            Integer score, Integer maxScore, String locale) {
+                            Integer score, Integer maxScore, String locale, String runLabel) {
         if (blank(toEmail)) return;
         String lang = MailCopy.normalize(locale);
         String title = safeTitle(surveyTitle, lang);
@@ -108,6 +108,9 @@ public class EmailService {
             .preheader(COPY.t(lang, "receipt.preheader", title))
             .heading(COPY.t(lang, "receipt.heading"))
             .paragraph(COPY.t(lang, "receipt.body", title));
+        if (!blank(runLabel)) {
+            builder.row(COPY.t(lang, "receipt.run"), runLabel);
+        }
         if (isQuiz && score != null) {
             builder.row(COPY.t(lang, "receipt.score"),
                 maxScore != null ? score + " / " + maxScore : String.valueOf(score));

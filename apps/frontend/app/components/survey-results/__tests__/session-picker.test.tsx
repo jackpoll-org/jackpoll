@@ -68,3 +68,21 @@ describe("SessionPicker", () => {
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
 });
+
+describe("SessionPicker with scheduled runs", () => {
+  const runs: LiveSession[] = [
+    { id: "r2", kind: "scheduled", label: "2026/27", opensAt: "2026-09-01T00:00:00Z", startedAt: "", responses: 4, players: 0 },
+    { id: "r1", kind: "scheduled", label: "2025/26", opensAt: "2025-09-01T00:00:00Z", startedAt: "", responses: 9, players: 0 },
+  ];
+
+  it("lists runs by label with an all-runs option", () => {
+    render(<SessionPicker sessions={runs} value="r2" onChange={vi.fn()} />);
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual([
+      "results.session.allRuns",
+      "results.session.optionRun:label=2026/27,answers=4",
+      "results.session.optionRun:label=2025/26,answers=9",
+    ]);
+    expect(screen.getByRole("combobox")).toHaveProperty("value", "r2");
+  });
+});

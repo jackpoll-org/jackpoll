@@ -33,6 +33,8 @@ import type {
   StudentResult,
   LiveSession,
   LeaderboardEntry,
+  Run,
+  RunRequest,
   SurveyResults,
   UpdateShareLinkRequest,
   UpdateSurveyRequest,
@@ -52,13 +54,21 @@ export class ApiError extends Error {
   readonly status: number;
   readonly reason?: string;
   readonly limit?: number;
+  readonly nextOpensAt?: string;
 
-  constructor(message: string, status: number, reason?: string, limit?: number) {
+  constructor(
+    message: string,
+    status: number,
+    reason?: string,
+    limit?: number,
+    nextOpensAt?: string,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.reason = reason;
     this.limit = limit;
+    this.nextOpensAt = nextOpensAt;
   }
 }
 
@@ -148,8 +158,9 @@ export async function request<T>(
     throw new ApiError(
       localizeServerError(body.error ?? body.message ?? `Request failed with status ${res.status}`),
       res.status,
-      body.reason,
+      body.reason ?? body.code,
       body.limit,
+      body.nextOpensAt,
     );
   }
 
@@ -173,8 +184,13 @@ export async function getSurveyApi(id: string): Promise<ApiResponse<Survey>> {
 /** Public read of a published survey (for embedding / anonymous filling). */
 export async function getPublicSurveyApi(
   id: string,
+  runId?: string,
 ): Promise<ApiResponse<Survey>> {
-  return request<Survey>(SURVEY_ENDPOINTS.publicDetail(id));
+  return request<Survey>(`${SURVEY_ENDPOINTS.publicDetail(id)}${runQuery(runId)}`);
+}
+
+function runQuery(runId?: string): string {
+  return runId ? `?run=${encodeURIComponent(runId)}` : "";
 }
 
 // ── Shareable link (issue #16) ────────────────────────────────────
@@ -204,8 +220,11 @@ export async function updateShareLinkApi(
 }
 
 /** Resolve a public share-link slug to its survey. */
-export async function resolveLinkApi(slug: string): Promise<ApiResponse<Survey>> {
-  return request<Survey>(SURVEY_ENDPOINTS.publicLink(slug));
+export async function resolveLinkApi(
+  slug: string,
+  runId?: string,
+): Promise<ApiResponse<Survey>> {
+  return request<Survey>(`${SURVEY_ENDPOINTS.publicLink(slug)}${runQuery(runId)}`);
 }
 
 // ── Access code (issue #15) ───────────────────────────────────────
@@ -275,9 +294,10 @@ export async function deleteRespondentTokenApi(
 /** Resolve an entered access code to its survey. */
 export async function resolveAccessCodeApi(
   code: string,
+  runId?: string,
 ): Promise<ApiResponse<Survey>> {
   const res = await request<{ survey: Survey; accessToken: string }>(
-    SURVEY_ENDPOINTS.publicAccessCode,
+    `${SURVEY_ENDPOINTS.publicAccessCode}${runQuery(runId)}`,
     { method: "POST", body: JSON.stringify({ code }) },
   );
   if (res.data) {
@@ -654,6 +674,50 @@ export async function getLiveLeaderboardApi(
   );
 }
 
+export async function listRunsApi(surveyId: string): Promise<ApiResponse<Run[]>> {
+  return request<Run[]>(SURVEY_ENDPOINTS.runs(surveyId));
+}
+
+export async function createRunApi(
+  surveyId: string,
+  data: RunRequest,
+): Promise<ApiResponse<Run>> {
+  return request<Run>(SURVEY_ENDPOINTS.runs(surveyId), {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateRunApi(
+  surveyId: string,
+  runId: string,
+  data: RunRequest,
+): Promise<ApiResponse<Run>> {
+  return request<Run>(SURVEY_ENDPOINTS.run(surveyId, runId), {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function closeRunApi(surveyId: string, runId: string): Promise<ApiResponse<Run>> {
+  return request<Run>(`${SURVEY_ENDPOINTS.run(surveyId, runId)}/close`, { method: "POST" });
+}
+
+export async function duplicateRunApi(
+  surveyId: string,
+  runId: string,
+  data: RunRequest,
+): Promise<ApiResponse<Run>> {
+  return request<Run>(`${SURVEY_ENDPOINTS.run(surveyId, runId)}/duplicate`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteRunApi(surveyId: string, runId: string): Promise<ApiResponse<null>> {
+  return request<null>(SURVEY_ENDPOINTS.run(surveyId, runId), { method: "DELETE" });
+}
+
 /** A live quiz's past sessions, newest first — for the results page's picker. */
 export async function listLiveSessionsApi(surveyId: string): Promise<ApiResponse<LiveSession[]>> {
   return request<LiveSession[]>(SURVEY_ENDPOINTS.liveSessions(surveyId));
@@ -767,8 +831,9 @@ export async function deleteDraftApi(token: string): Promise<ApiResponse<null>> 
 /** Public live results — only the questions the owner opted in (issue #21). */
 export async function getLiveResultsApi(
   surveyId: string,
+  runId?: string,
 ): Promise<ApiResponse<SurveyResults>> {
-  return request<SurveyResults>(SURVEY_ENDPOINTS.liveResults(surveyId));
+  return request<SurveyResults>(`${SURVEY_ENDPOINTS.liveResults(surveyId)}${runQuery(runId)}`);
 }
 
 /** Owner survey analytics (issue #34). */
@@ -857,10 +922,11 @@ export async function getLiveScoreApi(
 export async function hasRespondedApi(
   surveyId: string,
   clientId: string,
+  runId?: string,
 ): Promise<ApiResponse<{ responded: boolean }>> {
   return request<{ responded: boolean }>(SURVEY_ENDPOINTS.responded(surveyId), {
     method: "POST",
-    body: JSON.stringify({ clientId }),
+    body: JSON.stringify({ clientId, runId }),
   });
 }
 

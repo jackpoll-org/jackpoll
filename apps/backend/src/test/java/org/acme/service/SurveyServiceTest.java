@@ -58,6 +58,7 @@ class SurveyServiceTest {
         service.audit = mock(AuditService.class);
         respondentTokens = mock(org.acme.repository.RespondentTokenRepository.class);
         service.respondentTokens = respondentTokens;
+        service.liveSessions = mock(org.acme.repository.LiveSessionRepository.class);
         service.mapper = new SurveyMapper();
         service.folders = mock(org.acme.repository.FolderRepository.class);
         when(service.folders.findByIdAndOwner("f1", OWNER)).thenReturn(Optional.of(new org.acme.entity.Folder()));
@@ -180,6 +181,7 @@ class SurveyServiceTest {
 
         verify(collaborators).delete(eq("surveyId"), eq("s1"));
         verify(respondentTokens).delete(eq("surveyId"), eq("s1"));
+        verify(service.liveSessions).deleteAllBySurvey("s1");
         verify(repository).delete(survey);
     }
 

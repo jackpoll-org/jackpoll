@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
+import { useParams, useSearchParams } from "next/navigation";
+import { RunGate } from "@/app/components/survey-player/run-gate";
 import { usePublicSurvey } from "@/app/hooks/survey";
 import { Spinner } from "@/app/components/ui/spinner";
 import { useTranslation } from "@/app/i18n/context";
@@ -14,7 +14,8 @@ import { LegalLinks } from "@/app/components/legal/legal-links";
 export default function EmbedPage() {
   const params = useParams<{ id: string }>();
   const { t } = useTranslation();
-  const { data: survey, isLoading, isError } = usePublicSurvey(params.id);
+  const runId = useSearchParams().get("run") ?? undefined;
+  const { data: survey, isLoading, isError, refetch } = usePublicSurvey(params.id, runId);
 
   if (isLoading) {
     return (
@@ -38,7 +39,7 @@ export default function EmbedPage() {
   return (
     <div className="min-h-svh bg-background px-4 py-8">
       <div className="mx-auto w-full max-w-2xl">
-        <SurveyPlayer survey={survey} analytics />
+        <RunGate survey={survey} onRefresh={() => void refetch()} />
       </div>
     </div>
   );

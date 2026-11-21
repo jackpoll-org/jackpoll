@@ -3,6 +3,7 @@ package org.acme.repository;
 import java.time.Instant;
 import java.util.List;
 
+import org.acme.entity.LiveSession;
 import org.acme.entity.SurveyResponse;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
@@ -86,6 +87,63 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
         var rows = list("preview = true and submittedAt < ?1", cutoff);
         rows.forEach(this::delete);
         return rows.size();
+    }
+
+    public Instant firstSubmissionWithoutSession(String surveyId) {
+        return getEntityManager().createQuery(
+                "select min(r.submittedAt) from SurveyResponse r"
+                    + " where r.surveyId = ?1 and r.sessionId is null and r.preview = false", Instant.class)
+            .setParameter(1, surveyId)
+            .getSingleResult();
+    }
+
+    public void moveUnassignedAndReleaseQuotas(String surveyId, String sessionId) {
+        getEntityManager().createNativeQuery(
+                "with moved as (update survey_responses set session_id = ?2"
+                    + " where survey_id = ?1 and session_id is null and preview = false returning id),"
+                    + " freed as (select a.value #>> '{}' as option_id, count(*) as n from response_answers a"
+                    + " join moved m on m.id = a.response_id group by 1)"
+                    + " update question_options o set used = greatest(o.used - f.n, 0)"
+                    + " from freed f, questions q"
+                    + " where o.id = f.option_id and q.id = o.question_id and q.survey_id = ?1"
+                    + " and o.capacity is not null and o.kind = 'OPTION'"
+                    + " and q.type in ('MULTIPLE_CHOICE', 'DROPDOWN')")
+            .setParameter(1, surveyId)
+            .setParameter(2, sessionId)
+            .executeUpdate();
+    }
+
+    public List<String> surveysWithRunsAndUnassignedResponses() {
+        return getEntityManager().createQuery(
+                "select distinct r.surveyId from SurveyResponse r where r.sessionId is null and r.preview = false"
+                    + " and exists (select 1 from LiveSession s where s.surveyId = r.surveyId and s.kind = ?1)",
+                String.class)
+            .setParameter(1, LiveSession.SCHEDULED)
+            .getResultList();
+    }
+
+    public long countBySession(String surveyId, String sessionId) {
+        return count("surveyId = ?1 and sessionId = ?2 and preview = false", surveyId, sessionId);
+    }
+
+    public java.util.Map<String, Long> optionUsageInSession(String surveyId, String sessionId, String excludeResponseId) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = getEntityManager().createNativeQuery(
+                "select a.value #>> '{}', count(*) from response_answers a"
+                    + " join survey_responses r on r.id = a.response_id"
+                    + " where r.survey_id = ?1 and r.session_id = ?2 and r.preview = false and r.id <> ?3"
+                    + " and jsonb_typeof(a.value) = 'string' group by 1")
+            .setParameter(1, surveyId)
+            .setParameter(2, sessionId)
+            .setParameter(3, excludeResponseId != null ? excludeResponseId : "")
+            .getResultList();
+        var usage = new java.util.HashMap<String, Long>();
+        for (var row : rows) usage.put((String) row[0], ((Number) row[1]).longValue());
+        return usage;
+    }
+
+    public boolean existsByClientIdInSession(String surveyId, String sessionId, String clientId) {
+        return count("surveyId = ?1 and sessionId = ?2 and clientId = ?3", surveyId, sessionId, clientId) > 0;
     }
 
     /** Whether a given browser (hashed client id) already responded (#31). */

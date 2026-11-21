@@ -31,6 +31,9 @@ public class ResponseDraft extends PanacheEntityBase {
     @Column(name = "survey_id", nullable = false, length = 36)
     public String surveyId;
 
+    @Column(name = "run_id", length = 36)
+    public String runId;
+
     /** Saved answers as JSON: a list of {questionId, value} objects. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

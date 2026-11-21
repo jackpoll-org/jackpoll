@@ -301,8 +301,33 @@ export interface Survey {
   defaultLanguage?: string;
   /** Per-locale translation bag: locale → (fieldKey → translated text). */
   i18n?: SurveyI18n;
+  runs?: PublicRun[];
+  run?: PublicRun | null;
+  hasRuns?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type RunStatus = "scheduled" | "open" | "closed";
+
+export interface PublicRun {
+  id: string;
+  label: string;
+  opensAt: string;
+  closesAt: string;
+  status: RunStatus;
+}
+
+export interface Run extends PublicRun {
+  closedAt: string | null;
+  responseCount: number;
+  snapshotAt: string | null;
+}
+
+export interface RunRequest {
+  label: string;
+  opensAt: string;
+  closesAt: string;
 }
 
 /** locale → (stable field key → translated text) — see content-i18n helpers. */
@@ -455,6 +480,7 @@ export interface SubmitResponseRequest {
   /** UI language the form was answered in, so the emailed receipt matches it. */
   locale?: string;
   shownQuestionIds?: string[];
+  runId?: string;
 }
 
 // ── Save & Resume drafts (issue #26) ───────────────────────────────
@@ -465,6 +491,7 @@ export interface SaveDraftRequest {
   answers: AnswerInput[];
   /** Best-effort current position (e.g. last answered index). */
   position?: number;
+  runId?: string;
 }
 
 export interface DraftDto {
@@ -473,6 +500,7 @@ export interface DraftDto {
   answers: AnswerInput[];
   position?: number | null;
   expiresAt: string;
+  runId?: string | null;
 }
 
 export interface SurveyResponseDto {
@@ -529,6 +557,10 @@ export interface LeaderboardEntry {
 /** One run of a live quiz (opened when the presenter starts the game). */
 export interface LiveSession {
   id: string;
+  kind?: "live" | "scheduled";
+  label?: string | null;
+  opensAt?: string | null;
+  closesAt?: string | null;
   startedAt: string;
   /** Answers given in this session. */
   responses: number;
@@ -539,6 +571,7 @@ export interface LiveSession {
 /** Data to re-open a response for editing (issue #40). */
 export interface ResponseEditView {
   surveyId: string;
+  runId?: string | null;
   response: SurveyResponseDto;
 }
 

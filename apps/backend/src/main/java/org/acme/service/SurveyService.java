@@ -58,6 +58,12 @@ public class SurveyService {
     @Inject
     org.acme.repository.ShareLinkRepository shareLinks;
 
+    @Inject
+    RunService runService;
+
+    @Inject
+    org.acme.repository.LiveSessionRepository liveSessions;
+
     public static final String STORAGE_SETTINGS_ERROR = "Turn off \"Don't store responses\" to use live mode,"
         + " live results, result lookup codes, response editing, one response per browser, a response limit,"
         + " respondent tokens, email notifications or receipts.";
@@ -98,13 +104,11 @@ public class SurveyService {
     }
 
     /** Public read of a survey — only when published (for embedding/filling). */
-    public SurveyDto getPublished(String id) {
+    public SurveyDto getPublished(String id, String runId) {
         var survey = repository.findByIdOptional(id)
             .filter(s -> s.status == SurveyStatus.PUBLISHED)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + id));
-        SurveyAvailability.ensureOpen(survey, responses.countBySurvey(id));
-        // Hide quiz correct answers from the public/embed payload.
-        return mapper.toDto(survey, false);
+        return runService.publicView(survey, runId);
     }
 
     // ── Mutations ─────────────────────────────────────────────────
@@ -353,6 +357,7 @@ public class SurveyService {
         var survey = findOwnedOrThrow(ownerId, id);
         collaborators.delete("surveyId", id);
         respondentTokens.delete("surveyId", id);
+        liveSessions.deleteAllBySurvey(id);
         repository.delete(survey);
         audit.record(ownerId, "survey.delete", id);
     }

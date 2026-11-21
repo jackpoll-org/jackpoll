@@ -37,6 +37,9 @@ public class DraftService {
     SurveyRepository surveys;
 
     @Inject
+    RunService runService;
+
+    @Inject
     com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     static final int MAX_DRAFT_BYTES = 262_144;
@@ -54,12 +57,14 @@ public class DraftService {
             throw new org.acme.exception.ForbiddenAccessException("Saving for later is turned off for this survey.");
         }
         ResponseService.requireAnswersWithin(req.answers(), MAX_DRAFT_BYTES, objectMapper);
+        var runId = runService.hasRuns(survey) ? runService.runForSubmit(survey, req.runId()).id : null;
 
         var now = Instant.now();
         ResponseDraft draft = null;
         if (req.token() != null && !req.token().isBlank()) {
             draft = drafts.findByToken(req.token())
-                .filter(d -> d.surveyId.equals(surveyId) && d.expiresAt.isAfter(now))
+                .filter(d -> d.surveyId.equals(surveyId) && d.expiresAt.isAfter(now)
+                    && java.util.Objects.equals(d.runId, runId))
                 .orElse(null);
         }
 
@@ -69,6 +74,7 @@ public class DraftService {
             draft.id = UUID.randomUUID().toString();
             draft.token = uniqueToken();
             draft.surveyId = surveyId;
+            draft.runId = runId;
             draft.createdAt = now;
         }
 
@@ -113,6 +119,6 @@ public class DraftService {
     }
 
     private DraftDto toDto(ResponseDraft d) {
-        return new DraftDto(d.token, d.surveyId, d.answers, d.position, d.expiresAt);
+        return new DraftDto(d.token, d.surveyId, d.answers, d.position, d.expiresAt, d.runId);
     }
 }

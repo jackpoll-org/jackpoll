@@ -18,7 +18,8 @@ public final class DraftDtos {
     public record SaveDraftRequest(
         @Size(max = 256) String token,
         @Size(max = 1000) List<@Valid AnswerDto> answers,
-        Integer position
+        Integer position,
+        @Size(max = 36) String runId
     ) {}
 
     /** A restored draft returned to the resuming respondent. */
@@ -27,6 +28,7 @@ public final class DraftDtos {
         String surveyId,
         Object answers,
         Integer position,
-        Instant expiresAt
+        Instant expiresAt,
+        String runId
     ) {}
 }

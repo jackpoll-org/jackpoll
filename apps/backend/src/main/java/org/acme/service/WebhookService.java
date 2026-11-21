@@ -163,7 +163,7 @@ public class WebhookService {
      * Fire all enabled webhooks for a new response, off-thread and best-effort.
      * Must be called from within the submit transaction (loads hooks eagerly).
      */
-    public void dispatchResponse(String surveyId, ResponseDto response) {
+    public void dispatchResponse(String surveyId, ResponseDto response, String runId, String runLabel) {
         var enabled = webhooks.findEnabledBySurvey(surveyId);
         if (enabled.isEmpty()) return;
 
@@ -173,6 +173,10 @@ public class WebhookService {
         payload.put("responseId", response.id());
         payload.put("submittedAt", response.submittedAt());
         payload.put("answers", response.answers());
+        if (runId != null) {
+            payload.put("runId", runId);
+            payload.put("runLabel", runLabel);
+        }
         if (response.score() != null) {
             payload.put("score", response.score());
             payload.put("maxScore", response.maxScore());

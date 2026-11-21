@@ -53,6 +53,7 @@ import { ResultBarChart } from "./result-charts";
 import { ResponsesPanel } from "./responses-panel";
 import { SessionPicker } from "./session-picker";
 import { useLiveSessions } from "@/app/hooks/live";
+import { latestScheduledRunId } from "@/app/lib/survey/runs";
 import { AnalyticsPanel } from "./analytics-panel";
 import { StatTile } from "./stat-tile";
 import {
@@ -119,12 +120,15 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
   // Live quizzes: narrow everything on this page to one round (one "start
   // game"), or show all rounds (null). A round that no longer exists (e.g.
   // after deleting all responses) falls back to all rounds.
-  const sessions = useLiveSessions(surveyId, !!survey.data?.settings.liveMode);
-  const [pickedSession, setPickedSession] = useState<string | null>(null);
-  const sessionId =
-    pickedSession && sessions.data?.some((s) => s.id === pickedSession) ? pickedSession : null;
-  const results = useSurveyResults(surveyId, showPreview, sessionId);
-  const responses = useResponses(surveyId, sessionId);
+  const sessions = useLiveSessions(surveyId, !!survey.data);
+  const [pickedSession, setPickedSession] = useState<string | null>();
+  const liveMode = !!survey.data?.settings.liveMode;
+  const picked =
+    pickedSession === undefined ? latestScheduledRunId(sessions.data, liveMode) : pickedSession;
+  const sessionId = picked && sessions.data?.some((s) => s.id === picked) ? picked : null;
+  const sessionsReady = !sessions.isPending || sessions.isError;
+  const results = useSurveyResults(surveyId, showPreview, sessionId, sessionsReady);
+  const responses = useResponses(surveyId, sessionId, sessionsReady);
   const deletePreview = useDeletePreviewResponses(surveyId);
   const [exporting, setExporting] = useState(false);
   // Mirrors each question's on-screen chart-type selection so the PDF export
@@ -156,7 +160,7 @@ export function ResultsDashboard({ surveyId }: { surveyId: string }) {
     if (!survey.data || !responses.data) return;
     downloadText(
       `${survey.data.title || "survey"}-responses.csv`,
-      buildResponsesCsv(survey.data, responses.data),
+      buildResponsesCsv(survey.data, responses.data, results.data?.questions),
       "text/csv;charset=utf-8",
     );
   }

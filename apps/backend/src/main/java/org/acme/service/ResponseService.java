@@ -132,6 +132,9 @@ public class ResponseService {
     @Inject
     org.acme.repository.RespondentTokenRepository respondentTokenRepository;
 
+    @Inject
+    RunService runService;
+
     /** Response-count thresholds that trigger a milestone notification (#89). */
     private static final int[] MILESTONE_THRESHOLDS =
         { 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000 };
@@ -181,6 +184,9 @@ public class ResponseService {
         }
 
         boolean live = survey.settings != null && survey.settings.liveMode;
+        var run = !Boolean.TRUE.equals(req.preview()) && runService.hasRuns(survey)
+            ? runService.runForSubmit(survey, req.runId()) : null;
+        var content = run != null ? runService.content(survey, run) : survey;
         boolean capped = survey.settings != null
             && survey.settings.responseLimit != null && survey.settings.responseLimit > 0;
         if (!Boolean.TRUE.equals(req.preview()) && !live
@@ -189,7 +195,14 @@ public class ResponseService {
         }
         // Close time (#16) and response limit (#19).
         long countBeforeSubmit = responseRepository.countBySurvey(surveyId);
-        SurveyAvailability.ensureOpen(survey, countBeforeSubmit);
+        if (run != null) {
+            SurveyAvailability.ensureWithinWindow(survey);
+            runService.ensureWithinLimit(survey, run);
+        } else if (Boolean.TRUE.equals(req.preview()) && runService.hasRuns(survey)) {
+            SurveyAvailability.ensureWithinWindow(survey);
+        } else {
+            SurveyAvailability.ensureOpen(survey, countBeforeSubmit);
+        }
 
         // Share-link expiry / response cap (issue #16).
         shareLinkService.ensureSurveyAcceptingResponses(surveyId);
@@ -200,8 +213,9 @@ public class ResponseService {
         if (survey.settings != null && survey.settings.onePerBrowser && !survey.settings.liveMode) {
             hashedClientId = spamProtection.hashClientId(req.clientId());
             if (hashedClientId != null) responseRepository.lockOrThrottle(surveyId + "|" + hashedClientId);
-            if (hashedClientId != null
-                && responseRepository.existsByClientId(surveyId, hashedClientId)) {
+            if (hashedClientId != null && (run != null
+                    ? responseRepository.existsByClientIdInSession(surveyId, run.id, hashedClientId)
+                    : responseRepository.existsByClientId(surveyId, hashedClientId))) {
                 throw new org.acme.exception.SpamRejectedException(
                     "You have already responded to this survey.");
             }
@@ -215,7 +229,7 @@ public class ResponseService {
         }
 
         // Server-side answer validation (#55), e.g. slider range.
-        validateAnswers(survey, req);
+        validateAnswers(content, req);
 
         var response = new SurveyResponse();
         response.id = UUID.randomUUID().toString();
@@ -233,6 +247,7 @@ public class ResponseService {
             response.sessionId = liveSessionRepository.findCurrent(surveyId)
                 .map(session -> session.id).orElse(null);
         }
+        if (run != null) response.sessionId = run.id;
 
         // Respondent name (#): required when the survey enables it (real
         // submissions only — a preview test needn't fill it).
@@ -260,7 +275,7 @@ public class ResponseService {
         if (req.answers() != null) {
             for (var a : req.answers()) {
                 if (shownQuestionId != null && !shownQuestionId.equals(a.questionId())) continue;
-                if (!acceptsAnswer(survey, a.questionId()) || values.containsKey(a.questionId())) continue;
+                if (!acceptsAnswer(content, a.questionId()) || values.containsKey(a.questionId())) continue;
                 var answer = new ResponseAnswer();
                 answer.id = UUID.randomUUID().toString();
                 answer.response = response;
@@ -288,8 +303,8 @@ public class ResponseService {
 
         // Quiz scoring happens server-side (issue #10).
         if (survey.settings != null && survey.settings.isQuiz) {
-            response.score = QuizScoring.score(survey, values);
-            response.maxScore = QuizScoring.maxScore(survey);
+            response.score = QuizScoring.score(content, values);
+            response.maxScore = QuizScoring.maxScore(content);
             // Live quiz: a correct answer scores more the faster it comes in (#),
             // timed from when the presenter showed the question.
             var seconds = survey.settings.liveQuestionSeconds;
@@ -304,13 +319,13 @@ public class ResponseService {
                 response.score = QuizScoring.speedAdjusted(response.score, elapsed, limitMs);
             }
             response.autoScore = response.score;
-            applyManualGrades(survey, response);
+            applyManualGrades(content, response);
         }
 
         // Per-option quotas (issue #38) — atomic, race-safe; rejects if full.
         // Preview submissions must not consume quota.
         if (!response.preview) {
-            reserveQuotasOrThrow(survey, response.answers);
+            reserveQuotasOrThrow(survey, response);
         }
 
         // Edit-after-submission token (issue #40), only when the survey allows it.
@@ -324,8 +339,8 @@ public class ResponseService {
         }
 
         spamProtection.consumeCaptcha(survey.settings, req.captcha());
-        var dto = toDto(response, survey, !live && resultsReleased(survey), true, true,
-            showsCorrections(survey) ? corrections(survey, values, req.shownQuestionIds()) : null);
+        var dto = toDto(response, content, !live && resultsReleased(survey), true, true,
+            showsCorrections(survey) ? corrections(content, values, req.shownQuestionIds()) : null);
         if (survey.settings != null && !survey.settings.storesResponses()) {
             return dto;
         }
@@ -340,11 +355,13 @@ public class ResponseService {
         // Email notifications & receipts (issue #24) — best-effort, never blocks
         // or fails the submission. Owner email is resolved here (in-transaction)
         // and only the actual send runs off-thread.
+        String runLabel = run != null ? run.label : null;
         dispatchEmails(survey, response, receiptAllowed(survey, req.respondentEmail(), clientIp)
-            ? req.respondentEmail() : null, req.locale());
+            ? req.respondentEmail() : null, req.locale(), runLabel);
 
         // Outbound webhooks (issue #36) — HMAC-signed, off-thread, best-effort.
-        webhookService.dispatchResponse(surveyId, toDto(response, survey, true, false, true));
+        webhookService.dispatchResponse(surveyId, toDto(response, content, true, false, true),
+            run != null ? run.id : null, runLabel);
 
         // Per-response owner notifications. Skipped in live mode, where every
         // player answer is its own response (200 players x 10 questions would be
@@ -372,7 +389,7 @@ public class ResponseService {
         // without a refetch; otherwise a bare "updated" ping triggers an
         // (authenticated) refetch so nothing leaks on the open socket. Sent only
         // once committed: a viewer refetching on the ping must see this response.
-        var resultsMessage = buildResultsBroadcast(survey, req);
+        var resultsMessage = run != null ? "updated" : buildResultsBroadcast(content, req);
         afterCommit(() -> resultsRelay.broadcast(surveyId, resultsMessage));
 
         return dto;
@@ -459,7 +476,7 @@ public class ResponseService {
 
     /** Fire owner notification + respondent receipt without blocking submit. */
     private void dispatchEmails(Survey survey, SurveyResponse response,
-                                String respondentEmail, String respondentLocale) {
+                                String respondentEmail, String respondentLocale, String runLabel) {
         if (survey.settings == null) return;
         var settings = survey.settings;
 
@@ -494,7 +511,7 @@ public class ResponseService {
             }
             if (wantReceipt) {
                 emailService.sendReceipt(
-                    respondentEmail, title, isQuiz, score, maxScore, receiptLocale);
+                    respondentEmail, title, isQuiz, score, maxScore, receiptLocale, runLabel);
             }
         };
 
@@ -558,7 +575,9 @@ public class ResponseService {
         var response = findEditableOrThrow(editToken);
         var survey = surveyRepository.findByIdOptional(response.surveyId)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found"));
-        return new ResponseEditView(response.surveyId, toDto(response, survey, resultsReleased(survey), true));
+        return new ResponseEditView(response.surveyId,
+            runService.isScheduledRun(response.sessionId) ? response.sessionId : null,
+            toDto(response, runService.contentBySession(survey).apply(response.sessionId), resultsReleased(survey), true));
     }
 
     /** Replace a response's answers in place (no new row → no double-counting). */
@@ -567,15 +586,13 @@ public class ResponseService {
         var response = findEditableOrThrow(editToken);
         var survey = surveyRepository.findByIdOptional(response.surveyId)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found"));
+        var content = runService.contentBySession(survey).apply(response.sessionId);
 
         // Server-side answer validation (#55), e.g. slider range.
-        validateAnswers(survey, req);
+        validateAnswers(content, req);
 
         // Release the quota the previous answers held before re-counting (#38).
-        var capped = cappedOptionIds(survey);
-        for (var optId : selectedCapped(capped, response.answers)) {
-            optionRepository.release(optId);
-        }
+        releaseQuotas(survey, cappedOptionIds(survey), response);
 
         // Grades stay on answers the respondent left unchanged (public #6).
         var previous = new java.util.HashMap<String, ResponseAnswer>();
@@ -584,7 +601,7 @@ public class ResponseService {
         var values = new java.util.HashMap<String, Object>();
         if (req.answers() != null) {
             for (var a : req.answers()) {
-                if (!acceptsAnswer(survey, a.questionId()) || values.containsKey(a.questionId())) continue;
+                if (!acceptsAnswer(content, a.questionId()) || values.containsKey(a.questionId())) continue;
                 var answer = new ResponseAnswer();
                 answer.id = UUID.randomUUID().toString();
                 answer.response = response;
@@ -603,16 +620,16 @@ public class ResponseService {
         }
 
         if (survey.settings != null && survey.settings.isQuiz) {
-            response.autoScore = QuizScoring.score(survey, values);
-            response.maxScore = QuizScoring.maxScore(survey);
-            applyManualGrades(survey, response);
+            response.autoScore = QuizScoring.score(content, values);
+            response.maxScore = QuizScoring.maxScore(content);
+            applyManualGrades(content, response);
         }
 
         // Re-reserve for the new selection; a now-full option rolls the tx back.
-        reserveQuotasOrThrow(survey, response.answers);
+        reserveQuotasOrThrow(survey, response);
 
         response.editedAt = Instant.now();
-        return toDto(response, survey, resultsReleased(survey), true);
+        return toDto(response, content, resultsReleased(survey), true);
     }
 
     private SurveyResponse findEditableOrThrow(String editToken) {
@@ -628,7 +645,12 @@ public class ResponseService {
             // The owner disabled editing, closed the survey or released results.
             throw new ResourceNotFoundException("Editing is no longer available.");
         }
+        var run = response.sessionId == null ? null : liveSessionRepository.findByIdOptional(response.sessionId)
+            .filter(org.acme.entity.LiveSession::isScheduled).orElse(null);
         SurveyAvailability.ensureOpen(survey, 0);
+        if (run != null && !run.isOpen(Instant.now())) {
+            throw new ResourceNotFoundException("Editing is no longer available.");
+        }
         return response;
     }
 
@@ -646,10 +668,11 @@ public class ResponseService {
         var survey = requireOwnedSurvey(ownerId, surveyId);
         var fromInstant = parseInstant(from);
         var toInstant = parseInstant(to);
+        var contentOf = runService.contentBySession(survey);
         return responseRepository.findBySurvey(surveyId, includePreview, sessionId).stream()
             .filter(r -> fromInstant == null || !r.submittedAt.isBefore(fromInstant))
             .filter(r -> toInstant == null || !r.submittedAt.isAfter(toInstant))
-            .map(r -> toDto(r, survey, true, false, true))
+            .map(r -> toDto(r, contentOf.apply(r.sessionId), true, false, true))
             .toList();
     }
 
@@ -675,27 +698,30 @@ public class ResponseService {
         var survey = surveyService.requireEditable(userId, surveyId);
         var response = requireGradableResponse(survey, responseId);
         boolean overridable = !survey.settings.liveMode;
+        var content = runService.contentBySession(survey).apply(response.sessionId);
 
         var questions = new HashMap<String, Question>();
-        for (var q : survey.questions) questions.put(q.id, q);
+        for (var q : content.questions) questions.put(q.id, q);
 
         var now = Instant.now();
         for (var g : grades) {
             setGrade(requireGradableQuestion(questions.get(g.questionId()), overridable),
                 response, g.points(), now);
         }
-        applyManualGrades(survey, response);
-        return toDto(response, survey, true, false, true);
+        applyManualGrades(content, response);
+        return toDto(response, content, true, false, true);
     }
 
     @Transactional
     public void rescore(Survey survey) {
         if (survey.settings == null || !survey.settings.isQuiz || survey.settings.liveMode) return;
+        var contentOf = runService.contentBySession(survey);
         for (var response : responseRepository.list("surveyId", survey.id)) {
+            var content = contentOf.apply(response.sessionId);
             var values = new HashMap<String, Object>();
             for (var a : response.answers) values.put(a.questionId, a.value);
-            response.autoScore = QuizScoring.score(survey, values);
-            applyManualGrades(survey, response);
+            response.autoScore = QuizScoring.score(content, values);
+            applyManualGrades(content, response);
         }
     }
 
@@ -706,17 +732,18 @@ public class ResponseService {
         if (survey.settings == null || !survey.settings.isQuiz) {
             throw badRequest("Grading is only available for quizzes.");
         }
-        var question = requireGradableQuestion(
-            survey.questions.stream().filter(q -> q.id.equals(questionId)).findFirst().orElse(null),
-            !survey.settings.liveMode);
+        boolean overridable = !survey.settings.liveMode;
+        requireGradableQuestion(questionOf(runService.resultsContent(survey, null), questionId), overridable);
 
         var now = Instant.now();
         var graded = new ArrayList<ResponseDto>();
+        var contentOf = runService.contentBySession(survey);
         for (var g : grades) {
             var response = requireGradableResponse(survey, g.responseId());
-            setGrade(question, response, g.points(), now);
-            applyManualGrades(survey, response);
-            graded.add(toDto(response, survey, true, false, true));
+            var content = contentOf.apply(response.sessionId);
+            setGrade(requireGradableQuestion(questionOf(content, questionId), overridable), response, g.points(), now);
+            applyManualGrades(content, response);
+            graded.add(toDto(response, content, true, false, true));
         }
         return graded;
     }
@@ -728,18 +755,28 @@ public class ResponseService {
         if (survey.settings != null && survey.settings.liveMode) {
             throw badRequest("Players don't see feedback in live quizzes.");
         }
-        var question = survey.questions.stream()
-            .filter(q -> q.id.equals(questionId) && q.type.isAnswerable())
-            .findFirst()
-            .orElseThrow(() -> badRequest("There is no such question to comment on."));
+        var known = questionOf(runService.resultsContent(survey, null), questionId);
+        if (known == null || !known.type.isAnswerable()) {
+            throw badRequest("There is no such question to comment on.");
+        }
         String text = feedback != null && !feedback.isBlank() ? feedback.strip() : null;
         var updated = new ArrayList<ResponseDto>();
+        var contentOf = runService.contentBySession(survey);
         for (var responseId : responseIds) {
             var response = requireGradableResponse(survey, responseId);
+            var content = contentOf.apply(response.sessionId);
+            var question = questionOf(content, questionId);
+            if (question == null || !question.type.isAnswerable()) {
+                throw badRequest("There is no such question to comment on.");
+            }
             answerTo(question, response).feedback = text;
-            updated.add(toDto(response, survey, true, false, true));
+            updated.add(toDto(response, content, true, false, true));
         }
         return updated;
+    }
+
+    private static Question questionOf(Survey survey, String questionId) {
+        return survey.questions.stream().filter(q -> q.id.equals(questionId)).findFirst().orElse(null);
     }
 
     private static ResponseAnswer answerTo(Question q, SurveyResponse response) {
@@ -773,8 +810,9 @@ public class ResponseService {
         var response = requireGradableResponse(survey, responseId);
         response.bonusPoints = bonusPoints != null && bonusPoints != 0 ? bonusPoints : null;
         response.feedback = feedback != null && !feedback.isBlank() ? feedback.strip() : null;
-        applyManualGrades(survey, response);
-        return toDto(response, survey, true, false, true);
+        var content = runService.contentBySession(survey).apply(response.sessionId);
+        applyManualGrades(content, response);
+        return toDto(response, content, true, false, true);
     }
 
     private SurveyResponse requireGradableResponse(Survey survey, String responseId) {
@@ -786,11 +824,14 @@ public class ResponseService {
             .orElseThrow(() -> new ResourceNotFoundException("Response not found: " + responseId));
     }
 
-    public boolean hasResponded(String surveyId, String clientId) {
+    public boolean hasResponded(String surveyId, String clientId, String runId) {
         var survey = surveyRepository.findByIdOptional(surveyId).orElse(null);
         if (survey == null || survey.settings == null || !survey.settings.onePerBrowser) return false;
         var hashed = spamProtection.hashClientId(clientId);
-        return hashed != null && responseRepository.existsByClientId(surveyId, hashed);
+        if (hashed == null) return false;
+        if (!runService.hasRuns(survey)) return responseRepository.existsByClientId(surveyId, hashed);
+        var run = runService.runForCheck(survey, runId);
+        return run != null && responseRepository.existsByClientIdInSession(surveyId, run.id, hashed);
     }
 
     /** A live quiz player's points for {@code questionId} (default: the shown one) once it is
@@ -823,7 +864,9 @@ public class ResponseService {
         var normalized = code.toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]", "");
         var response = responseRepository.findByResultCode(surveyId, normalized)
             .orElseThrow(() -> new ResourceNotFoundException("No result found for this code."));
-        return new StudentResultDto(surveyMapper.toDto(survey, false), toDto(response, survey, true, false));
+        var content = runService.contentBySession(survey).apply(response.sessionId);
+        if (content == survey && runService.hasRuns(survey)) content = runService.withoutContent(survey);
+        return new StudentResultDto(surveyMapper.toDto(content, false), toDto(response, content, true, false));
     }
 
     private static boolean resultsReleased(Survey survey) {
@@ -968,10 +1011,7 @@ public class ResponseService {
         // Free any quota the deleted response held (#38).
         var survey = surveyRepository.findByIdOptional(surveyId).orElse(null);
         if (survey != null) {
-            var capped = cappedOptionIds(survey);
-            for (var optId : selectedCapped(capped, response.answers)) {
-                optionRepository.release(optId);
-            }
+            releaseQuotas(survey, cappedOptionIds(survey), response);
         }
         responseRepository.delete(response);
     }
@@ -1046,9 +1086,7 @@ public class ResponseService {
         } else {
             var capped = cappedOptionIds(survey);
             for (var r : expired) {
-                for (var optId : selectedCapped(capped, r.answers)) {
-                    optionRepository.release(optId);
-                }
+                releaseQuotas(survey, capped, r);
                 responseRepository.delete(r);
             }
         }
@@ -1062,7 +1100,7 @@ public class ResponseService {
     /** Dashboard results, optionally narrowed to one live quiz session. */
     public SurveyResultsDto results(
         String ownerId, String surveyId, boolean includePreview, String sessionId) {
-        var survey = requireOwnedSurvey(ownerId, surveyId);
+        var survey = runService.resultsContent(requireOwnedSurvey(ownerId, surveyId), sessionId);
         var responses = responseRepository.findBySurvey(surveyId, includePreview, sessionId);
 
         var lastResponseAt = responses.stream()
@@ -1117,14 +1155,19 @@ public class ResponseService {
 
     // ── Live results (public, issue #21) ──────────────────────────
 
-    public SurveyResultsDto liveResults(String surveyId) {
-        var survey = surveyRepository.findByIdOptional(surveyId)
+    @Transactional
+    public SurveyResultsDto liveResults(String surveyId, String runId) {
+        var master = surveyRepository.findByIdOptional(surveyId)
             .filter(s -> s.status == SurveyStatus.PUBLISHED)
             .orElseThrow(() -> new ResourceNotFoundException("Survey not found: " + surveyId));
-        if (survey.settings == null || !survey.settings.sharesLiveResults()) {
+        if (master.settings == null || !master.settings.sharesLiveResults()) {
             throw new ForbiddenAccessException("Live results are not enabled.");
         }
-        var responses = responseRepository.findBySurvey(surveyId);
+        var run = runService.hasRuns(master) ? runService.runForSubmit(master, runId) : null;
+        var survey = run != null ? runService.content(master, run) : master;
+        var responses = run != null
+            ? responseRepository.findBySurvey(surveyId, false, run.id)
+            : responseRepository.findBySurvey(surveyId);
         var questions = SurveyPages.questionsInPageOrder(survey).stream()
             .filter(q -> liveAllowed(survey, q))
             .map(q -> aggregateQuestion(q, responses))
@@ -1598,16 +1641,31 @@ public class ResponseService {
 
     /** Ids of single-select options that carry a capacity, for this survey. */
     private Set<String> cappedOptionIds(Survey survey) {
-        var ids = new HashSet<String>();
+        return optionCapacities(survey).keySet();
+    }
+
+    private static Map<String, Integer> optionCapacities(Survey survey) {
+        var capacities = new HashMap<String, Integer>();
         for (var q : survey.questions) {
             if (q.type != QuestionType.MULTIPLE_CHOICE && q.type != QuestionType.DROPDOWN) {
                 continue;
             }
             for (var o : q.options) {
-                if (o.kind == OptionKind.OPTION && o.capacity != null) ids.add(o.id);
+                if (o.kind == OptionKind.OPTION && o.capacity != null) capacities.put(o.id, o.capacity);
             }
         }
-        return ids;
+        return capacities;
+    }
+
+    private boolean countsQuotaPerRun(SurveyResponse response) {
+        return runService.isScheduledRun(response.sessionId);
+    }
+
+    private void releaseQuotas(Survey survey, Set<String> capped, SurveyResponse response) {
+        if (countsQuotaPerRun(response)) return;
+        for (var optId : selectedCapped(capped, response.answers)) {
+            optionRepository.release(optId);
+        }
     }
 
     /** The capped option ids actually selected across the given answers. */
@@ -1621,14 +1679,25 @@ public class ResponseService {
     }
 
     /** Reserve a slot for each capped selection; throws if any option is full. */
-    private void reserveQuotasOrThrow(Survey survey, List<ResponseAnswer> answers) {
-        var capped = cappedOptionIds(survey);
-        for (var optId : selectedCapped(capped, answers)) {
-            if (!optionRepository.tryReserve(optId)) {
-                throw new QuotaExceededException(
-                    "One of your selections is no longer available. Please choose another.");
+    private void reserveQuotasOrThrow(Survey survey, SurveyResponse response) {
+        var capacities = optionCapacities(survey);
+        var selected = selectedCapped(capacities.keySet(), response.answers);
+        if (selected.isEmpty()) return;
+        if (countsQuotaPerRun(response)) {
+            responseRepository.lockOrThrottle(survey.id + "|" + response.sessionId + "|quota");
+            var usage = responseRepository.optionUsageInSession(survey.id, response.sessionId, response.id);
+            for (var optId : selected) {
+                if (usage.merge(optId, 1L, Long::sum) > capacities.get(optId)) throw quotaExceeded();
             }
+            return;
         }
+        for (var optId : selected) {
+            if (!optionRepository.tryReserve(optId)) throw quotaExceeded();
+        }
+    }
+
+    private static QuotaExceededException quotaExceeded() {
+        return new QuotaExceededException("One of your selections is no longer available. Please choose another.");
     }
 
     private static final java.security.SecureRandom EDIT_RANDOM = new java.security.SecureRandom();
@@ -1651,7 +1720,7 @@ public class ResponseService {
         if (!surveyId.equals(response.surveyId)) {
             throw new ResourceNotFoundException("Response not found: " + responseId);
         }
-        return pdfService.render(buildResponseHtml(survey, response));
+        return pdfService.render(buildResponseHtml(runService.contentBySession(survey).apply(response.sessionId), response));
     }
 
     String buildResponseHtml(Survey survey, SurveyResponse response) {

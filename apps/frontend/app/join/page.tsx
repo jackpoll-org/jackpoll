@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { SurveyPlayer } from "@/app/components/survey-player/survey-player";
+import { AccessCodeRunGate } from "@/app/components/survey-player/run-gate";
 import { useResolveAccessCode } from "@/app/hooks/survey";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -35,12 +35,13 @@ export default function JoinPage() {
 
   // A `?code=` (e.g. from the lobby QR) prefills and opens the survey directly.
   useEffect(() => {
-    const c = new URLSearchParams(window.location.search).get("code");
+    const search = new URLSearchParams(window.location.search);
+    const c = search.get("code");
     if (!c) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCode(c.toUpperCase());
     resolve
-      .mutateAsync(c.trim())
+      .mutateAsync({ code: c.trim(), runId: search.get("run") ?? undefined })
       .then(setSurvey)
       .catch(() => setError(t("join.notFound")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,7 +52,7 @@ export default function JoinPage() {
     setError(null);
     if (!code.trim()) return;
     try {
-      const result = await resolve.mutateAsync(code.trim());
+      const result = await resolve.mutateAsync({ code: code.trim() });
       setSurvey(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("join.notFound"));
@@ -80,7 +81,7 @@ export default function JoinPage() {
               <LanguageSwitcher withIcon />
             </div>
           </div>
-          <SurveyPlayer survey={survey} analytics />
+          <AccessCodeRunGate survey={survey} />
         </div>
       </div>
     );

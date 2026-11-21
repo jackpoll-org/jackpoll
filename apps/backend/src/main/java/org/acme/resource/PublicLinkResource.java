@@ -10,6 +10,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -27,8 +28,8 @@ public class PublicLinkResource {
     @GET
     @Path("/{slug}")
     @PermitAll
-    public Response resolve(@PathParam("slug") String slug) {
-        var survey = shareLinkService.resolve(slug);
+    public Response resolve(@PathParam("slug") String slug, @QueryParam("run") String run) {
+        var survey = shareLinkService.resolve(slug, run);
         accessCodes.requireAccess(survey.id());
         return Response.ok(ApiResponse.ok(survey)).build();
     }

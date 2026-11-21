@@ -31,22 +31,35 @@ export function SessionPicker({ sessions, value, onChange, quiz = false }: Sessi
 
   const when = (iso: string) =>
     new Date(iso).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+  const hasRuns = sessions.some((s) => s.kind === "scheduled");
+
+  const optionLabel = (s: LiveSession) => {
+    if (s.kind === "scheduled") {
+      return t("results.session.optionRun", {
+        label: s.label || when(s.opensAt ?? s.startedAt),
+        answers: String(s.responses ?? 0),
+      });
+    }
+    return quiz
+      ? t("results.session.option", { date: when(s.startedAt), players: String(s.players) })
+      : t("results.session.optionAnswers", { date: when(s.startedAt), answers: String(s.responses) });
+  };
 
   return (
     <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
-      <SelectTrigger className="h-8 w-56 text-sm" aria-label={t("results.session.label")}>
+      <SelectTrigger
+        className="h-8 w-56 text-sm"
+        aria-label={t(hasRuns ? "results.session.runLabel" : "results.session.label")}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL}>{t("results.session.all")}</SelectItem>
+        <SelectItem value={ALL}>
+          {t(hasRuns ? "results.session.allRuns" : "results.session.all")}
+        </SelectItem>
         {sessions.map((s) => (
           <SelectItem key={s.id} value={s.id}>
-            {quiz
-              ? t("results.session.option", { date: when(s.startedAt), players: String(s.players) })
-              : t("results.session.optionAnswers", {
-                  date: when(s.startedAt),
-                  answers: String(s.responses),
-                })}
+            {optionLabel(s)}
           </SelectItem>
         ))}
       </SelectContent>

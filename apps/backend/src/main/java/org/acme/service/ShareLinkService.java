@@ -12,7 +12,6 @@ import org.acme.entity.Survey;
 import org.acme.entity.SurveyStatus;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.exception.ResourceNotFoundException;
-import org.acme.mapper.SurveyMapper;
 import org.acme.repository.ResponseRepository;
 import org.acme.repository.ShareLinkRepository;
 import org.acme.repository.SurveyRepository;
@@ -43,7 +42,7 @@ public class ShareLinkService {
     ResponseRepository responses;
 
     @Inject
-    SurveyMapper mapper;
+    RunService runService;
 
     // ── Owner operations ──────────────────────────────────────────
 
@@ -75,15 +74,14 @@ public class ShareLinkService {
 
     // ── Public resolve ────────────────────────────────────────────
 
-    public SurveyDto resolve(String slug) {
+    public SurveyDto resolve(String slug, String runId) {
         var link = links.findBySlug(slug)
             .orElseThrow(() -> new ResourceNotFoundException("Link not found."));
         var survey = surveys.findByIdOptional(link.surveyId)
             .filter(s -> s.status == SurveyStatus.PUBLISHED)
             .orElseThrow(() -> new ResourceNotFoundException("Link not found."));
-        SurveyAvailability.ensureOpen(survey, responses.countBySurvey(link.surveyId));
         ensureLinkOpen(link);
-        return mapper.toDto(survey, false);
+        return runService.publicView(survey, runId);
     }
 
     /** Enforced on submission too (called by {@link ResponseService}). */

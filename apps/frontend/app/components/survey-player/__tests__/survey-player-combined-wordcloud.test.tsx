@@ -107,7 +107,7 @@ describe("SurveyPlayer combined word cloud", () => {
     mocks.liveResults.mockReturnValue({ isLoading: false, isError: false, data: live });
     await submit(survey);
 
-    expect(mocks.liveResults).toHaveBeenLastCalledWith("s1", true, RESULTS_POLL_INTERVAL_MS);
+    expect(mocks.liveResults).toHaveBeenLastCalledWith("s1", true, RESULTS_POLL_INTERVAL_MS, undefined);
     expect(screen.getByTestId("combined-wordcloud")).toBeTruthy();
     expect(screen.queryByText("wordcloud.live")).toBeNull();
   });
@@ -118,7 +118,7 @@ describe("SurveyPlayer combined word cloud", () => {
     mocks.liveResults.mockReturnValue({ isLoading: false, isError: false, data: live, refetch });
     await submit(survey);
 
-    expect(mocks.liveResults).toHaveBeenLastCalledWith("s1", true, false);
+    expect(mocks.liveResults).toHaveBeenLastCalledWith("s1", true, false, undefined);
     expect(screen.getByText("wordcloud.live")).toBeTruthy();
     expect(refetch).toHaveBeenCalledTimes(1);
   });
@@ -135,7 +135,7 @@ describe("SurveyPlayer combined word cloud", () => {
 
     expect(screen.getByText("Thanks!")).toBeTruthy();
     expect(screen.queryByTestId("combined-wordcloud")).toBeNull();
-    expect(mocks.liveResults).toHaveBeenLastCalledWith("s1", false, expect.anything());
+    expect(mocks.liveResults).toHaveBeenLastCalledWith("s1", false, expect.anything(), undefined);
     expect(mocks.socket).toHaveBeenLastCalledWith("s1", false);
   });
 
