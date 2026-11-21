@@ -46,7 +46,12 @@ import { InvitationsBanner } from "./invitations-banner";
 import { useAuthContext } from "@/app/components/auth/auth-provider";
 import { resolveFolderDrop, resolveReorder } from "@/app/lib/survey/folder-dnd";
 import { sortSurveys, type SortBy } from "@/app/lib/survey/sort";
-import { splitByOwner } from "@/app/lib/survey/sidebar-tree";
+import {
+  ALL_FOLDER,
+  UNFILED_FOLDER,
+  hasKnownFolder,
+  splitByOwner,
+} from "@/app/lib/survey/sidebar-tree";
 import { useTranslation } from "@/app/i18n/context";
 import {
   useListDensity,
@@ -67,7 +72,8 @@ export function SurveyDashboard() {
   const { user } = useAuthContext();
   const { owned: surveys, shared: sharedSurveys } = splitByOwner(allSurveys, user?.id);
   const customTemplates = useCustomTemplates().data ?? [];
-  const folders = useFolders().data ?? [];
+  const foldersQuery = useFolders();
+  const folders = foldersQuery.data ?? [];
   const organize = useOrganizeSurvey();
   const reorder = useReorderSurveys();
 
@@ -77,6 +83,8 @@ export function SurveyDashboard() {
   const autoCreate = params.get("new") === "1";
   const status = parseStatus(params.get("status"));
   const openFolderId = params.get("folder");
+  const allView = openFolderId === ALL_FOLDER;
+  const tag = params.get("tag");
   const paramsKey = params.toString();
 
   const [query, setQuery] = useState("");
@@ -84,13 +92,9 @@ export function SurveyDashboard() {
   const [sort, setSort] = useListSort();
   const [density] = useListDensity();
   const [view, setView] = useListView();
-  const [tag, setTag] = useState<string | null>(null);
   const [urlSync, setUrlSync] = useState({ key: paramsKey, pending: null as string | null });
   if (urlSync.key !== paramsKey) {
-    if (paramsKey !== urlSync.pending) {
-      setQuery("");
-      setTag(null);
-    }
+    if (paramsKey !== urlSync.pending) setQuery("");
     setUrlSync({ key: paramsKey, pending: null });
   }
 
@@ -108,6 +112,7 @@ export function SurveyDashboard() {
   }
 
   const setOpenFolderId = (folderId: string | null) => updateUrl({ folder: folderId }, "push");
+  const setTag = (value: string | null) => updateUrl({ tag: value, folder: null }, "push");
   const setStatus = (value: StatusFilter) =>
     updateUrl({ status: value === "all" ? null : value }, "replace");
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -140,14 +145,26 @@ export function SurveyDashboard() {
   const sharedFiltered = sharedSurveys.filter(matches);
 
   // Grid view shows one folder at a time (root = unfiled). Search spans all.
-  const gridFiltered = q
-    ? baseFiltered
-    : baseFiltered.filter((s) => (s.folderId ?? null) === openFolderId);
+  const flat = Boolean(q || tag);
+  const unfiledView = openFolderId === UNFILED_FOLDER && !flat;
+  const folderIds = new Set(folders.map((f) => f.id));
+  const isUnfiled = (s: (typeof allSurveys)[number]) =>
+    foldersQuery.isError ? !s.folderId : !hasKnownFolder(s, folderIds);
+  const sharedIds = new Set(sharedSurveys.map((s) => s.id));
+  const gridFiltered = allView
+    ? [...baseFiltered, ...sharedFiltered]
+    : flat
+      ? baseFiltered
+      : unfiledView
+        ? baseFiltered.filter(isUnfiled)
+        : baseFiltered.filter((s) => (s.folderId ?? null) === openFolderId);
   const sorted = sortSurveys(gridFiltered, sort as SortBy);
+  const folderTree = !flat && !unfiledView && !allView;
+  const loading = isLoading || (unfiledView && foldersQuery.isLoading);
 
   // Explorer renders folders + their surveys itself; while searching we fall
   // back to a flat sorted list (results span every folder).
-  const useExplorer = view === "list" && !q;
+  const useExplorer = view === "list" && folderTree;
 
   async function handleDragEnd(event: DragEndEvent) {
     setDraggingId(null);
@@ -178,11 +195,13 @@ export function SurveyDashboard() {
 
     // 2) Dropped onto another card → reorder within that folder bucket. Skip
     //    while searching (the list isn't a single folder then).
-    if (q) return;
+    if (flat || allView) return;
     const active = surveys.find((s) => s.id === activeId);
     if (!active) return;
     const scopeIds = sortSurveys(
-      baseFiltered.filter((s) => (s.folderId ?? null) === (active.folderId ?? null)),
+      baseFiltered.filter((s) =>
+        unfiledView ? isUnfiled(s) : (s.folderId ?? null) === (active.folderId ?? null),
+      ),
       sort as SortBy,
     ).map((s) => s.id);
     const result = resolveReorder(activeId, overId, surveys, scopeIds);
@@ -264,21 +283,37 @@ export function SurveyDashboard() {
         </ToggleGroup>
       </div>
 
-      {tag && (
-        <div className="mb-4 flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t("dashboard.tagFilter")}</span>
-          <Badge variant="secondary" className="gap-1">
-            {tag}
-            <button type="button" aria-label={t("dashboard.clearTag")} onClick={() => setTag(null)}>
-              <X className="size-3" />
-            </button>
-          </Badge>
+      {(tag || unfiledView) && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          {unfiledView && (
+            <Badge variant="secondary" className="gap-1">
+              {t("nav.unorganized")}
+              <button
+                type="button"
+                aria-label={t("dashboard.clearFolderFilter")}
+                onClick={() => setOpenFolderId(null)}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          )}
+          {tag && (
+            <>
+              <span className="text-muted-foreground">{t("dashboard.tagFilter")}</span>
+              <Badge variant="secondary" className="gap-1">
+                {tag}
+                <button type="button" aria-label={t("dashboard.clearTag")} onClick={() => setTag(null)}>
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            </>
+          )}
         </div>
       )}
 
       <InvitationsBanner />
 
-      {isLoading ? (
+      {loading ? (
         <div className={gridClass}>
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-32 w-full rounded-xl" />
@@ -306,14 +341,16 @@ export function SurveyDashboard() {
           onDragEnd={handleDragEnd}
           onDragCancel={() => setDraggingId(null)}
         >
-          <SharedSurveysFolder
-            surveys={sharedFiltered}
-            view={view}
-            sort={sort as SortBy}
-            onTagClick={setTag}
-          />
+          {!allView && !unfiledView && (
+            <SharedSurveysFolder
+              surveys={sharedFiltered}
+              view={view}
+              sort={sort as SortBy}
+              onTagClick={setTag}
+            />
+          )}
 
-          {surveys.length > 0 && (useExplorer ? (
+          {(surveys.length > 0 || allView || unfiledView) && (useExplorer ? (
             <FolderExplorer
               folders={folders}
               surveys={baseFiltered}
@@ -324,7 +361,7 @@ export function SurveyDashboard() {
           ) : (
             <>
               {/* Grid view: folder tiles + drill-in (hidden while searching). */}
-              {!q && view === "grid" && (
+              {folderTree && view === "grid" && (
                 <div className="mb-4">
                   <FolderBar
                     folders={folders}
@@ -337,7 +374,7 @@ export function SurveyDashboard() {
 
               {sorted.length === 0 ? (
                 <p className="py-12 text-center text-sm text-muted-foreground">
-                  {t("dashboard.noMatches")}
+                  {t(unfiledView && status === "all" ? "dashboard.unorganizedEmpty" : "dashboard.noMatches")}
                 </p>
               ) : (
                 <SortableContext
@@ -351,6 +388,7 @@ export function SurveyDashboard() {
                         survey={survey}
                         onTagClick={setTag}
                         view={view}
+                        shared={sharedIds.has(survey.id)}
                       />
                     ))}
                   </div>

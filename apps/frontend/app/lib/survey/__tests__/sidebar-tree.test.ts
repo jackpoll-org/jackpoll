@@ -4,6 +4,8 @@ import {
   DEFAULT_SIDEBAR_TREE,
   buildSidebarTree,
   countSurveys,
+  countTags,
+  hasKnownFolder,
   groupKey,
   isOpen,
   parseSidebarTree,
@@ -104,6 +106,11 @@ describe("prefs helpers", () => {
     });
   });
 
+  it("keeps the open state of tags and templates but no stale hidden flags when pruning", () => {
+    const prefs = { open: { tags: true, templates: false }, hiddenFolders: ["tags", "templates"], hiddenGroups: [] };
+    expect(prunePrefs(prefs, [])).toEqual({ ...prefs, hiddenFolders: [] });
+  });
+
   it("parses stored prefs and drops invalid entries", () => {
     expect(
       parseSidebarTree('{"open":{"a":true,"b":"x"},"hiddenFolders":["f1",2],"hiddenGroups":["f1:draft"]}'),
@@ -124,5 +131,35 @@ describe("showAllHref", () => {
   it("links to the dashboard filtered by folder and status", () => {
     expect(showAllHref("f1", "draft")).toBe("/surveys?status=draft&folder=f1");
     expect(showAllHref(null, "closed")).toBe("/surveys?status=closed");
+    expect(showAllHref("none", "draft")).toBe("/surveys?status=draft&folder=none");
+  });
+});
+
+describe("tag helpers", () => {
+  const tagged = (id: string, tags: string[] | undefined, ownerId = "me") =>
+    ({ ...survey(id, "draft", null, ownerId), tags }) as Survey;
+
+  it("counts each tag once per survey across owned and shared surveys, sorted by name", () => {
+    expect(
+      countTags([
+        tagged("a", ["exam", "math", "exam"]),
+        tagged("b", ["Biology", "exam"], "other"),
+        tagged("c", undefined),
+      ]),
+    ).toEqual([
+      { tag: "Biology", count: 1 },
+      { tag: "exam", count: 2 },
+      { tag: "math", count: 1 },
+    ]);
+    expect(countTags([])).toEqual([]);
+  });
+});
+
+describe("hasKnownFolder", () => {
+  it("treats missing and unknown folders as unfiled", () => {
+    const folderIds = new Set(["f1"]);
+    expect(hasKnownFolder(survey("a", "draft", "f1"), folderIds)).toBe(true);
+    expect(hasKnownFolder(survey("b", "draft", "gone"), folderIds)).toBe(false);
+    expect(hasKnownFolder(survey("c", "draft"), folderIds)).toBe(false);
   });
 });

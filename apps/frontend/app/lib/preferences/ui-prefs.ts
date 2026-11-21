@@ -14,7 +14,6 @@ export const PREF_KEYS = {
   listSort: "ui_list_sort",
   listView: "ui_list_view",
   sidebarTree: "ui_sidebar_tree",
-  sidebarLabel: "ui_sidebar_label",
 } as const;
 
 const HIDE_BRAND_ATTR = "data-hide-brand";
@@ -88,12 +87,5 @@ export function useSidebarTree(): [SidebarTreePrefs, (v: SidebarTreePrefs) => vo
     defaultValue: DEFAULT_SIDEBAR_TREE,
     serialize: JSON.stringify,
     deserialize: parseSidebarTree,
-  });
-}
-
-export function useSidebarLabel(): [string, (v: string) => void, boolean] {
-  return usePreference<string>({
-    key: PREF_KEYS.sidebarLabel,
-    defaultValue: "",
   });
 }

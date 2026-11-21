@@ -23,11 +23,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/ui/select";
-import { useFolders, useOrganizeSurvey } from "@/app/hooks/survey";
+import { useFolders, useOrganizeSurvey, useSurveys } from "@/app/hooks/survey";
 import { useTranslation } from "@/app/i18n/context";
+import { countTags } from "@/app/lib/survey/sidebar-tree";
 import type { Survey } from "@/app/types/survey";
 
 const NO_FOLDER = "__none__";
+const MAX_SUGGESTIONS = 8;
+
+function TagSuggestions({
+  tags,
+  draft,
+  onPick,
+}: {
+  tags: string[];
+  draft: string;
+  onPick: (tag: string) => void;
+}) {
+  const { t } = useTranslation();
+  const surveys = useSurveys();
+  const query = draft.trim().toLowerCase();
+  const taken = new Set(tags.map((tag) => tag.toLowerCase()));
+  const suggestions = countTags(surveys.data?.surveys ?? [])
+    .map(({ tag }) => tag)
+    .filter((tag) => {
+      const key = tag.toLowerCase();
+      if (taken.has(key) || !key.includes(query)) return false;
+      taken.add(key);
+      return true;
+    })
+    .slice(0, MAX_SUGGESTIONS);
+  if (suggestions.length === 0) return null;
+
+  return (
+    <div role="group" className="flex flex-wrap gap-1" aria-label={t("organize.suggestions")}>
+      {suggestions.map((tag) => (
+        <Badge key={tag} variant="outline" asChild>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => onPick(tag)}>
+            {tag}
+          </button>
+        </Badge>
+      ))}
+    </div>
+  );
+}
 
 export function OrganizeDialog({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
@@ -104,6 +143,7 @@ export function OrganizeDialog({ survey }: { survey: Survey }) {
               onBlur={() => draft && addTag(draft)}
               placeholder={t("organize.tagPlaceholder")}
             />
+            <TagSuggestions tags={tags} draft={draft} onPick={addTag} />
           </div>
 
           <div className="grid gap-2">

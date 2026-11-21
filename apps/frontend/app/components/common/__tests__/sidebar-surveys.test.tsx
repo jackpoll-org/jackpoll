@@ -8,6 +8,9 @@ let foldersLoading = false;
 let foldersFailed = false;
 const createFolder = vi.fn().mockResolvedValue(undefined);
 const renameFolder = vi.fn().mockResolvedValue(undefined);
+const startFromTemplate = vi.fn().mockResolvedValue(undefined);
+let templates: { id: string; name: string }[] = [];
+let search = new URLSearchParams();
 
 vi.mock("@/app/hooks/survey", () => ({
   useSurveys: () => ({ data: { surveys }, isLoading: false }),
@@ -20,6 +23,10 @@ vi.mock("@/app/hooks/survey", () => ({
   useCreateFolder: () => ({ mutateAsync: createFolder, isPending: false }),
   useRenameFolder: () => ({ mutateAsync: renameFolder, isPending: false }),
 }));
+vi.mock("@/app/hooks/templates", () => ({
+  useCustomTemplates: () => ({ data: templates }),
+  useStartFromTemplate: () => ({ start: startFromTemplate, isPending: false }),
+}));
 vi.mock("@/app/i18n/context", () => ({
   useTranslation: () => ({
     t: (k: string, vars?: Record<string, string | number>) =>
@@ -28,7 +35,7 @@ vi.mock("@/app/i18n/context", () => ({
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/surveys",
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => search,
 }));
 vi.mock("@/app/components/auth/auth-provider", () => ({
   useAuthContext: () => ({ user: { id: "me" } }),
@@ -44,8 +51,9 @@ function survey(
   status: Survey["status"],
   folderId: string | null = null,
   ownerId = "me",
+  tags: string[] = [],
 ): Survey {
-  return { id, title: `Quiz ${id}`, status, folderId, ownerId } as Survey;
+  return { id, title: `Quiz ${id}`, status, folderId, ownerId, tags } as Survey;
 }
 
 function renderSidebar() {
@@ -66,6 +74,9 @@ function openMenu(name: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  templates = [];
+  search = new URLSearchParams();
+  startFromTemplate.mockClear();
   surveys = [
     survey("d1", "draft"),
     survey("p1", "published"),
@@ -104,7 +115,7 @@ describe("SidebarSurveys", () => {
 
   it("hides a status group and a folder from the menu and shows them again", () => {
     renderSidebar();
-    fireEvent.click(within(openMenu("nav.mySurveys")).getByRole("menuitemcheckbox", { name: "dashboard.status.draft" }));
+    fireEvent.click(within(openMenu("nav.unorganized")).getByRole("menuitemcheckbox", { name: "dashboard.status.draft" }));
     expect(screen.queryByText("Quiz d1")).not.toBeInTheDocument();
     expect(screen.getByText("Quiz p1")).toBeInTheDocument();
 
@@ -115,46 +126,103 @@ describe("SidebarSurveys", () => {
       hiddenFolders: ["f1"],
     });
 
-    const menu = openMenu("nav.mySurveys");
+    const menu = openMenu("nav.unorganized");
     fireEvent.click(within(menu).getByRole("menuitemcheckbox", { name: "dashboard.status.draft" }));
-    fireEvent.click(within(openMenu("nav.mySurveys")).getByRole("menuitem", { name: "nav.sidebar.showFolder:Physics" }));
+    fireEvent.click(within(openMenu("nav.unorganized")).getByRole("menuitem", { name: "nav.sidebar.showFolder:Physics" }));
     expect(screen.getByText("Quiz d1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "nav.sidebar.toggle:Physics" })).toBeInTheDocument();
   });
 
-  it("renames the section label and clears it when set back to the default", () => {
+  it("links a fixed All surveys entry and the Unorganized section to the dashboard", () => {
     renderSidebar();
-    fireEvent.click(within(openMenu("nav.mySurveys")).getByRole("menuitem", { name: "nav.sidebar.renameLabel" }));
-    const input = screen.getByPlaceholderText("nav.mySurveys");
-    expect(input).toHaveValue("");
-    fireEvent.change(input, { target: { value: "Quizzes" } });
-    fireEvent.submit(input.closest("form")!);
-    expect(screen.getByText("Quizzes")).toBeInTheDocument();
-    expect(localStorage.getItem("ui_sidebar_label")).toBe("Quizzes");
-
-    fireEvent.click(within(openMenu("Quizzes")).getByRole("menuitem", { name: "nav.sidebar.renameLabel" }));
-    const cleared = screen.getByPlaceholderText("nav.mySurveys");
-    expect(cleared).toHaveValue("Quizzes");
-    fireEvent.change(cleared, { target: { value: "" } });
-    fireEvent.submit(cleared.closest("form")!);
-    expect(localStorage.getItem("ui_sidebar_label")).toBe("");
-    expect(screen.getByRole("button", { name: "nav.sidebar.menu:nav.mySurveys" })).toBeInTheDocument();
-
-    fireEvent.click(within(openMenu("nav.mySurveys")).getByRole("menuitem", { name: "nav.sidebar.renameLabel" }));
-    const typedDefault = screen.getByPlaceholderText("nav.mySurveys");
-    fireEvent.change(typedDefault, { target: { value: "nav.mySurveys" } });
-    fireEvent.submit(typedDefault.closest("form")!);
-    expect(localStorage.getItem("ui_sidebar_label")).toBe("");
+    const all = screen.getByRole("link", { name: "nav.allSurveys" });
+    expect(all).toHaveAttribute("href", "/surveys?folder=all");
+    expect(all).toHaveAttribute("data-active", "false");
+    const unorganized = screen.getByRole("link", { name: "nav.unorganized" });
+    expect(unorganized).toHaveAttribute("href", "/surveys?folder=none");
+    expect(unorganized).toHaveAttribute("data-active", "false");
+    expect(screen.queryByRole("menuitem", { name: /renameLabel/ })).toBeNull();
   });
 
-  it("applies the saved layout and label on first render", () => {
+  it("marks All surveys active on the flat all-surveys view", () => {
+    search = new URLSearchParams("folder=all");
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "nav.allSurveys" })).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("link", { name: "nav.unorganized" })).toHaveAttribute("data-active", "false");
+  });
+
+  it("marks a folder active only while no tag filter is set", () => {
+    surveys = [survey("a", "draft", "f1", "me", ["exam"])];
+    search = new URLSearchParams("folder=f1");
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Physics" })).toHaveAttribute("data-active", "true");
+    cleanup();
+
+    search = new URLSearchParams("folder=f1&tag=exam");
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Physics" })).toHaveAttribute("data-active", "false");
+    fireEvent.click(screen.getByRole("button", { name: "nav.sidebar.toggle:nav.tags" }));
+    expect(screen.getByRole("link", { name: "exam1" })).toHaveAttribute("data-active", "true");
+  });
+
+  it("marks Unorganized active instead of All surveys on the unfiled view", () => {
+    search = new URLSearchParams("folder=none");
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "nav.allSurveys" })).toHaveAttribute("data-active", "false");
+    expect(screen.getByRole("link", { name: "nav.unorganized" })).toHaveAttribute("data-active", "true");
+  });
+
+  it("lists tags across all surveys with counts and links to the tag filter", () => {
+    surveys = [
+      survey("a", "draft", null, "me", ["exam", "math"]),
+      survey("b", "draft", "f1", "me", ["exam"]),
+      survey("c", "draft", null, "other", ["Biology"]),
+    ];
+    search = new URLSearchParams("tag=exam");
+    renderSidebar();
+    expect(screen.queryByText("exam")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "nav.sidebar.toggle:nav.tags" }));
+    const links = screen.getAllByRole("link").filter((l) => l.getAttribute("href")?.includes("tag="));
+    expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
+      ["Biology1", "/surveys?tag=Biology"],
+      ["exam2", "/surveys?tag=exam"],
+      ["math1", "/surveys?tag=math"],
+    ]);
+    expect(links[1]).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("link", { name: "nav.allSurveys" })).toHaveAttribute("data-active", "false");
+  });
+
+  it("hides the tags and templates sections when empty", () => {
+    renderSidebar();
+    expect(screen.queryByText("nav.tags")).toBeNull();
+    expect(screen.queryByText("nav.templates")).toBeNull();
+  });
+
+  it("starts a new survey from a custom template", async () => {
+    templates = [{ id: "t1", name: "Weekly check-in" }];
+    renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: "nav.sidebar.toggle:nav.templates" }));
+    fireEvent.click(screen.getByRole("button", { name: "nav.sidebar.useTemplate:Weekly check-in" }));
+    await vi.waitFor(() => expect(startFromTemplate).toHaveBeenCalledWith(templates[0]));
+    expect(
+      within(openMenu("nav.templates")).getByRole("menuitem", { name: "nav.sidebar.manageTemplates" }),
+    ).toHaveAttribute("href", "/surveys?new=1");
+  });
+
+  it("offers no hide option for the tags section and hides it in the icon sidebar", () => {
+    surveys = [survey("a", "draft", null, "me", ["exam"])];
+    renderSidebar();
+    expect(screen.queryByRole("button", { name: "nav.sidebar.menu:nav.tags" })).toBeNull();
+    const item = screen.getByRole("button", { name: "nav.sidebar.toggle:nav.tags" }).closest("li");
+    expect(item).toHaveClass("group-data-[collapsible=icon]:hidden");
+  });
+
+  it("applies the saved layout on first render", () => {
     localStorage.setItem(
       "ui_sidebar_tree",
       JSON.stringify({ open: { f1: true }, hiddenFolders: [], hiddenGroups: ["mine:draft"] }),
     );
-    localStorage.setItem("ui_sidebar_label", "Quizzes");
     renderSidebar();
-    expect(screen.getByText("Quizzes")).toBeInTheDocument();
     expect(screen.queryByText("Quiz d1")).not.toBeInTheDocument();
     expect(screen.getByText("Quiz x2")).toBeInTheDocument();
   });
@@ -185,7 +253,7 @@ describe("SidebarSurveys", () => {
   it("drops prefs of deleted folders when saving", () => {
     localStorage.setItem(
       "ui_sidebar_tree",
-      JSON.stringify({ open: { gone: true }, hiddenFolders: ["gone"], hiddenGroups: ["gone:draft"] }),
+      JSON.stringify({ open: { gone: true }, hiddenFolders: ["gone", "tags"], hiddenGroups: ["gone:draft"] }),
     );
     renderSidebar();
     fireEvent.click(screen.getByRole("button", { name: "nav.sidebar.toggle:Physics" }));
@@ -198,7 +266,7 @@ describe("SidebarSurveys", () => {
 
   it("creates a folder from the sidebar", async () => {
     renderSidebar();
-    fireEvent.click(within(openMenu("nav.mySurveys")).getByRole("menuitem", { name: "dashboard.folder.new" }));
+    fireEvent.click(within(openMenu("nav.unorganized")).getByRole("menuitem", { name: "dashboard.folder.new" }));
     const input = screen.getByPlaceholderText("dashboard.folder.namePrompt");
     fireEvent.change(input, { target: { value: "Chemistry" } });
     fireEvent.submit(input.closest("form")!);
@@ -216,7 +284,7 @@ describe("SidebarSurveys", () => {
     expect(screen.queryByText("Quiz s50")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "nav.sidebar.showAll:120" })).toHaveAttribute(
       "href",
-      "/surveys?status=published",
+      "/surveys?status=published&folder=none",
     );
     fireEvent.click(screen.getByRole("button", { name: "nav.sidebar.toggle:Physics" }));
     expect(screen.getByRole("link", { name: "nav.sidebar.showAll:60" })).toHaveAttribute(
@@ -235,7 +303,7 @@ describe("SidebarSurveys while folders load", () => {
     foldersFailed = false;
   });
 
-  it("leaves my filed surveys out instead of listing them under My surveys when folders fail to load", () => {
+  it("leaves my filed surveys out instead of listing them under Unorganized when folders fail to load", () => {
     foldersFailed = true;
     surveys = [survey("filed", "draft", "f1"), survey("loose", "draft")];
     renderSidebar();
@@ -243,11 +311,11 @@ describe("SidebarSurveys while folders load", () => {
     expect(screen.getByText("Quiz loose")).toBeInTheDocument();
   });
 
-  it("shows a skeleton instead of listing filed surveys under My surveys", () => {
+  it("shows a skeleton instead of listing filed surveys under Unorganized", () => {
     foldersLoading = true;
     surveys = [survey("filed", "draft", "f1")];
     renderSidebar();
     expect(screen.queryByText("Quiz filed")).toBeNull();
-    expect(screen.queryByText("nav.mySurveys")).toBeNull();
+    expect(screen.queryByText("nav.unorganized")).toBeNull();
   });
 });

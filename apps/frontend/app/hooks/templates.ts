@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useCreateSurvey, useDeleteSurvey } from "@/app/hooks/survey";
+import { updateSurveyApi } from "@/app/lib/survey/api";
+import { instantiateTemplate } from "@/app/lib/survey/templates";
+import { useTranslation } from "@/app/i18n/context";
 import {
   createTemplateApi,
   deleteTemplateApi,
@@ -69,4 +74,54 @@ export function useDeleteTemplate() {
       queryClient.invalidateQueries({ queryKey: templatesKey });
     },
   });
+}
+
+const START_FROM_TEMPLATE_KEY = ["startFromTemplate"];
+let startingFromTemplate = false;
+
+export function useStartFromTemplate() {
+  const createSurvey = useCreateSurvey();
+  const deleteSurvey = useDeleteSurvey();
+  const router = useRouter();
+  const { t } = useTranslation();
+  const isPending = useIsMutating({ mutationKey: START_FROM_TEMPLATE_KEY }) > 0;
+  const mutation = useMutation({
+    mutationKey: START_FROM_TEMPLATE_KEY,
+    mutationFn: async (template: SurveyTemplate) => {
+      const survey = await createSurvey.mutateAsync({ title: template.name });
+      const discard = () => deleteSurvey.mutateAsync(survey.id).catch(() => undefined);
+      let res: Awaited<ReturnType<typeof updateSurveyApi>>;
+      try {
+        res = await updateSurveyApi(survey.id, {
+          title: survey.title,
+          description: survey.description,
+          status: survey.status,
+          settings: { ...survey.settings, ...(template.settings ?? {}) },
+          ...instantiateTemplate(template),
+        });
+      } catch (error) {
+        await discard();
+        throw error;
+      }
+      if (!res.success) {
+        await discard();
+        throw new Error(res.error ? localizeServerError(res.error) : t("templates.applyFailed"));
+      }
+      return survey.id;
+    },
+    onSuccess: (id) => router.push(`/surveys/${id}/edit`),
+  });
+
+  async function start(template: SurveyTemplate): Promise<boolean> {
+    if (startingFromTemplate) return false;
+    startingFromTemplate = true;
+    try {
+      await mutation.mutateAsync(template);
+      return true;
+    } finally {
+      startingFromTemplate = false;
+    }
+  }
+
+  return { start, isPending };
 }

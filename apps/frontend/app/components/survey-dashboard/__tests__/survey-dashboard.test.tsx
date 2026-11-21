@@ -12,11 +12,14 @@ function navigate(url: string) {
 }
 
 const folders: Folder[] = [{ id: "f1", name: "Physics" }];
-const surveys = [
+let foldersState: { data?: Folder[]; isLoading?: boolean; isError?: boolean } = { data: folders };
+const reorder = vi.fn();
+let dragEnd: ((event: unknown) => Promise<void>) | undefined;
+let surveys = [
   survey("d1", "draft"),
   survey("p1", "published"),
   survey("x1", "draft", "f1"),
-  survey("x2", "closed", "f1"),
+  survey("x2", "closed", "f1", "me", ["exam", "final"]),
   survey("o1", "draft", null, "other"),
 ];
 
@@ -27,9 +30,9 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/app/hooks/survey", () => ({
   useSurveys: () => ({ data: { surveys }, isLoading: false, isError: false }),
-  useFolders: () => ({ data: folders }),
+  useFolders: () => foldersState,
   useOrganizeSurvey: () => ({ mutateAsync: vi.fn() }),
-  useReorderSurveys: () => ({ mutate: vi.fn() }),
+  useReorderSurveys: () => ({ mutate: reorder }),
   useCreateFolder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRenameFolder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteFolder: () => ({ mutateAsync: vi.fn() }),
@@ -54,6 +57,19 @@ vi.mock("../survey-card", () => ({
     </div>
   ),
 }));
+vi.mock("@dnd-kit/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@dnd-kit/core")>()),
+  DndContext: ({
+    children,
+    onDragEnd,
+  }: {
+    children: React.ReactNode;
+    onDragEnd: (event: unknown) => Promise<void>;
+  }) => {
+    dragEnd = onDragEnd;
+    return <>{children}</>;
+  },
+}));
 vi.mock("../template-picker-dialog", () => ({ TemplatePickerDialog: () => null }));
 vi.mock("../join-by-code-dialog", () => ({ JoinByCodeDialog: () => null }));
 vi.mock("../invitations-banner", () => ({ InvitationsBanner: () => null }));
@@ -65,6 +81,7 @@ function survey(
   status: Survey["status"],
   folderId: string | null = null,
   ownerId = "me",
+  tags = ["exam"],
 ): Survey {
   return {
     id,
@@ -72,7 +89,7 @@ function survey(
     title: `Quiz ${id}`,
     status,
     folderId,
-    tags: ["exam"],
+    tags,
     settings: {} as Survey["settings"],
     questions: [],
     createdAt: "2026-06-10T00:00:00Z",
@@ -93,6 +110,8 @@ function renderDashboard(url: string, view: "grid" | "list" = "grid") {
 
 beforeEach(() => {
   localStorage.clear();
+  foldersState = { data: folders };
+  reorder.mockClear();
   router.push.mockClear();
   router.replace.mockClear();
 });
@@ -139,22 +158,126 @@ describe("SurveyDashboard URL state", () => {
     expect(router.replace).toHaveBeenCalledWith("/surveys?folder=f1&status=closed", { scroll: false });
   });
 
-  it("keeps the search across its own URL changes but clears search and tag on deep links", () => {
+  it("keeps the search across its own URL changes but clears it on deep links", () => {
     const { rerender, go } = renderDashboard("/surveys");
     const searchBox = screen.getByPlaceholderText("dashboard.searchPlaceholder");
-    fireEvent.click(screen.getByRole("button", { name: "tag d1" }));
-    expect(screen.getByText("dashboard.tagFilter")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "dashboard.folder.open:Physics" }));
-    rerender(<SurveyDashboard />);
-    expect(screen.getByText("dashboard.tagFilter")).toBeInTheDocument();
-
     fireEvent.change(searchBox, { target: { value: "x2" } });
+    fireEvent.click(screen.getByRole("button", { name: "tag x2" }));
+    expect(router.push).toHaveBeenCalledWith("/surveys?tag=exam", { scroll: false });
+    rerender(<SurveyDashboard />);
+    expect(searchBox).toHaveValue("x2");
+    expect(screen.getByText("dashboard.tagFilter")).toBeInTheDocument();
     expect(shown()).toEqual(["Quiz x2"]);
 
     go("/surveys?status=draft");
     expect(searchBox).toHaveValue("");
     expect(screen.queryByText("dashboard.tagFilter")).not.toBeInTheDocument();
     expect(shown()).toEqual(["Quiz o1", "Quiz d1"]);
+  });
+
+  it("filters by the tag in the URL across folders and clears it", () => {
+    renderDashboard("/surveys?tag=final");
+    expect(shown()).toEqual(["Quiz x2"]);
+    expect(screen.queryByRole("button", { name: "dashboard.folder.open:Physics" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "dashboard.clearTag" }));
+    expect(router.push).toHaveBeenCalledWith("/surveys", { scroll: false });
+  });
+
+  it("drops the folder when a card's tag is clicked", () => {
+    renderDashboard("/surveys?folder=f1");
+    fireEvent.click(screen.getByRole("button", { name: "tag x1" }));
+    expect(router.push).toHaveBeenCalledWith("/surveys?tag=exam", { scroll: false });
+  });
+
+  it.each(["grid", "list"] as const)(
+    "shows only my surveys without a folder for ?folder=none (%s view)",
+    (view) => {
+      surveys.push(survey("u1", "draft", "deleted-folder"));
+      try {
+        renderDashboard("/surveys?folder=none", view);
+        expect(shown().sort()).toEqual(["Quiz d1", "Quiz p1", "Quiz u1"]);
+        expect(screen.queryByRole("button", { name: "dashboard.folder.open:Physics" })).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: "dashboard.clearFolderFilter" }));
+        expect(router.push).toHaveBeenCalledWith("/surveys", { scroll: false });
+      } finally {
+        surveys.pop();
+      }
+    },
+  );
+
+  it.each(["grid", "list"] as const)(
+    "lists every survey flat for ?folder=all, including shared ones (%s view)",
+    (view) => {
+      const { go } = renderDashboard("/surveys?folder=all", view);
+      expect(shown().sort()).toEqual(["Quiz d1", "Quiz o1", "Quiz p1", "Quiz x1", "Quiz x2"]);
+      expect(screen.queryByRole("button", { name: "dashboard.folder.open:Physics" })).toBeNull();
+      expect(screen.queryByText("dashboard.shared.title")).toBeNull();
+
+      go("/surveys?folder=all&status=draft");
+      expect(shown().sort()).toEqual(["Quiz d1", "Quiz o1", "Quiz x1"]);
+    },
+  );
+
+  it("waits for folders before listing ?folder=none", () => {
+    foldersState = { isLoading: true };
+    renderDashboard("/surveys?folder=none");
+    expect(shown()).toEqual([]);
+  });
+
+  it("leaves filed surveys out of ?folder=none when folders fail to load", () => {
+    foldersState = { isError: true };
+    surveys.push(survey("u1", "draft", "deleted-folder"));
+    try {
+      renderDashboard("/surveys?folder=none");
+      expect(shown().sort()).toEqual(["Quiz d1", "Quiz p1"]);
+    } finally {
+      surveys.pop();
+    }
+  });
+
+  it("searches and filters tags across every folder even on ?folder=none", () => {
+    const { go } = renderDashboard("/surveys?folder=none");
+    fireEvent.change(screen.getByPlaceholderText("dashboard.searchPlaceholder"), {
+      target: { value: "x2" },
+    });
+    expect(shown()).toEqual(["Quiz x2"]);
+
+    go("/surveys?folder=none&tag=final");
+    expect(shown()).toEqual(["Quiz x2"]);
+  });
+
+  it("says nothing is unorganized when every survey of mine is in a folder", () => {
+    const previous = surveys;
+    surveys = [survey("x1", "draft", "f1")];
+    try {
+      renderDashboard("/surveys?folder=none");
+      expect(screen.getByText("dashboard.unorganizedEmpty")).toBeInTheDocument();
+      expect(screen.queryByText("dashboard.noMatches")).toBeNull();
+    } finally {
+      surveys = previous;
+    }
+  });
+
+  it("says nothing is unorganized for a user who only has shared surveys", () => {
+    const previous = surveys;
+    surveys = [survey("sh1", "draft", null, "someone-else")];
+    try {
+      renderDashboard("/surveys?folder=none");
+      expect(screen.getByText("dashboard.unorganizedEmpty")).toBeInTheDocument();
+    } finally {
+      surveys = previous;
+    }
+  });
+
+  it("reorders ?folder=none within the same surveys it shows, orphans included", async () => {
+    surveys.push(survey("u1", "draft", "deleted-folder"));
+    try {
+      renderDashboard("/surveys?folder=none");
+      await dragEnd!({ active: { id: "d1" }, over: { id: "p1" } });
+      expect(reorder).toHaveBeenCalledTimes(1);
+      expect([...reorder.mock.calls[0][0].orderedIds].sort()).toEqual(["d1", "p1", "u1"]);
+    } finally {
+      surveys.pop();
+    }
   });
 });

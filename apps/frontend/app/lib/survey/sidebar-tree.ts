@@ -4,6 +4,10 @@ export const SIDEBAR_STATUSES: readonly SurveyStatus[] = ["draft", "published", 
 export const SIDEBAR_GROUP_LIMIT = 50;
 export const MINE_SECTION = "mine";
 export const SHARED_SECTION = "shared";
+export const TAGS_SECTION = "tags";
+export const TEMPLATES_SECTION = "templates";
+export const UNFILED_FOLDER = "none";
+export const ALL_FOLDER = "all";
 
 export interface SidebarTreePrefs {
   open: Record<string, boolean>;
@@ -32,6 +36,28 @@ export function splitByOwner(surveys: Survey[], myId: string | undefined) {
   };
 }
 
+export function hasKnownFolder(
+  survey: Survey,
+  folderIds: ReadonlySet<string>,
+): survey is Survey & { folderId: string } {
+  return Boolean(survey.folderId && folderIds.has(survey.folderId));
+}
+
+export interface TagCount {
+  tag: string;
+  count: number;
+}
+
+export function countTags(surveys: Survey[]): TagCount[] {
+  const counts = new Map<string, number>();
+  for (const survey of surveys) {
+    for (const tag of new Set(survey.tags ?? [])) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => a.tag.localeCompare(b.tag));
+}
+
 export function buildSidebarTree(
   surveys: Survey[],
   folders: Folder[],
@@ -47,7 +73,7 @@ export function buildSidebarTree(
     const section =
       myId && survey.ownerId !== myId
         ? SHARED_SECTION
-        : survey.folderId && folderIds.has(survey.folderId)
+        : hasKnownFolder(survey, folderIds)
           ? survey.folderId
           : MINE_SECTION;
     (tree.get(section)![survey.status] ??= []).push(survey);
@@ -80,11 +106,12 @@ export function withHiddenToggled(
 }
 
 export function prunePrefs(prefs: SidebarTreePrefs, folders: Folder[]): SidebarTreePrefs {
-  const sections = new Set([MINE_SECTION, SHARED_SECTION, ...folders.map((f) => f.id)]);
+  const folderIds = new Set(folders.map((f) => f.id));
+  const sections = new Set([MINE_SECTION, SHARED_SECTION, TAGS_SECTION, TEMPLATES_SECTION, ...folderIds]);
   const inSection = (key: string) => sections.has(key.split(":")[0]);
   return {
     open: Object.fromEntries(Object.entries(prefs.open).filter(([key]) => inSection(key))),
-    hiddenFolders: prefs.hiddenFolders.filter((id) => sections.has(id)),
+    hiddenFolders: prefs.hiddenFolders.filter((id) => folderIds.has(id)),
     hiddenGroups: prefs.hiddenGroups.filter(inSection),
   };
 }

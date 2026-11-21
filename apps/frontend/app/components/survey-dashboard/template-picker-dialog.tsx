@@ -16,13 +16,9 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Badge } from "@/app/components/ui/badge";
 import { useCreateSurvey } from "@/app/hooks/survey";
-import { useDeleteTemplate } from "@/app/hooks/templates";
+import { useDeleteTemplate, useStartFromTemplate } from "@/app/hooks/templates";
 import { updateSurveyApi } from "@/app/lib/survey/api";
-import {
-  curatedTemplates,
-  instantiateTemplate,
-  type SurveyTemplate,
-} from "@/app/lib/survey/templates";
+import { curatedTemplates, type SurveyTemplate } from "@/app/lib/survey/templates";
 import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
 import { useTranslation } from "@/app/i18n/context";
 import type { TranslationKey } from "@/app/i18n/translations";
@@ -53,9 +49,11 @@ export function TemplatePickerDialog({
   const router = useRouter();
   const createSurvey = useCreateSurvey();
   const deleteTemplate = useDeleteTemplate();
+  const startFromTemplate = useStartFromTemplate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const locked = busy || startFromTemplate.isPending;
 
   function handleCreateError(err: unknown) {
     setBusy(false);
@@ -129,16 +127,7 @@ export function TemplatePickerDialog({
   async function useTemplate(template: SurveyTemplate) {
     setBusy(true);
     try {
-      const survey = await createSurvey.mutateAsync({ title: template.name });
-      const res = await updateSurveyApi(survey.id, {
-        title: survey.title,
-        description: survey.description,
-        status: survey.status,
-        settings: { ...survey.settings, ...(template.settings ?? {}) },
-        ...instantiateTemplate(template),
-      });
-      if (!res.success) throw new Error(res.error ?? tr("templates.applyFailed"));
-      router.push(`/surveys/${survey.id}/edit`);
+      if (!(await startFromTemplate.start(template))) setBusy(false);
     } catch (err) {
       handleCreateError(err);
     }
@@ -174,7 +163,7 @@ export function TemplatePickerDialog({
           <button
             type="button"
             onClick={startBlank}
-            disabled={busy}
+            disabled={locked}
             className="flex flex-col items-start gap-1 rounded-lg border border-dashed p-4 text-left transition-colors hover:border-primary/50 disabled:opacity-50"
           >
             <FilePlus2 className="size-5 text-muted-foreground" />
@@ -185,7 +174,7 @@ export function TemplatePickerDialog({
           <button
             type="button"
             onClick={startQuizGame}
-            disabled={busy}
+            disabled={locked}
             className="flex flex-col items-start gap-1 rounded-lg border border-dashed p-4 text-left transition-colors hover:border-primary/50 disabled:opacity-50"
           >
             <Gamepad2 className="size-5 text-muted-foreground" />
@@ -202,7 +191,7 @@ export function TemplatePickerDialog({
             <TemplateCard
               key={t.id}
               template={t}
-              busy={busy}
+              busy={locked}
               onUse={useTemplate}
               onDelete={async () => {
                 if (!window.confirm(tr("templates.deleteConfirm", { name: t.name }))) return;
@@ -220,7 +209,7 @@ export function TemplatePickerDialog({
             {tr("templates.curated")}
           </p>
           {curated.map((t) => (
-            <TemplateCard key={t.id} template={t} busy={busy} onUse={useTemplate} />
+            <TemplateCard key={t.id} template={t} busy={locked} onUse={useTemplate} />
           ))}
         </div>
       </DialogContent>
