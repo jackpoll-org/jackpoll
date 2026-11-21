@@ -44,8 +44,12 @@ export function answerPoints(question: Question): PointsMap | null {
   return question.type === "short-answer" ? pointsMap(question, "answerPoints", 0) : null;
 }
 
+export function isPoll(question: Question | undefined): boolean {
+  return question?.settings?.poll === true;
+}
+
 export function scoresOrder(question: Question): boolean {
-  return question.type === "ranking" && question.settings?.scoreOrder === true;
+  return question.type === "ranking" && question.settings?.scoreOrder === true && !isPoll(question);
 }
 
 export function basePoints(question: Question): number {
@@ -114,6 +118,7 @@ export function withoutOptionPoints(question: Question): Record<string, unknown>
  * file-upload questions without an answer key when "grade manually" is on.
  */
 export function isManuallyGraded(question: Question): boolean {
+  if (isPoll(question)) return false;
   if (question.type === "long-answer") return true;
   if (isAutoScored(question)) return false;
   const optedIn = question.settings?.manualGrading === true;
@@ -121,6 +126,7 @@ export function isManuallyGraded(question: Question): boolean {
 }
 
 export function isAutoScored(question: Question): boolean {
+  if (isPoll(question)) return false;
   return (
     (question.correctAnswers ?? []).some((c) => c.trim() !== "") ||
     Object.values(optionPoints(question) ?? {}).some((p) => p > 0) ||

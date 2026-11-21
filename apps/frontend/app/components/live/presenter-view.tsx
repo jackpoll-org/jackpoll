@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { scoresOrder } from "@/app/lib/survey/grading";
+import { isAutoScored, scoresOrder } from "@/app/lib/survey/grading";
 import Image from "next/image";
 import Link from "next/link";
 import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, X } from "lucide-react";
@@ -73,7 +73,8 @@ function GameAnswerTiles({
   reveal: boolean;
 }) {
   const options = question.options ?? [];
-  const correct = new Set(question.correctAnswers ?? []);
+  const scored = isAutoScored(question);
+  const correct = new Set(scored ? (question.correctAnswers ?? []) : []);
   const counts = result?.optionCounts ?? {};
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -86,7 +87,7 @@ function GameAnswerTiles({
             className={cn(
               "relative flex items-center gap-4 rounded-xl px-5 py-6 text-xl font-semibold text-white transition-all duration-300 ease-out",
               tile.color.split(" ")[0],
-              reveal && !isCorrect && "opacity-40",
+              reveal && scored && !isCorrect && "opacity-40",
               reveal && isCorrect && `ring-4 ring-offset-2 ${tile.ring}`,
             )}
           >

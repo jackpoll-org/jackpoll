@@ -9,6 +9,8 @@ import {
   isManuallyGraded,
   maxPointsFor,
   nextPendingIndex,
+  isAutoScored,
+  scoresOrder,
 } from "@/app/lib/survey/grading";
 import type { Question, SurveyResponseDto } from "@/app/types/survey";
 
@@ -142,5 +144,15 @@ describe("zero-point questions", () => {
     expect(isGradable(paragraph(0), false)).toBe(false);
     expect(maxPointsFor(paragraph(undefined))).toBe(1);
     expect(isGradable(paragraph(undefined), false)).toBe(true);
+  });
+});
+
+describe("poll questions", () => {
+  it("are neither scored nor graded", () => {
+    const choice = q({ type: "multiple-choice", correctAnswers: ["a"], settings: { poll: true } });
+    expect(isAutoScored(choice)).toBe(false);
+    expect(isGradable(choice, false)).toBe(false);
+    expect(isManuallyGraded(q({ type: "long-answer", settings: { poll: true } }))).toBe(false);
+    expect(scoresOrder(q({ type: "ranking", settings: { scoreOrder: true, poll: true } }))).toBe(false);
   });
 });

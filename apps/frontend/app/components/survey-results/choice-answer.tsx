@@ -3,6 +3,7 @@
 import { CheckCircle2, Circle, CircleDashed, XCircle } from "lucide-react";
 import { useTranslation } from "@/app/i18n/context";
 import { cn } from "@/lib/utils";
+import { isAutoScored } from "@/app/lib/survey/grading";
 import type { Question } from "@/app/types/survey";
 
 type OptionStatus = "hit" | "missed" | "wrong" | "neutral" | "selected";
@@ -48,7 +49,7 @@ export function optionStatus(selected: boolean, correct: boolean | null): Option
 export function ChoiceAnswer({ question, value }: { question: Question; value: unknown }) {
   const { t } = useTranslation();
   const selected = new Set(Array.isArray(value) ? value.map(String) : []);
-  const correct = new Set(question.correctAnswers ?? []);
+  const correct = new Set(isAutoScored(question) ? (question.correctAnswers ?? []) : []);
   const scored = correct.size > 0;
   const known = new Set((question.options ?? []).map((o) => o.id));
   const removed = [...selected]

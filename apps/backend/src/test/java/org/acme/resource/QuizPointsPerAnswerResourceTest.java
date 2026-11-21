@@ -126,4 +126,54 @@ class QuizPointsPerAnswerResourceTest {
             .when().put("/api/v1/public/responses/not-a-token")
             .then().statusCode(404);
     }
+
+    private static void savePoll(String id, String p, boolean poll) {
+        given().contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Mixed", "status": "published",
+                  "settings": {"isQuiz": true, "showLiveResults": true, "showCorrectAnswers": "with-answers"},
+                  "questions": [
+                    {"id":"mc-%1$s","type":"multiple-choice","title":"Pick","required":false,"order":0,
+                     "correctAnswers":["a-%1$s"],
+                     "options":[{"id":"a-%1$s","label":"A"},{"id":"b-%1$s","label":"B"}]},
+                    {"id":"pl-%1$s","type":"multiple-choice","title":"Vote","required":false,"order":1,
+                     "points":3,"correctAnswers":["x-%1$s"],"settings":{"poll":%2$s},
+                     "options":[{"id":"x-%1$s","label":"X"},{"id":"y-%1$s","label":"Y"}]}
+                  ]
+                }
+                """.formatted(p, poll))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "owner-points")
+    void pollQuestionsStayOutOfTheScoreAndTogglingRescores() {
+        String id = given().contentType(ContentType.JSON).body("{\"title\":\"Mixed\"}")
+            .when().post(SURVEYS).then().statusCode(201).extract().path("data.id");
+        String p = id.substring(0, 8);
+        savePoll(id, p, true);
+
+        given().contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"mc-" + p + "\",\"value\":\"a-" + p + "\"},"
+                + "{\"questionId\":\"pl-" + p + "\",\"value\":\"x-" + p + "\"}]}")
+            .when().post(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(201)
+            .body("data.score", is(1))
+            .body("data.maxScore", is(1))
+            .body("data.corrections.questionId", org.hamcrest.Matchers.hasItem("mc-" + p))
+            .body("data.corrections.questionId", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("pl-" + p)));
+
+        given().when().get("/api/v1/public/surveys/" + id + "/live-results")
+            .then().statusCode(200)
+            .body("data.questions.questionId", org.hamcrest.Matchers.hasItem("pl-" + p));
+
+        savePoll(id, p, false);
+
+        given().when().get(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(200)
+            .body("data[0].score", is(4))
+            .body("data[0].maxScore", is(4));
+    }
 }

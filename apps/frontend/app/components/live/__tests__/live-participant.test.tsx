@@ -45,6 +45,7 @@ vi.mock("@/app/components/question-types/registry", () => ({
 }));
 
 import { LiveParticipant } from "../live-participant";
+import { playWrong } from "@/app/lib/live/sound";
 
 function survey(settings: Partial<Survey["settings"]>): Survey {
   return {
@@ -91,6 +92,45 @@ describe("LiveParticipant", () => {
     await act(async () => mocks.presence?.({ index: 0, phase: "reveal" }));
     await waitFor(() => expect(screen.getByText("live.correct")).toBeTruthy());
     expect(mocks.liveScore).toHaveBeenCalledWith("s1", expect.any(String), "q1");
+  });
+
+  it("shows no right or wrong verdict for a poll question", async () => {
+    mocks.liveScore.mockResolvedValueOnce({ success: true, data: { score: 0 } });
+    const poll = {
+      ...survey({ isQuiz: true }),
+      questions: [{ id: "q1", type: "short-answer", title: "Q1", required: false, order: 0, settings: { poll: true } }],
+    } as unknown as Survey;
+    render(<LiveParticipant survey={poll} />);
+    fireEvent.change(screen.getByLabelText("player.yourName"), { target: { value: "Ada" } });
+    fireEvent.click(screen.getByRole("button", { name: "live.join" }));
+    act(() => mocks.presence?.({ index: 0, phase: "question" }));
+    fireEvent.change(screen.getByLabelText("answer"), { target: { value: "hi" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "live.submitAnswer" }));
+    });
+
+    await act(async () => mocks.presence?.({ index: 0, phase: "reveal" }));
+    await waitFor(() => expect(mocks.liveScore).toHaveBeenCalled());
+    expect(screen.queryByText("live.wrong")).toBeNull();
+    expect(screen.queryByText("live.correct")).toBeNull();
+    expect(screen.getByText("live.answerSent")).toBeTruthy();
+    expect(playWrong).not.toHaveBeenCalled();
+  });
+
+  it("keeps an unanswered phone locked during a poll reveal", async () => {
+    const poll = {
+      ...survey({ isQuiz: true }),
+      questions: [{ id: "q1", type: "short-answer", title: "Q1", required: false, order: 0, settings: { poll: true } }],
+    } as unknown as Survey;
+    render(<LiveParticipant survey={poll} />);
+    fireEvent.change(screen.getByLabelText("player.yourName"), { target: { value: "Ada" } });
+    fireEvent.click(screen.getByRole("button", { name: "live.join" }));
+    act(() => mocks.presence?.({ index: 0, phase: "question" }));
+
+    await act(async () => mocks.presence?.({ index: 0, phase: "reveal" }));
+    expect(screen.getByText("live.noAnswer")).toBeTruthy();
+    expect(screen.queryByLabelText("answer")).toBeNull();
+    expect(screen.queryByRole("button", { name: "live.submitAnswer" })).toBeNull();
   });
 
   it("retries a failed score fetch instead of spinning forever", async () => {

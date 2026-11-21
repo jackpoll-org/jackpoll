@@ -16,6 +16,7 @@ import {
   basePoints,
   isAutoScored,
   isManuallyGraded,
+  isPoll,
   maxPointsFor,
   optionPoints,
   ownPoints,
@@ -168,13 +169,43 @@ function ManualGradingToggle({
   );
 }
 
+type QuizEditorProps = QuestionEditorProps & { liveMode?: boolean; stateless?: boolean };
+
+export function QuestionQuizEditor(props: QuizEditorProps) {
+  const { question, onChange, liveMode } = props;
+  const { t } = useTranslation();
+  const poll = isPoll(question);
+  const pollable = SCORABLE.has(question.type) || question.type === "long-answer" || question.type === "file-upload";
+  if (!pollable || (liveMode && !poll)) return <QuizScoringEditor {...props} />;
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center gap-2">
+        <Switch
+          id={`poll-${question.id}`}
+          checked={poll}
+          onCheckedChange={(c) => onChange({ settings: { ...(question.settings ?? {}), poll: c } })}
+        />
+        <Label htmlFor={`poll-${question.id}`} className="font-normal">
+          {t("builder.quiz.poll")}
+        </Label>
+      </div>
+      {poll ? (
+        <p className="text-xs text-muted-foreground">{t("builder.quiz.pollHint")}</p>
+      ) : (
+        <QuizScoringEditor {...props} />
+      )}
+    </div>
+  );
+}
+
 /** Quiz config below the answers: scoring mode, accepted answers, tolerance (issue #10). */
-export function QuestionQuizEditor({
+function QuizScoringEditor({
   question,
   onChange,
   liveMode = false,
   stateless = false,
-}: QuestionEditorProps & { liveMode?: boolean; stateless?: boolean }) {
+}: QuizEditorProps) {
   const { t } = useTranslation();
   const correct = question.correctAnswers ?? [];
 

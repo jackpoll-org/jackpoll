@@ -150,4 +150,23 @@ class QuizScoringTest {
         assertEquals(0, QuizScoring.speedAdjusted(0, 0, 10_000));
         assertEquals(1, QuizScoring.speedAdjusted(1, 10_000, 10_000));
     }
+
+    @Test
+    void pollQuestionsAreNeitherScoredNorGraded() {
+        var choice = q("q1", QuestionType.MULTIPLE_CHOICE, 2, List.of("a"));
+        choice.settings = Map.of("poll", true);
+        var paragraph = q("q2", QuestionType.LONG_ANSWER, 3, List.of());
+        paragraph.settings = Map.of("poll", true);
+        var ranking = q("q3", QuestionType.RANKING, 1, List.of());
+        ranking.settings = Map.of("poll", true, "scoreOrder", true);
+        var scored = q("q4", QuestionType.MULTIPLE_CHOICE, 1, List.of("b"));
+
+        assertFalse(QuizScoring.isScorable(choice));
+        assertFalse(QuizScoring.isManuallyGraded(paragraph));
+        assertFalse(QuizScoring.scoresOrder(ranking));
+        assertEquals(0, QuizScoring.autoPoints(choice, "a"));
+        var s = survey(choice, paragraph, ranking, scored);
+        assertEquals(1, QuizScoring.maxScore(s));
+        assertEquals(1, QuizScoring.score(s, Map.of("q1", "a", "q4", "b")));
+    }
 }

@@ -32,6 +32,17 @@ describe("optionStatus", () => {
 });
 
 describe("ChoiceAnswer", () => {
+  it("shows only the selection for a poll question, ignoring a kept answer key", () => {
+    render(<ChoiceAnswer question={{ ...question, settings: { poll: true } } as Question} value={["a", "c"]} />);
+    const items = screen.getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toEqual([
+      "Alphagrading.option.selected",
+      "Betagrading.option.neutral",
+      "Gammagrading.option.selected",
+      "Deltagrading.option.neutral",
+    ]);
+  });
+
   it("lists every option with its status", () => {
     render(<ChoiceAnswer question={question} value={["a", "c"]} />);
     const items = screen.getAllByRole("listitem").map((li) => li.textContent);

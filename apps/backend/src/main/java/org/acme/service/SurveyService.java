@@ -261,7 +261,7 @@ public class SurveyService {
             signature.append('|').append(q.id).append(':').append(q.type).append(':').append(q.points)
                 .append(':').append(q.correctAnswers).append(':').append(q.caseSensitiveAnswers)
                 .append(':').append(settings.get("partialCredit")).append(':').append(settings.get("tolerance"))
-                .append(':').append(settings.get("manualGrading"))
+                .append(':').append(settings.get("manualGrading")).append(':').append(settings.get("poll"))
                 .append(':').append(sortedKeys(settings.get("optionPoints")))
                 .append(':').append(sortedKeys(settings.get("answerPoints")))
                 .append(':').append(QuizScoring.scoresOrder(q)

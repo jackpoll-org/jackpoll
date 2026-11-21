@@ -151,3 +151,28 @@ describe("QuestionQuizEditor manual grading without stored responses", () => {
     expect(screen.getByRole("switch", { name: "builder.quiz.gradeManually" })).toBeEnabled();
   });
 });
+
+describe("QuestionQuizEditor poll switch", () => {
+  it("turns a question into an unscored poll, keeping its answer key", () => {
+    const onChange = vi.fn();
+    render(<QuestionQuizEditor question={checkboxes} onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole("switch", { name: "builder.quiz.poll" }));
+
+    expect(onChange).toHaveBeenCalledWith({ settings: { other: true, poll: true } });
+  });
+
+  it("hides the scoring controls and points while poll is on", () => {
+    const poll = { ...checkboxes, settings: { poll: true } } as Question;
+    render(<QuestionQuizEditor question={poll} onChange={vi.fn()} />);
+
+    expect(screen.getByText("builder.quiz.pollHint")).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: "builder.quiz.partialCredit" })).toBeNull();
+    expect(hasQuizPoints(poll)).toBe(false);
+  });
+
+  it("offers no poll switch in the live quiz game", () => {
+    render(<QuestionQuizEditor question={checkboxes} onChange={vi.fn()} liveMode />);
+    expect(screen.queryByRole("switch", { name: "builder.quiz.poll" })).toBeNull();
+  });
+});

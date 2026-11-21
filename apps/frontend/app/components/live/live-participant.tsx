@@ -15,6 +15,7 @@ import { Leaderboard } from "./leaderboard";
 import { TimerRing } from "./timer-ring";
 import { answerTile } from "@/app/lib/live/answer-tiles";
 import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
+import { isPoll } from "@/app/lib/survey/grading";
 import { playCorrect, playTick, playWrong } from "@/app/lib/live/sound";
 import { getQuestionTypeDefinition } from "@/app/components/question-types/registry";
 import { useCountdown, useCountdownFraction, useJoinLive, useLivePresence } from "@/app/hooks/live";
@@ -170,11 +171,13 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
         if (cancelled) return;
         if (res.success && res.data) {
           const gained = res.data.score ?? 0;
+          const poll = isPoll(survey.questions.find((q) => q.id === unscored.questionId));
           setUnscored(null);
           setTotal((prevTotal) => prevTotal + gained);
-          setStreak((prevStreak) => (gained > 0 ? prevStreak + 1 : 0));
+          setStreak((prevStreak) => (gained > 0 ? prevStreak + 1 : poll ? prevStreak : 0));
           if (current) {
             setLastScore(gained);
+            if (poll) return;
             if (gained > 0) playCorrect();
             else playWrong();
           }
@@ -357,6 +360,11 @@ export function LiveParticipant({ survey }: { survey: Survey }) {
               <>
                 <X className="size-12 text-muted-foreground" />
                 <p className="text-lg font-bold">{t("live.noAnswer")}</p>
+              </>
+            ) : isPoll(question) ? (
+              <>
+                <Check className="size-12 text-muted-foreground" />
+                <p className="text-lg font-bold">{t("live.answerSent")}</p>
               </>
             ) : lastScore == null ? (
               !scoreFailed && <Spinner className="size-6 text-muted-foreground" />

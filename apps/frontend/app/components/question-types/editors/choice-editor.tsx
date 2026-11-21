@@ -14,6 +14,7 @@ import {
   correctFromPoints,
   optionPoints,
   ownPoints,
+  isPoll,
   scoresOrder,
   seededOptionPoints,
   withOptionPoints,
@@ -81,7 +82,7 @@ export function ChoiceEditor({ question, onChange, isQuiz }: QuestionEditorProps
   const options: Option[] = question.options ?? [];
   const showCapacity =
     !isQuiz && (question.type === "multiple-choice" || question.type === "dropdown");
-  const quizChoice = isQuiz === true && CHOICE_TYPES.has(question.type);
+  const quizChoice = isQuiz === true && CHOICE_TYPES.has(question.type) && !isPoll(question);
   const numbered = isQuiz === true && scoresOrder(question);
 
   const editor = (

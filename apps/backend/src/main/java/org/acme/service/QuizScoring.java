@@ -50,7 +50,12 @@ public final class QuizScoring {
         return optionPoints(q).isEmpty() && answerPoints(q).isEmpty() ? q.points : Integer.valueOf(pointsFor(q));
     }
 
+    public static boolean isPoll(Question q) {
+        return q.settings != null && Boolean.TRUE.equals(q.settings.get("poll"));
+    }
+
     public static boolean isScorable(Question q) {
+        if (isPoll(q)) return false;
         return (q.correctAnswers != null && q.correctAnswers.stream().anyMatch(c -> c != null && !c.isBlank()))
             || optionPoints(q).values().stream().anyMatch(p -> p > 0)
             || scoresOrder(q);
@@ -74,7 +79,7 @@ public final class QuizScoring {
 
     public static boolean scoresOrder(Question q) {
         return q.type == QuestionType.RANKING && q.settings != null
-            && Boolean.TRUE.equals(q.settings.get("scoreOrder"));
+            && Boolean.TRUE.equals(q.settings.get("scoreOrder")) && !isPoll(q);
     }
 
     private static Map<String, Integer> optionPoints(Question q) {
@@ -109,6 +114,7 @@ public final class QuizScoring {
      * owner turned on {@code settings.manualGrading}.
      */
     public static boolean isManuallyGraded(Question q) {
+        if (isPoll(q)) return false;
         if (q.type == QuestionType.LONG_ANSWER) return true;
         if (isScorable(q)) return false;
         boolean optedIn = q.settings != null && Boolean.TRUE.equals(q.settings.get("manualGrading"));
