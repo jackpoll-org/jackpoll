@@ -13,6 +13,8 @@ import { Spinner } from "@/app/components/ui/spinner";
 import { uploadFileApi } from "@/app/lib/survey/api";
 import { useBuilder } from "./builder-context";
 import { useTranslation } from "@/app/i18n/context";
+import { resolvePalette } from "@/app/lib/results/palette";
+import { PaletteField } from "./palette-field";
 
 function ImageField({
   label,
@@ -163,6 +165,16 @@ export function BrandingCard() {
           label={t("branding.header")}
           url={settings.headerImageUrl}
           onChange={(url) => updateSettings({ headerImageUrl: url })}
+        />
+
+        <PaletteField
+          label={t("results.colors.customize")}
+          title={t("results.colors.title")}
+          help={t("results.colors.help")}
+          palette={resolvePalette(null, settings.colorPalette)}
+          resetLabel={t("results.colors.useDefault")}
+          resetMessage={t("results.colors.reset")}
+          onSave={(colorPalette) => updateSettings({ colorPalette })}
         />
 
         <div className="flex items-center gap-2">

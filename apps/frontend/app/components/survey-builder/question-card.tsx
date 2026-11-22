@@ -36,6 +36,10 @@ import { QuestionQuizEditor, QuizPointsField, hasQuizPoints } from "./question-q
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/app/components/ui/collapsible";
 import { getValidationRules } from "@/app/lib/survey/validation";
 import { ResultChartSelect } from "./result-chart-select";
+import { PaletteField } from "./palette-field";
+import { withQuestionPalette } from "@/app/components/survey-results/chart-colors-dialog";
+import { resolvePalette } from "@/app/lib/results/palette";
+import { resolveResultChart } from "@/app/lib/survey/result-chart";
 import { isAnswerable } from "@/app/lib/survey/content-block";
 import { storesResponses } from "@/app/lib/survey/response-storage";
 import { hasImplicitFirstPage, sectionKey } from "@/app/lib/survey/pagination";
@@ -241,6 +245,20 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
           onChange={(patch) => updateQuestion(question.id, patch)}
           isQuiz={survey.settings.isQuiz}
         />
+
+        {(question.type === "wordcloud" || resolveResultChart(question) === "wordcloud") && (
+          <PaletteField
+            label={t("builder.palette.wordcloudLabel")}
+            title={t("results.colors.question.customize")}
+            help={t("results.colors.question.help")}
+            palette={resolvePalette(question, survey.settings.colorPalette)}
+            resetLabel={t("results.colors.question.useSurvey")}
+            resetMessage={t("results.colors.question.reset")}
+            onSave={(palette) =>
+              updateQuestion(question.id, { settings: withQuestionPalette(question, palette).settings })
+            }
+          />
+        )}
 
         {survey.settings.isQuiz && answerable && (
           <QuestionQuizEditor

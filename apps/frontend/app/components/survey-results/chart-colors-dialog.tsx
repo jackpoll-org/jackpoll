@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Palette } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -21,21 +21,20 @@ import { resolvePalette, toLongHex } from "@/app/lib/results/palette";
 import { useTranslation } from "@/app/i18n/context";
 import type { Question, Survey, UpdateSurveyRequest } from "@/app/types/survey";
 
-const SLOTS = 10;
+export const SLOTS = 10;
 
-/** Resolve a theme CSS variable (e.g. an oklch chart color) to a `#rrggbb`
- *  hex string, since `<input type="color">` only accepts hex. Uses the
- *  browser's own color resolution rather than parsing oklch by hand. */
 function cssVarToHex(varName: string): string {
   if (typeof document === "undefined") return "#000000";
   const probe = document.createElement("div");
   probe.style.color = `var(${varName})`;
   document.body.appendChild(probe);
-  const rgb = getComputedStyle(probe).color;
+  const color = getComputedStyle(probe).color;
   document.body.removeChild(probe);
-  const nums = rgb.match(/\d+/g);
-  if (!nums || nums.length < 3) return "#000000";
-  const [r, g, b] = nums.map(Number);
+  const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+  if (!ctx) return "#000000";
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
   return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
 }
 
@@ -64,7 +63,7 @@ function useSaveLatestSurvey(surveyId: string) {
   };
 }
 
-function withQuestionPalette(question: Question, colorPalette: string[] | null): Question {
+export function withQuestionPalette(question: Question, colorPalette: string[] | null): Question {
   const settings = { ...question.settings };
   if (colorPalette) settings.colorPalette = colorPalette;
   else delete settings.colorPalette;
@@ -80,9 +79,10 @@ interface PaletteDialogProps {
   savedMessage: string;
   resetMessage: string;
   onSave: (palette: string[] | null) => Promise<void>;
+  preview?: (colors: string[]) => ReactNode;
 }
 
-function PaletteDialog({
+export function PaletteDialog({
   trigger,
   title,
   help,
@@ -91,21 +91,23 @@ function PaletteDialog({
   savedMessage,
   resetMessage,
   onSave,
+  preview,
 }: PaletteDialogProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [colors, setColors] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!open) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setColors(
-      palette && palette.length > 0
-        ? Array.from({ length: SLOTS }, (_, i) => toLongHex(palette[i % palette.length]))
-        : Array.from({ length: SLOTS }, (_, i) => cssVarToHex(`--chart-${i + 1}`)),
-    );
-  }, [open, palette]);
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setColors(
+        palette && palette.length > 0
+          ? Array.from({ length: SLOTS }, (_, i) => toLongHex(palette[i % palette.length]))
+          : Array.from({ length: SLOTS }, (_, i) => cssVarToHex(`--chart-${i + 1}`)),
+      );
+    }
+    setOpen(next);
+  }
 
   function setColor(i: number, value: string) {
     setColors((prev) => prev.map((c, idx) => (idx === i ? value : c)));
@@ -125,7 +127,7 @@ function PaletteDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -148,6 +150,7 @@ function PaletteDialog({
             </div>
           ))}
         </div>
+        {preview?.(colors)}
         <DialogFooter className="gap-2 sm:justify-between">
           <Button variant="ghost" onClick={() => submit(null, resetMessage)} disabled={saving}>
             {resetLabel}
