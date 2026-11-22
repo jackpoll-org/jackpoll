@@ -131,7 +131,11 @@ export function downloadText(
   mime: string,
 ): void {
   saveTextFile(filename, content, mime).catch(() => {
-    const de = typeof document !== "undefined" && document.documentElement.lang === "de";
-    toast.error(de ? "Datei konnte nicht gespeichert werden" : "Failed to save file");
+    const lang = typeof document !== "undefined" ? document.documentElement.lang : "";
+    toast.error(
+      lang === "de" ? "Datei konnte nicht gespeichert werden"
+        : lang === "fr" ? "Impossible d’enregistrer le fichier"
+        : "Failed to save file",
+    );
   });
 }

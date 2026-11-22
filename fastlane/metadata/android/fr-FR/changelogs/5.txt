@@ -1,0 +1,2 @@
+• Les liens vers d’autres sites s’ouvrent désormais dans votre navigateur plutôt que dans l’application
+• Changer de serveur redémarre l’application sur le nouveau serveur

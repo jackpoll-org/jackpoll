@@ -1,0 +1,4 @@
+• Nouvel éditeur de quiz : points à côté de chaque question et réponse, bonnes réponses marquées directement dans la liste des options, et « En coller plusieurs » pour saisir rapidement des options
+• Les sondages à plusieurs pages conservent à nouveau toutes leurs pages
+• Changer de serveur supprime la connexion hors ligne enregistrée
+• Les données de l’application ne sont plus incluses dans les sauvegardes de l’appareil

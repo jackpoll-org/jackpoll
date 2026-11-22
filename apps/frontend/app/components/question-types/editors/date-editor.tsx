@@ -14,6 +14,7 @@ import {
 } from "@/app/components/ui/select";
 import type { QuestionEditorProps } from "../types";
 import { useTranslation } from "@/app/i18n/context";
+import { INTL_LOCALE } from "@/app/i18n/format";
 import type { TranslationKey } from "@/app/i18n/translations";
 
 export type DateMode = "date" | "time" | "datetime";
@@ -73,7 +74,7 @@ export function DateEditor({ question, onChange }: QuestionEditorProps) {
   const cfg = dateConfig(question.settings);
   // Force the native picker's date/time format (dd.mm.yyyy, 24h) to match the
   // app's locale rather than the browser/OS locale (#).
-  const inputLang = locale === "de" ? "de-DE" : "en-US";
+  const inputLang = INTL_LOCALE[locale];
 
   function patch(p: Record<string, unknown>) {
     onChange({ settings: { ...(question.settings ?? {}), ...p } });

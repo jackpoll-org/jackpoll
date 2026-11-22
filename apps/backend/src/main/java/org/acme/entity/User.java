@@ -28,7 +28,7 @@ public class User extends PanacheEntityBase {
     public boolean emailVerified;
 
     /**
-     * Language for the emails we send this user ("en"/"de"), captured from the
+     * Language for the emails we send this user ("en"/"de"/"fr"), captured from the
      * browser's Accept-Language when the account is created and refreshed on
      * sign-in. Null until then — mail falls back to English.
      */

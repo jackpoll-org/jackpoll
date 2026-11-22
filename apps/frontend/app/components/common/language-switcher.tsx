@@ -43,7 +43,7 @@ export function LanguageSwitcher({
           <ToggleGroupItem
             key={l}
             value={l}
-            aria-label={t(l === "de" ? "lang.de" : "lang.en")}
+            aria-label={t(`lang.${l}`)}
             className={cn("px-2 text-xs font-medium", fullWidth && "grow")}
           >
             {LOCALE_LABELS[l]}

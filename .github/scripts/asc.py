@@ -66,6 +66,7 @@ IN_FLIGHT = {
 DEFAULT_NOTES = {
     "de": "Verbesserungen und Fehlerbehebungen.",
     "en": "Improvements and bug fixes.",
+    "fr": "Améliorations et corrections de bugs.",
 }
 
 

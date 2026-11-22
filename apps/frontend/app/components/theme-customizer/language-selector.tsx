@@ -34,7 +34,7 @@ export function LanguageSelector() {
             variant="outline"
             className="grow"
             value={l}
-            aria-label={t(l === "de" ? "lang.de" : "lang.en")}
+            aria-label={t(`lang.${l}`)}
           >
             {LOCALE_LABELS[l]}
           </ToggleGroupItem>

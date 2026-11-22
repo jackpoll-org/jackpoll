@@ -20,6 +20,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class MailCopyTest {
 
+    private static final String[] TRANSLATED = { "de", "fr" };
+
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d)}");
 
     /** Every key exists in every language — no half-translated bundle. */
@@ -29,16 +31,19 @@ class MailCopyTest {
     void bundlesHaveTheSameKeysInEveryLanguage(String bundle) {
         var copy = MailCopy.of(bundle);
         var english = new TreeSet<>(copy.keys("en"));
-        var german = new TreeSet<>(copy.keys("de"));
         assertFalse(english.isEmpty(), bundle + " has English copy");
 
-        var missingInGerman = new TreeSet<>(english);
-        missingInGerman.removeAll(german);
-        assertTrue(missingInGerman.isEmpty(), "untranslated in de: " + missingInGerman);
+        for (String locale : TRANSLATED) {
+            var translated = new TreeSet<>(copy.keys(locale));
 
-        var strayInGerman = new TreeSet<>(german);
-        strayInGerman.removeAll(english);
-        assertTrue(strayInGerman.isEmpty(), "only in de: " + strayInGerman);
+            var missing = new TreeSet<>(english);
+            missing.removeAll(translated);
+            assertTrue(missing.isEmpty(), "untranslated in " + locale + ": " + missing);
+
+            var stray = new TreeSet<>(translated);
+            stray.removeAll(english);
+            assertTrue(stray.isEmpty(), "only in " + locale + ": " + stray);
+        }
     }
 
     /** A translation that drops a {0} would render "Hi , your contribution…". */
@@ -47,9 +52,11 @@ class MailCopyTest {
     })
     void translationsKeepTheSamePlaceholders(String bundle) {
         var copy = MailCopy.of(bundle);
-        for (String key : new TreeSet<>(copy.keys("en"))) {
-            assertEquals(placeholders(copy.t("en", key)), placeholders(copy.t("de", key)),
-                "placeholders differ for " + bundle + "." + key);
+        for (String locale : TRANSLATED) {
+            for (String key : new TreeSet<>(copy.keys("en"))) {
+                assertEquals(placeholders(copy.t("en", key)), placeholders(copy.t(locale, key)),
+                    "placeholders differ for " + bundle + "." + key + " [" + locale + "]");
+            }
         }
     }
 
@@ -59,7 +66,7 @@ class MailCopyTest {
     })
     void noEmptyValues(String bundle) {
         var copy = MailCopy.of(bundle);
-        for (String locale : new String[] { "en", "de" }) {
+        for (String locale : new String[] { "en", "de", "fr" }) {
             for (String key : new TreeSet<>(copy.keys(locale))) {
                 assertFalse(copy.t(locale, key).isBlank(),
                     "empty copy: " + bundle + "." + key + " [" + locale + "]");
@@ -86,7 +93,8 @@ class MailCopyTest {
         assertEquals("de", MailCopy.normalize("de_DE"));
         assertEquals("de", MailCopy.normalize("de-DE,de;q=0.9,en;q=0.8"));
         assertEquals("de", MailCopy.normalize("DE"));
-        assertEquals("en", MailCopy.normalize("fr-FR"));   // unsupported → English
+        assertEquals("fr", MailCopy.normalize("fr-FR"));
+        assertEquals("en", MailCopy.normalize("es-ES"));   // unsupported → English
         assertEquals("en", MailCopy.normalize(null));
         assertEquals("en", MailCopy.normalize("  "));
     }

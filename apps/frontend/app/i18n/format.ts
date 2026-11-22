@@ -5,9 +5,10 @@
 
 import type { Locale } from "./translations";
 
-const INTL_LOCALE: Record<Locale, string> = {
+export const INTL_LOCALE: Record<Locale, string> = {
   de: "de-DE",
   en: "en-US",
+  fr: "fr-FR",
 };
 
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();

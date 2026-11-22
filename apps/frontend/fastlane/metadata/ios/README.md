@@ -6,6 +6,7 @@ plain text that becomes **What's New in This Version**:
 ```
 0.3/en-US.txt
 0.3/de-DE.txt
+0.3/fr-FR.txt
 ```
 
 The `app-store` job in `.github/workflows/mobile-release.yml` (and the manual

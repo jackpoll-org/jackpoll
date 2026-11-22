@@ -1,0 +1,23 @@
+Jackpoll est un outil open source pour créer, partager et analyser des sondages et des quiz : une alternative respectueuse de la vie privée et auto-hébergeable aux plateformes de sondage fermées.
+
+Créez des sondages avec un éditeur par glisser-déposer, organisez des quiz notés (y compris en direct, avec classement), recueillez des réponses et suivez les résultats en temps réel. Tout est open source, et vous pouvez faire tourner votre propre instance.
+
+Fonctionnalités :
+• Éditeur par glisser-déposer avec pages et logique conditionnelle
+• Nombreux types de questions : réponses courtes et longues, choix multiple, cases à cocher, liste déroulante, grilles, notation, curseur, classement, date, import de fichier, signature et nuage de mots
+• Blocs de texte et d’image entre les questions pour les textes sources et les consignes
+• Mode quiz avec notation automatique, et correction des réponses ouvertes élève par élève
+• Quiz et nuages de mots en direct avec mode présentation
+• Résultats en temps réel avec graphiques, export PDF et Excel
+• Collaboration avec permissions par rôle
+• Liens de partage et sondages intégrables
+
+Vie privée et ouverture :
+• 100 % open source (MIT), sans publicité ni pistage
+• Auto-hébergeable : connectez l’application à votre propre instance Jackpoll
+• Pas de Google Play Services dans cette version
+
+Notifications :
+Les notifications push utilisent UnifiedPush. Installez un distributeur comme ntfy (disponible sur F-Droid) et Jackpoll vous envoie les notifications par son intermédiaire, via ntfy.sh ou votre propre serveur ntfy.
+
+L’application est un client pour un serveur Jackpoll. Au premier lancement, elle se connecte à l’instance officielle (app.jackpoll.org), et l’interface de l’application est chargée depuis le serveur auquel vous êtes connecté. Pour utiliser votre propre déploiement, appuyez sur « Changer de serveur » sous le formulaire de connexion avant de vous connecter. Les liens vers d’autres sites s’ouvrent dans votre navigateur.
