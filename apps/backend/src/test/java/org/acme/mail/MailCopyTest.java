@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -20,7 +22,9 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class MailCopyTest {
 
-    private static final String[] TRANSLATED = { "de", "fr" };
+    private static final Map<String, List<String>> TRANSLATED = Map.ofEntries(
+        Map.entry("messages", List.of("de", "fr"))
+    );
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d)}");
 
@@ -33,7 +37,7 @@ class MailCopyTest {
         var english = new TreeSet<>(copy.keys("en"));
         assertFalse(english.isEmpty(), bundle + " has English copy");
 
-        for (String locale : TRANSLATED) {
+        for (String locale : TRANSLATED.get(bundle)) {
             var translated = new TreeSet<>(copy.keys(locale));
 
             var missing = new TreeSet<>(english);
@@ -52,7 +56,7 @@ class MailCopyTest {
     })
     void translationsKeepTheSamePlaceholders(String bundle) {
         var copy = MailCopy.of(bundle);
-        for (String locale : TRANSLATED) {
+        for (String locale : TRANSLATED.get(bundle)) {
             for (String key : new TreeSet<>(copy.keys("en"))) {
                 assertEquals(placeholders(copy.t("en", key)), placeholders(copy.t(locale, key)),
                     "placeholders differ for " + bundle + "." + key + " [" + locale + "]");
@@ -73,6 +77,7 @@ class MailCopyTest {
             }
         }
     }
+
 
     @Test
     void unknownKeyFallsBackToTheKeyItself() {

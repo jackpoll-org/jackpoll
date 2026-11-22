@@ -50,9 +50,10 @@ describe("surveyCard", () => {
 
   it("drops the duration for host-paced live sessions and honours a label override", () => {
     expect(surveyCard(survey({ liveMode: true }, [question("rating")])).meta).toEqual(["Live", "1 Frage"]);
-    const collab = surveyCard(survey({}, [], { defaultLanguage: "fr" }), "og.collab");
+    const collab = surveyCard(survey({}, [], { defaultLanguage: "es" }), "og.collab");
     expect(collab.meta).toEqual(["Zum Mitbearbeiten"]);
     expect(collab.cta).toBe("Mitbearbeiten");
+    expect(surveyCard(survey({}, [], { defaultLanguage: "fr" }), "og.collab").meta).toEqual(["Partagé pour modification"]);
   });
 });
 
