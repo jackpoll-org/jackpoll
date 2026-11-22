@@ -1,9 +1,16 @@
 package org.acme.security;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import org.acme.dto.SurveyDtos.QuestionDto;
 import org.acme.dto.SurveyDtos.SurveySettingsDto;
+import org.acme.dto.SurveyDtos.UpdateSurveyRequest;
+import org.acme.entity.Question;
 import org.acme.entity.SurveySettings;
 import org.acme.exception.ForbiddenAccessException;
 import org.acme.repository.ResponseRepository;
@@ -26,11 +33,19 @@ public class ApiKeyGuard {
     @Inject
     ResponseRepository responses;
 
-    public void checkUpdate(String userId, String surveyId, SurveySettingsDto next) {
-        if (!lacksResponseAccess() || next == null) return;
-        var current = surveyService.requireEditable(userId, surveyId).settings;
-        if (current == null) return;
-        boolean exposesOrPurges = next.showLiveResults() != current.showLiveResults
+    public void checkUpdate(String userId, String surveyId, UpdateSurveyRequest req) {
+        if (!lacksResponseAccess()) return;
+        var survey = surveyService.requireEditable(userId, surveyId);
+        if (changesSettingsSharing(req.settings(), survey.settings)
+            || changesQuestionSharing(survey.questions, req.questions())) {
+            throw new ForbiddenAccessException(
+                "This API key can't change result sharing or data retention. Allow it to read responses first.");
+        }
+    }
+
+    private static boolean changesSettingsSharing(SurveySettingsDto next, SurveySettings current) {
+        if (next == null || current == null) return false;
+        return next.showLiveResults() != current.showLiveResults
             || next.postSubmitSummary() != current.postSubmitSummary
             || next.postSubmitCombinedWordcloud() != current.postSubmitCombinedWordcloud
             || next.studentResults() != current.studentResults
@@ -39,10 +54,23 @@ public class ApiKeyGuard {
             || next.retentionAnonymize() != current.retentionAnonymize
             || (next.isQuiz() && next.doNotStoreResponses()) == current.storesResponses()
             || SurveySettings.REVEAL_ANSWER_KEY.equals(next.showCorrectAnswers()) != SurveySettings.revealsAnswerKey(current);
-        if (exposesOrPurges) {
-            throw new ForbiddenAccessException(
-                "This API key can't change result sharing or data retention. Allow it to read responses first.");
-        }
+    }
+
+    private static boolean changesQuestionSharing(List<Question> current, List<QuestionDto> next) {
+        if (next == null) return false;
+        Map<String, Question> byId = current == null ? Map.of()
+            : current.stream().collect(Collectors.toMap(q -> q.id, Function.identity(), (a, b) -> a));
+        return next.stream().anyMatch(q -> {
+            var old = q.id() == null ? null : byId.get(q.id());
+            boolean cloud = isWordcloudChart(q.settings());
+            if (old == null) return cloud;
+            return cloud != isWordcloudChart(old.settings)
+                || Boolean.FALSE.equals(q.showInLiveResults()) != Boolean.FALSE.equals(old.showInLiveResults);
+        });
+    }
+
+    private static boolean isWordcloudChart(Map<String, Object> settings) {
+        return settings != null && "wordcloud".equals(settings.get("resultChart"));
     }
 
     public void checkDelete(String userId, String surveyId) {

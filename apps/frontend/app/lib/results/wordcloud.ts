@@ -35,6 +35,24 @@ export function countsToWords(
     .toSorted((a, b) => b.value - a.value);
 }
 
+export const CLOUD_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
+  "var(--chart-9)",
+  "var(--chart-10)",
+];
+
+export function colorWords(words: CloudWord[], palette: string[]): CloudWord[] {
+  const colors = palette.length > 0 ? palette : CLOUD_COLORS;
+  return words.map((w, i) => (w.color ? w : { ...w, color: colors[i % colors.length] }));
+}
+
 /**
  * A choice question's per-option counts (already labelled) as cloud words:
  * options nobody picked are dropped (results list every option, even at 0) and

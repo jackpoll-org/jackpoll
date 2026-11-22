@@ -159,6 +159,38 @@ describe("BuilderSettings combined word cloud hints", () => {
     expect(screen.getByText("builder.settings.combinedWordcloudHidden")).toBeTruthy();
   });
 
+  it("counts a choice question shown as a word cloud", () => {
+    const choice = {
+      id: "c1",
+      type: "multiple-choice",
+      title: "Pick",
+      required: false,
+      order: 1,
+      settings: { resultChart: "wordcloud" },
+      options: [],
+    } as unknown as Survey["questions"][number];
+    renderWith({}, [choice]);
+    expect(screen.queryByText(/builder\.settings\.combinedWordcloud(NoQuestion|Hidden|LiveMode)/)).toBeNull();
+    cleanup();
+    renderWith({}, [{ ...choice, showInLiveResults: false }]);
+    expect(screen.getByText("builder.settings.combinedWordcloudHidden")).toBeTruthy();
+    cleanup();
+    renderWith({}, [{ ...choice, settings: { resultChart: "pie" } }]);
+    expect(screen.getByText("builder.settings.combinedWordcloudNoQuestion")).toBeTruthy();
+  });
+
+  it("does not count a scored quiz choice question shown as a word cloud", () => {
+    const choice = {
+      id: "c1", type: "multiple-choice", title: "Pick", required: false, order: 1,
+      settings: { resultChart: "wordcloud" }, options: [{ id: "o1", label: "A" }], correctAnswers: ["o1"],
+    } as unknown as Survey["questions"][number];
+    renderWith({ isQuiz: true }, [choice]);
+    expect(screen.getByText("builder.settings.combinedWordcloudNoQuestion")).toBeTruthy();
+    cleanup();
+    renderWith({ isQuiz: true }, [{ ...choice, settings: { resultChart: "wordcloud", poll: true } }]);
+    expect(screen.queryByText(/builder\.settings\.combinedWordcloud(NoQuestion|Hidden|LiveMode)/)).toBeNull();
+  });
+
   it("warns that live mode replaces the confirmation page", () => {
     renderWith({ liveMode: true }, [cloud]);
     expect(screen.getByText("builder.settings.combinedWordcloudLiveMode")).toBeTruthy();

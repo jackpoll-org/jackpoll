@@ -1,5 +1,8 @@
 import type { Question, QuestionResult } from "@/app/types/survey";
-import { countsToWords, type CloudWord } from "./wordcloud";
+import { labelMap } from "@/app/lib/survey/export";
+import { resolveResultChart } from "@/app/lib/survey/result-chart";
+import { isAutoScored } from "@/app/lib/survey/grading";
+import { choiceCountsToWords, colorWords, countsToWords, type CloudWord } from "./wordcloud";
 import { questionPalette } from "./palette";
 
 export type ColorMode = "light" | "dark";
@@ -71,19 +74,19 @@ function hueDistance(a: number, b: number): number {
   return Math.min(d, 360 - d);
 }
 
-export function wordcloudHues(palettes: (string[] | null | undefined)[]): number[] {
-  const hues: number[] = [];
-  const distinct = (hue: number) => hues.every((used) => hueDistance(used, hue) >= MIN_HUE_DISTANCE);
-  palettes.forEach((palette, index) => {
-    const custom = palette?.[0] ? hueOf(palette[0]) : null;
-    const unused = AUTO_HUES.filter((hue) => !hues.includes(hue));
-    const hue =
-      custom !== null && distinct(custom)
-        ? custom
-        : (unused.find(distinct) ?? unused[0] ?? AUTO_HUES[index % AUTO_HUES.length]);
-    hues.push(hue);
+export function wordcloudHues(palettes: (string[] | null | undefined)[]): (number | null)[] {
+  const own = palettes.map((palette) => (palette?.length ? hueOf(palette[0]) : undefined));
+  const taken = own.filter((hue): hue is number => hue != null);
+  const distinct = (hue: number) => taken.every((used) => hueDistance(used, hue) >= MIN_HUE_DISTANCE);
+  let autos = 0;
+  return own.map((ownHue) => {
+    if (ownHue !== undefined) return ownHue;
+    const unused = AUTO_HUES.filter((hue) => !taken.includes(hue));
+    const hue = unused.find(distinct) ?? unused[0] ?? AUTO_HUES[autos % AUTO_HUES.length];
+    autos += 1;
+    taken.push(hue);
+    return hue;
   });
-  return hues;
 }
 
 export function wordcloudFamily(hue: number, mode: ColorMode): string[] {
@@ -97,6 +100,19 @@ export interface CombinedWordcloud {
   legend: { questionId: string; title: string; color: string }[];
 }
 
+export function inCombinedWordcloud(question: Question, isQuiz: boolean): boolean {
+  if (question.type === "wordcloud") return true;
+  return resolveResultChart(question) === "wordcloud" && !(isQuiz && isAutoScored(question));
+}
+
+function questionWords(question: Question, result: QuestionResult): CloudWord[] {
+  if (question.type === "wordcloud") return countsToWords(result.optionCounts);
+  const labels = labelMap(question);
+  return choiceCountsToWords(
+    Object.entries(result.optionCounts ?? {}).map(([id, count]) => ({ label: labels[id] ?? id, count })),
+  );
+}
+
 export function combineWordclouds(
   questions: Question[],
   results: QuestionResult[],
@@ -106,21 +122,22 @@ export function combineWordclouds(
   const resultById = new Map(results.map((r) => [r.questionId, r]));
   const clouds = questions.flatMap((question) => {
     const result = resultById.get(question.id);
-    return question.type === "wordcloud" && result ? [{ question, result }] : [];
+    return inCombinedWordcloud(question, false) && result ? [{ question, result }] : [];
   });
-  const hues = wordcloudHues(clouds.map(({ question }) => questionPalette(question)));
+  const palettes = clouds.map(({ question }) => questionPalette(question));
+  const hues = wordcloudHues(palettes);
   const legend: CombinedWordcloud["legend"] = [];
   const words: CloudWord[] = [];
   clouds.forEach(({ question, result }, index) => {
-    const family = wordcloudFamily(hues[index], mode);
-    legend.push({ questionId: question.id, title: question.title, color: family[0] });
-    countsToWords(result.optionCounts).forEach((word, i) => {
-      words.push({ ...word, key: `${question.id}:${word.text}`, color: family[i % family.length] });
+    const colors = palettes[index] ?? wordcloudFamily(hues[index] ?? AUTO_HUES[0], mode);
+    legend.push({ questionId: question.id, title: question.title, color: colors[0] });
+    colorWords(questionWords(question, result), colors).forEach((word) => {
+      words.push({ ...word, key: `${question.id}:${word.text}` });
     });
   });
   return { words: words.toSorted((a, b) => b.value - a.value).slice(0, cap), legend };
 }
 
 export function countWordcloudQuestions(questions: Question[]): number {
-  return questions.filter((q) => q.type === "wordcloud").length;
+  return questions.filter((q) => inCombinedWordcloud(q, false)).length;
 }

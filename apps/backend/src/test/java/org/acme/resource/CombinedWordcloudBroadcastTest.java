@@ -26,6 +26,10 @@ class CombinedWordcloudBroadcastTest {
     ResultsRelay relay;
 
     private String publish(String settings) {
+        return publish(settings, "{}");
+    }
+
+    private String publish(String settings, String choiceSettings) {
         String id = given()
             .contentType(ContentType.JSON)
             .body("{\"title\":\"Broadcast\"}")
@@ -40,11 +44,11 @@ class CombinedWordcloudBroadcastTest {
                   "settings": %s,
                   "questions": [
                     {"type":"multiple-choice","title":"Pick","required":false,"order":0,
-                     "options":[{"label":"A"}]},
+                     "settings":%s,"options":[{"label":"A"}]},
                     {"type":"wordcloud","title":"Hopes","required":false,"order":1}
                   ]
                 }
-                """.formatted(settings))
+                """.formatted(settings, choiceSettings))
             .when().put(SURVEYS + "/" + id)
             .then().statusCode(200);
         return id;
@@ -74,6 +78,20 @@ class CombinedWordcloudBroadcastTest {
         String id = publish("{\"postSubmitCombinedWordcloud\": true}");
         String message = submitAndCapture(id);
         assertThat(message, containsString("\"sun\""));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void choiceShownAsWordcloudTriggersARefetchPing() {
+        String id = publish("{\"postSubmitCombinedWordcloud\": true}", "{\"resultChart\": \"wordcloud\"}");
+        assertThat(submitAndCapture(id), is(ResultsRelay.PING));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void regularLiveResultsWithAChoiceAnswerSendARefetchPing() {
+        String id = publish("{\"showLiveResults\": true}");
+        assertThat(submitAndCapture(id), is(ResultsRelay.PING));
     }
 
     @Test

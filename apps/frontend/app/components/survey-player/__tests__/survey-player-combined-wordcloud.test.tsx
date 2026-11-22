@@ -196,6 +196,63 @@ describe("SurveyPlayer combined word cloud", () => {
     expect(mocks.liveResults).not.toHaveBeenCalled();
   });
 
+  const fruit = {
+    id: "ch",
+    type: "multiple-choice",
+    title: "Fruit",
+    required: false,
+    order: 2,
+    settings: { resultChart: "wordcloud" },
+    options: [
+      { id: "o1", label: "Apple" },
+      { id: "o2", label: "Pear" },
+    ],
+  };
+
+  it("includes choice questions shown as a word cloud, as option labels", async () => {
+    mocks.liveResults.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        ...live,
+        questions: [{ questionId: "ch", type: "multiple-choice", title: "Fruit", answered: 0, optionCounts: { o1: 0, o2: 4 } }],
+      },
+    });
+    await submit({ ...survey, questions: [fruit] } as unknown as Survey);
+
+    expect(mocks.socket).toHaveBeenCalledWith("s1", true);
+    expect(screen.getByTestId("cloud-words").textContent).toBe("Pear");
+    expect(screen.getByText("Fruit")).toBeTruthy();
+  });
+
+  it("previews a picked option of a choice question shown as a word cloud by its label", async () => {
+    render(
+      <SurveyPlayer survey={{ ...survey, status: "draft", questions: [fruit] } as unknown as Survey} preview />,
+    );
+    fireEvent.click(screen.getByLabelText("Apple"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "common.submit" }));
+    });
+
+    expect(screen.getByTestId("cloud-words").textContent).toBe("Apple");
+  });
+
+  it("leaves a scored quiz choice question out of the preview", async () => {
+    const quiz = { ...survey, status: "draft", settings: { ...survey.settings, isQuiz: true } };
+    render(
+      <SurveyPlayer
+        survey={{ ...quiz, questions: [{ ...fruit, correctAnswers: ["o1"] }] } as unknown as Survey}
+        preview
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Apple"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "common.submit" }));
+    });
+
+    expect(screen.queryByTestId("cloud-words")).toBeNull();
+  });
+
   it("keeps the regular summary when the setting is off", async () => {
     mocks.liveResults.mockReturnValue({ isLoading: false, isError: false, data: live });
     render(

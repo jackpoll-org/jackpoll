@@ -237,6 +237,46 @@ class ApiKeyTest {
     }
 
     @Test
+    void surveysOnlyKeyCannotWidenQuestionLevelResultSharing() {
+        String key = keyFor("agent-question-sharing", false);
+        String id = given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body("{\"title\":\"Guarded\"}")
+            .when().post(API + "/surveys")
+            .then().statusCode(201).extract().path("data.id");
+        String k = id.substring(0, 8);
+        String body = """
+            {"title":"Guarded","status":"published","settings":{"allowMultipleResponses":true},
+             "questions":[{"id":"c1-%1$s","type":"multiple-choice","title":"Q","required":false,"order":0,
+               "options":[{"id":"o1-%1$s","label":"A"}]%2$s}%3$s]}
+            """;
+        String added = ",{\"id\":\"c2-" + k + "\",\"type\":\"dropdown\",\"title\":\"N\",\"required\":false,"
+            + "\"order\":1,\"options\":[{\"id\":\"o2-" + k + "\",\"label\":\"B\"}]%s}";
+
+        given().auth().oauth2(key).contentType(ContentType.JSON).body(body.formatted(k, "", ""))
+            .when().put(API + "/surveys/" + id).then().statusCode(200);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, ",\"settings\":{\"resultChart\":\"wordcloud\"}", ""))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, ",\"showInLiveResults\":false", ""))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, ",\"settings\":{\"resultChart\":\"pie\"},\"showInLiveResults\":true", ""))
+            .when().put(API + "/surveys/" + id).then().statusCode(200);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, "", added.formatted(",\"settings\":{\"resultChart\":\"wordcloud\"}")))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, "", added.formatted(",\"showInLiveResults\":false")))
+            .when().put(API + "/surveys/" + id).then().statusCode(200);
+
+        String fullKey = keyFor("agent-question-sharing", true);
+        given().auth().oauth2(fullKey).contentType(ContentType.JSON)
+            .body(body.formatted(k, ",\"settings\":{\"resultChart\":\"wordcloud\"}", ""))
+            .when().put(API + "/surveys/" + id).then().statusCode(200);
+    }
+
+    @Test
     @TestSecurity(user = "key-expiry-owner")
     void ownerChoosesAnExpiry() {
         given().contentType(ContentType.JSON).body("{\"name\":\"Short\",\"expiresInDays\":7}")

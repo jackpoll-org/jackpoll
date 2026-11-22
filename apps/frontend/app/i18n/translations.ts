@@ -285,13 +285,13 @@ export const en = {
   "builder.settings.liveResultsToggle": "Let respondents see live results (off by default)",
   "builder.settings.postSubmitSummary": "Show a results summary after submitting",
   "builder.settings.postSubmitCombinedWordcloud":
-    "After submitting, show the combined word cloud of all word-cloud questions",
+    "After submitting, show the combined word cloud of all word-cloud questions and questions shown as a word cloud",
   "builder.settings.postSubmitCombinedWordcloudHelp":
     "Respondents then see only the word clouds' words, live — no other results, even if live results are on.",
   "builder.settings.combinedWordcloudNoQuestion":
-    "Add a word-cloud question — without one, nothing is shown after submitting.",
+    "Add a word-cloud question or show a choice question as a word cloud (in a quiz, only polls count) — without one, nothing is shown after submitting.",
   "builder.settings.combinedWordcloudHidden":
-    "All word-cloud questions are hidden from live results, so nothing is shown after submitting. Turn on live results for at least one in the Edit tab.",
+    "All word-cloud questions and questions shown as a word cloud are hidden from live results, so nothing is shown after submitting. Turn on live results for at least one in the Edit tab.",
   "builder.settings.combinedWordcloudLiveMode":
     "Live mode is on: participants see the live view instead of the confirmation page, so the combined word cloud isn't shown.",
   "builder.settings.liveResultsHelp":
@@ -1792,13 +1792,13 @@ export const de: Partial<Record<TranslationKey, string>> = {
     "Teilnehmenden Live-Ergebnisse zeigen (standardmäßig aus)",
   "builder.settings.postSubmitSummary": "Nach dem Absenden eine Ergebnisübersicht zeigen",
   "builder.settings.postSubmitCombinedWordcloud":
-    "Nach dem Absenden die gemeinsame Wortwolke aller Wortwolken-Fragen zeigen",
+    "Nach dem Absenden die gemeinsame Wortwolke aller Wortwolken-Fragen und als Wortwolke angezeigten Fragen zeigen",
   "builder.settings.postSubmitCombinedWordcloudHelp":
     "Teilnehmende sehen dann live nur die Wörter der Wortwolken – keine anderen Ergebnisse, auch wenn Live-Ergebnisse an sind.",
   "builder.settings.combinedWordcloudNoQuestion":
-    "Füge eine Wortwolken-Frage hinzu – ohne sie wird nach dem Absenden nichts gezeigt.",
+    "Füge eine Wortwolken-Frage hinzu oder zeige eine Auswahlfrage als Wortwolke an (im Quiz zählen nur Umfragen) – ohne sie wird nach dem Absenden nichts gezeigt.",
   "builder.settings.combinedWordcloudHidden":
-    "Alle Wortwolken-Fragen sind aus den Live-Ergebnissen ausgeblendet, daher wird nach dem Absenden nichts gezeigt. Schalte im Bearbeiten-Tab für mindestens eine die Live-Ergebnisse ein.",
+    "Alle Wortwolken-Fragen und als Wortwolke angezeigten Fragen sind aus den Live-Ergebnissen ausgeblendet, daher wird nach dem Absenden nichts gezeigt. Schalte im Bearbeiten-Tab für mindestens eine die Live-Ergebnisse ein.",
   "builder.settings.combinedWordcloudLiveMode":
     "Der Live-Modus ist an: Teilnehmende sehen die Live-Ansicht statt der Bestätigungsseite, daher wird die gemeinsame Wortwolke nicht gezeigt.",
   "builder.settings.liveResultsHelp":
@@ -3295,13 +3295,13 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "builder.settings.liveResultsToggle": "Permettre aux répondants de voir les résultats en direct (désactivé par défaut)",
   "builder.settings.postSubmitSummary": "Afficher un résumé des résultats après l’envoi",
   "builder.settings.postSubmitCombinedWordcloud":
-    "Après l’envoi, afficher le nuage de mots combiné de toutes les questions nuage de mots",
+    "Après l’envoi, afficher le nuage de mots combiné de toutes les questions nuage de mots et des questions affichées sous forme de nuage de mots",
   "builder.settings.postSubmitCombinedWordcloudHelp":
     "Les répondants ne voient alors que les mots des nuages de mots, en direct — aucun autre résultat, même si les résultats en direct sont activés.",
   "builder.settings.combinedWordcloudNoQuestion":
-    "Ajoutez une question nuage de mots — sans elle, rien ne s’affiche après l’envoi.",
+    "Ajoutez une question nuage de mots ou affichez une question à choix sous forme de nuage de mots (dans un quiz, seuls les sondages comptent) — sans elle, rien ne s’affiche après l’envoi.",
   "builder.settings.combinedWordcloudHidden":
-    "Toutes les questions nuage de mots sont masquées des résultats en direct ; rien ne s’affiche donc après l’envoi. Activez les résultats en direct pour au moins l’une d’entre elles dans l’onglet Modifier.",
+    "Toutes les questions nuage de mots et les questions affichées sous forme de nuage de mots sont masquées des résultats en direct ; rien ne s’affiche donc après l’envoi. Activez les résultats en direct pour au moins l’une d’entre elles dans l’onglet Modifier.",
   "builder.settings.combinedWordcloudLiveMode":
     "Le mode direct est activé : les participants voient la vue en direct au lieu de la page de confirmation, le nuage de mots combiné n’est donc pas affiché.",
   "builder.settings.liveResultsHelp":

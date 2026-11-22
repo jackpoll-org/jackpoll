@@ -1,5 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { FIRST_PAGE_ID, builderReducer, firstPageSectionId, type BuilderState } from "../builder-reducer";
+import { describe, it, expect, vi } from "vitest";
+import {
+  FIRST_PAGE_ID,
+  builderReducer,
+  firstPageSectionId,
+  initialBuilderState,
+  resolveSaveable,
+  surveyToSave,
+  type BuilderAction,
+  type BuilderState,
+} from "../builder-reducer";
 import type { Question, Survey } from "@/app/types/survey";
 import { questionsInPageOrder } from "@/app/lib/survey/pagination";
 
@@ -28,7 +37,7 @@ function baseSurvey(): Survey {
 }
 
 function state(survey: Survey, dirty = false): BuilderState {
-  return { survey, dirty, locallyDirty: dirty };
+  return { ...initialBuilderState(survey), dirty, locallyDirty: dirty };
 }
 
 describe("builderReducer", () => {
@@ -428,6 +437,217 @@ describe("builderReducer", () => {
     expect(next.survey.settings.resultsReleased).toBe(local.settings.resultsReleased);
     expect(next.survey.settings.ogShowOwner).toBe(local.settings.ogShowOwner);
     expect(next.survey.settings.showProgressBar).toBe(!local.settings.showProgressBar);
+  });
+
+  describe("surveyToSave result sharing", () => {
+    const choice = (id: string, overrides: Partial<Question> = {}): Question => ({
+      id,
+      type: "multiple-choice",
+      title: id,
+      required: false,
+      order: 0,
+      options: [{ id: "a", label: "A" }],
+      showInLiveResults: false,
+      settings: { resultChart: "pie" },
+      ...overrides,
+    });
+    const shared = (overrides: Partial<Question> = {}) =>
+      ({ showInLiveResults: true, settings: { resultChart: "wordcloud" }, ...overrides }) as Partial<Question>;
+    const remote = (s: BuilderState, questions: Question[]) =>
+      builderReducer(s, {
+        type: "applyRemote",
+        content: {
+          title: s.survey.title,
+          description: undefined,
+          status: "draft",
+          settings: s.survey.settings,
+          questions,
+          sections: [],
+        },
+      });
+    const loaded = (...questions: Question[]) => initialBuilderState({ ...baseSurvey(), questions });
+
+    it("does not send a remote widening, but keeps it in local state", () => {
+      const start = loaded(choice("q1"));
+      const widened = remote(start, [choice("q1", { title: "Renamed", ...shared() })]);
+      const edited = builderReducer(widened, { type: "updateMeta", patch: { title: "Mine" } });
+      const sent = surveyToSave(edited).questions[0];
+      expect(sent.title).toBe("Renamed");
+      expect(sent.showInLiveResults).toBe(false);
+      expect(sent.settings?.resultChart).toBe("pie");
+      expect(edited.survey.questions[0].showInLiveResults).toBe(true);
+      expect(edited.survey.questions[0].settings?.resultChart).toBe("wordcloud");
+    });
+
+    it("restores a missing baseline chart instead of sending wordcloud", () => {
+      const start = loaded(choice("q1", { settings: { colors: ["#000"] } }));
+      const widened = remote(start, [choice("q1", { settings: { colors: ["#000"], resultChart: "wordcloud" } })]);
+      expect(surveyToSave(widened).questions[0].settings).toEqual({ colors: ["#000"] });
+    });
+
+    it("sends this client's own widening", () => {
+      const start = loaded(choice("q1"));
+      const own = builderReducer(start, { type: "updateQuestion", id: "q1", patch: shared() });
+      const sent = surveyToSave(own).questions[0];
+      expect(sent.showInLiveResults).toBe(true);
+      expect(sent.settings?.resultChart).toBe("wordcloud");
+    });
+
+    it("sends a remote narrowing", () => {
+      const start = loaded(choice("q1", shared()));
+      const narrowed = remote(start, [choice("q1", { showInLiveResults: false, settings: { resultChart: "bar" } })]);
+      const sent = surveyToSave(narrowed).questions[0];
+      expect(sent.showInLiveResults).toBe(false);
+      expect(sent.settings?.resultChart).toBe("bar");
+    });
+
+    it("does not send the word-cloud chart of a question a peer added", () => {
+      const start = loaded(choice("q1"));
+      const added = remote(start, [choice("q1"), choice("q2", shared())]);
+      const sent = surveyToSave(added).questions[1];
+      expect(sent.showInLiveResults).toBe(true);
+      expect(sent.settings?.resultChart).toBeUndefined();
+      expect(added.survey.questions[1].settings?.resultChart).toBe("wordcloud");
+    });
+
+    it("sends a question this client added with a word-cloud chart", () => {
+      const start = loaded(choice("q1"));
+      const added = builderReducer(start, {
+        type: "addQuestion",
+        questionType: "multiple-choice",
+        init: { settings: { resultChart: "wordcloud" } },
+      });
+      const sent = surveyToSave(added).questions.at(-1)!;
+      expect(sent.settings?.resultChart).toBe("wordcloud");
+    });
+
+    it("does not send a peer re-widening a question this client just narrowed", () => {
+      const start = loaded(choice("q1", shared()));
+      const narrowed = builderReducer(start, {
+        type: "updateQuestion",
+        id: "q1",
+        patch: { showInLiveResults: false, settings: { resultChart: "bar" } },
+      });
+      const rewidened = remote(narrowed, [choice("q1", shared())]);
+      const sent = surveyToSave(rewidened).questions[0];
+      expect(sent.showInLiveResults).toBe(false);
+      expect(sent.settings?.resultChart).toBe("bar");
+    });
+
+    it("moves the baseline to the saved survey and clears own changes", () => {
+      const start = loaded(choice("q1"));
+      const own = builderReducer(start, { type: "updateQuestion", id: "q1", patch: shared() });
+      const saved = builderReducer(own, { type: "saved", survey: surveyToSave(own) });
+      expect(saved.ownSharing).toEqual({});
+      const narrowed = remote(saved, [choice("q1", { showInLiveResults: false })]);
+      const rewidened = remote(narrowed, [choice("q1", shared())]);
+      expect(surveyToSave(rewidened).questions[0].showInLiveResults).toBe(true);
+      const hidden = loaded(choice("q1"));
+      const savedHidden = builderReducer(hidden, { type: "saved", survey: { ...hidden.survey } });
+      expect(surveyToSave(remote(savedHidden, [choice("q1", shared())])).questions[0].showInLiveResults).toBe(false);
+    });
+
+    it("keeps a withheld remote widening locally after saving", () => {
+      const start = loaded(choice("q1"));
+      const widened = remote(start, [choice("q1", shared())]);
+      const edited = builderReducer(widened, { type: "updateMeta", patch: { title: "Mine" } });
+      const saved = builderReducer(edited, { type: "saved", survey: surveyToSave(edited) });
+      expect(saved.survey.questions[0].showInLiveResults).toBe(true);
+      expect(saved.survey.questions[0].settings?.resultChart).toBe("wordcloud");
+      expect(surveyToSave(saved).questions[0].showInLiveResults).toBe(false);
+    });
+
+    it("refreshSharingBaseline moves only the baseline of withheld questions", () => {
+      const start = loaded(choice("q1"), choice("q2"));
+      const widened = remote(start, [choice("q1", shared()), choice("q2")]);
+      const server = { ...start.survey, title: "Server", questions: [choice("q1", shared()), choice("q2", shared())] };
+      const next = builderReducer(widened, { type: "refreshSharingBaseline", survey: server });
+      expect(next.survey).toBe(widened.survey);
+      expect(next.ownSharing).toBe(widened.ownSharing);
+      expect(next.locallyDirty).toBe(widened.locallyDirty);
+      expect(next.dirty).toBe(widened.dirty);
+      expect(next.sharingBaseline).toEqual({
+        q1: { showInLiveResults: true, resultChart: "wordcloud" },
+        q2: widened.sharingBaseline.q2,
+      });
+    });
+
+    describe("resolveSaveable", () => {
+      const store = (initial: BuilderState) => {
+        let current = initial;
+        const dispatch = vi.fn((action: BuilderAction) => {
+          current = builderReducer(current, action);
+        });
+        return { getState: () => current, dispatch };
+      };
+      const staleWithWidening = () => {
+        const start = loaded(choice("q1"), choice("q2"));
+        const widened = remote(start, [choice("q1", shared()), choice("q2")]);
+        return builderReducer(widened, { type: "updateQuestion", id: "q2", patch: { title: "Unrelated" } });
+      };
+
+      it("keeps a widening the server already has", async () => {
+        const state = staleWithWidening();
+        const { getState, dispatch } = store(state);
+        const load = vi.fn().mockResolvedValue({ ...state.survey, questions: [choice("q1", shared()), choice("q2")] });
+        const sent = await resolveSaveable(getState, dispatch, load);
+        expect(load).toHaveBeenCalledTimes(1);
+        expect(sent.questions[0].showInLiveResults).toBe(true);
+        expect(sent.questions[0].settings?.resultChart).toBe("wordcloud");
+        expect(sent.questions[1].title).toBe("Unrelated");
+        expect(surveyToSave(getState())).toBe(getState().survey);
+      });
+
+      it("still strips a widening only present in the doc", async () => {
+        const state = staleWithWidening();
+        const { getState, dispatch } = store(state);
+        const load = vi.fn().mockResolvedValue({ ...state.survey, questions: [choice("q1"), choice("q2")] });
+        const sent = await resolveSaveable(getState, dispatch, load);
+        expect(sent.questions[0].showInLiveResults).toBe(false);
+        expect(sent.questions[0].settings?.resultChart).toBe("pie");
+      });
+
+      it("does not fetch when nothing would be stripped", async () => {
+        const state = builderReducer(loaded(choice("q1")), { type: "updateMeta", patch: { title: "X" } });
+        const { getState, dispatch } = store(state);
+        const load = vi.fn();
+        const sent = await resolveSaveable(getState, dispatch, load);
+        expect(load).not.toHaveBeenCalled();
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(sent).toBe(state.survey);
+      });
+
+      it("saves the stripped payload when the fetch fails", async () => {
+        const state = staleWithWidening();
+        const { getState, dispatch } = store(state);
+        const load = vi.fn().mockRejectedValue(new Error("offline"));
+        const sent = await resolveSaveable(getState, dispatch, load);
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(sent.questions[0].showInLiveResults).toBe(false);
+        expect(sent.questions[0].settings?.resultChart).toBe("pie");
+      });
+
+      it("builds the payload from the state current after the fetch", async () => {
+        const state = staleWithWidening();
+        const s = store(state);
+        let resolve!: (survey: Survey) => void;
+        const load = vi.fn(() => new Promise<Survey>((r) => (resolve = r)));
+        const pending = resolveSaveable(s.getState, s.dispatch, load);
+        s.dispatch({ type: "updateMeta", patch: { title: "Later" } });
+        resolve({ ...state.survey, questions: [choice("q1", shared()), choice("q2")] });
+        const sent = await pending;
+        expect(sent.title).toBe("Later");
+        expect(sent.questions[0].showInLiveResults).toBe(true);
+      });
+    });
+
+    it("stays locally dirty across remote updates while own sharing changes are unsaved", () => {
+      const start = loaded(choice("q1"), choice("q2"));
+      const own = builderReducer(start, { type: "updateQuestion", id: "q1", patch: shared() });
+      expect(remote(own, own.survey.questions).locallyDirty).toBe(true);
+      const plain = builderReducer(start, { type: "updateMeta", patch: { title: "X" } });
+      expect(remote(plain, plain.survey.questions).locallyDirty).toBe(false);
+    });
   });
 
   it("saved clears locallyDirty", () => {

@@ -438,8 +438,8 @@ public class ResponseService {
             var deltas = new ArrayList<Map<String, Object>>();
             for (var a : req.answers()) {
                 var q = byId.get(a.questionId());
-                if (q == null || q.type != QuestionType.WORDCLOUD) continue;
-                if (!liveAllowed(survey, q)) continue;
+                if (q == null || !liveAllowed(survey, q)) continue;
+                if (q.type != QuestionType.WORDCLOUD) return "updated";
                 boolean filter = q.settings == null
                     || !Boolean.FALSE.equals(q.settings.get("filterProfanity"));
                 var words = new ArrayList<String>();
@@ -1186,7 +1186,7 @@ public class ResponseService {
     /** Server-side guard: free-text and file-upload answers are never exposed. */
     private static boolean liveAllowed(Survey survey, Question q) {
         if (survey.settings == null || !survey.settings.sharesLiveResults()) return false;
-        if (survey.settings.postSubmitCombinedWordcloud && q.type != QuestionType.WORDCLOUD) return false;
+        if (survey.settings.postSubmitCombinedWordcloud && !shownAsWordcloud(survey, q)) return false;
         if (!q.type.isAnswerable() || (survey.settings.isQuiz && QuizScoring.scoresOrder(q))) return false;
         switch (q.type) {
             case SHORT_ANSWER, LONG_ANSWER, FILE_UPLOAD, SIGNATURE, DATE -> {
@@ -1197,6 +1197,16 @@ public class ResponseService {
             }
         }
         return q.showInLiveResults == null ? true : q.showInLiveResults;
+    }
+
+    private static boolean shownAsWordcloud(Survey survey, Question q) {
+        return switch (q.type) {
+            case WORDCLOUD -> true;
+            case MULTIPLE_CHOICE, DROPDOWN, CHECKBOXES ->
+                q.settings != null && "wordcloud".equals(q.settings.get("resultChart"))
+                    && !(survey.settings.isQuiz && QuizScoring.isScorable(q));
+            default -> false;
+        };
     }
 
     // ── Aggregation ───────────────────────────────────────────────

@@ -6,13 +6,14 @@ import { useLiveResultsSocket } from "@/app/hooks/results-live";
 import { useTranslation } from "@/app/i18n/context";
 import { Spinner } from "@/app/components/ui/spinner";
 import { CombinedWordcloudCard } from "@/app/components/survey-results/combined-wordcloud-card";
+import { inCombinedWordcloud } from "@/app/lib/results/combined-wordcloud";
 import { RESULTS_POLL_INTERVAL_MS } from "@/app/lib/survey/constants";
 import { isQuestionVisible } from "@/app/lib/survey/logic";
 import type { AnswerValue } from "@/app/lib/survey/validation";
 import type { Question, QuestionResult, Survey } from "@/app/types/survey";
 
-function liveClouds(questions: Question[]): Question[] {
-  return questions.filter((q) => q.type === "wordcloud" && q.showInLiveResults !== false);
+function liveClouds({ questions, settings }: Survey): Question[] {
+  return questions.filter((q) => inCombinedWordcloud(q, settings.isQuiz) && q.showInLiveResults !== false);
 }
 
 export function CombinedWordcloudLive({
@@ -31,19 +32,21 @@ function OwnWordcloud({ survey, answers }: { survey: Survey; answers: Record<str
   const { t } = useTranslation();
   const results = useMemo<QuestionResult[]>(
     () =>
-      liveClouds(survey.questions)
+      liveClouds(survey)
         .filter((q) => isQuestionVisible(q, answers))
         .map((q) => {
-          const words = Array.isArray(answers[q.id]) ? (answers[q.id] as string[]) : [];
+          const value = answers[q.id];
+          const picked = Array.isArray(value) ? (value as string[]) : typeof value === "string" ? [value] : [];
+          const keys = q.type === "wordcloud" ? picked : (q.options ?? []).map((o) => o.id);
           return {
             questionId: q.id,
             type: q.type,
             title: q.title,
-            answered: words.length > 0 ? 1 : 0,
-            optionCounts: Object.fromEntries(words.map((w) => [w, 1])),
+            answered: picked.length > 0 ? 1 : 0,
+            optionCounts: Object.fromEntries(keys.map((k) => [k, picked.includes(k) ? 1 : 0])),
           };
         }),
-    [survey.questions, answers],
+    [survey, answers],
   );
 
   if (results.length === 0) return null;
@@ -59,7 +62,8 @@ function OwnWordcloud({ survey, answers }: { survey: Survey; answers: Record<str
 
 function LiveWordcloud({ survey }: { survey: Survey }) {
   const { t } = useTranslation();
-  const hasClouds = liveClouds(survey.questions).length > 0;
+  const cloudIds = new Set(liveClouds(survey).map((q) => q.id));
+  const hasClouds = cloudIds.size > 0;
   const connected = useLiveResultsSocket(survey.id, hasClouds);
   const live = useLiveResults(
     survey.id,
@@ -82,7 +86,7 @@ function LiveWordcloud({ survey }: { survey: Survey }) {
       </p>
     );
   }
-  if (!live.data?.questions.some((r) => r.type === "wordcloud")) return null;
+  if (!live.data?.questions.some((r) => cloudIds.has(r.questionId))) return null;
 
   return (
     <div className="w-full text-left">

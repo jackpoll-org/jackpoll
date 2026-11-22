@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAutosave } from "@/app/hooks/use-autosave";
-import type { Survey, UpdateSurveyRequest } from "@/app/types/survey";
+import type { Survey } from "@/app/types/survey";
 
 const survey = { id: "s1", title: "T" } as unknown as Survey;
-const toRequest = (s: Survey) => ({ title: s.title }) as UpdateSurveyRequest;
 
 function setup(overrides: Partial<Parameters<typeof useAutosave>[0]> = {}) {
   const save = vi.fn().mockResolvedValue(survey);
@@ -14,7 +13,6 @@ function setup(overrides: Partial<Parameters<typeof useAutosave>[0]> = {}) {
     locallyDirty: true,
     survey,
     save,
-    toRequest,
     ...overrides,
   };
   const view = renderHook((p: Parameters<typeof useAutosave>[0]) => useAutosave(p), {

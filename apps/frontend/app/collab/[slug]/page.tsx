@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { SurveyBuilder } from "@/app/components/survey-builder/survey-builder";
 import { NamePromptDialog } from "@/app/components/survey-builder/name-prompt-dialog";
 import { usePublicCollab } from "@/app/hooks/survey";
-import { editCollabApi, rememberCollabLink } from "@/app/lib/survey/api";
+import { editCollabApi, rememberCollabLink, resolveCollabApi } from "@/app/lib/survey/api";
 import { useAuthContext } from "@/app/components/auth/auth-provider";
 import { loadStoredName, makeGuestUser, storeName } from "@/app/lib/collab/identity";
 import { Spinner } from "@/app/components/ui/spinner";
@@ -52,6 +52,12 @@ export default function CollabPage() {
     return res.data;
   }
 
+  async function load(): Promise<Survey> {
+    const res = await resolveCollabApi(params.slug);
+    if (!res.success || !res.data) throw new Error(res.error ?? "This link is not available.");
+    return res.data;
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-svh items-center justify-center">
@@ -74,7 +80,7 @@ export default function CollabPage() {
   return (
     <div className="min-h-svh bg-background">
       <NamePromptDialog open={needsName} onSubmit={handleName} />
-      <SurveyBuilder survey={survey} save={save} ownerActions={false} />
+      <SurveyBuilder survey={survey} save={save} load={load} ownerActions={false} />
       <div className="pb-6">
         <LegalLinks />
       </div>

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as Y from "yjs";
 import { applyContentToDoc, docToContent, type CollabContent } from "../doc";
 import type { Question } from "@/app/types/survey";
-import { FIRST_PAGE_ID, builderReducer } from "@/app/components/survey-builder/builder-reducer";
+import { FIRST_PAGE_ID, builderReducer, initialBuilderState } from "@/app/components/survey-builder/builder-reducer";
 
 function q(id: string, title: string, order: number): Question {
   return {
@@ -56,7 +56,7 @@ describe("collab doc binding", () => {
 
     const survey = { ...base, id: "s", ownerId: "o", createdAt: "", updatedAt: "" };
     const next = builderReducer(
-      { survey, dirty: false, locallyDirty: false },
+      initialBuilderState(survey),
       { type: "reorderSections", activeId: FIRST_PAGE_ID, overId: "a" },
     ).survey;
     applyContentToDoc(a, { ...next, sections: next.sections ?? [] });
@@ -81,7 +81,7 @@ describe("collab doc binding", () => {
 
     for (const doc of [a, b]) {
       const next = builderReducer(
-        { survey, dirty: false, locallyDirty: false },
+        initialBuilderState(survey),
         { type: "reorderSections", activeId: FIRST_PAGE_ID, overId: "a" },
       ).survey;
       applyContentToDoc(doc, { ...next, sections: next.sections ?? [] });

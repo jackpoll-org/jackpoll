@@ -19,6 +19,7 @@ import { useBuilder } from "./builder-context";
 import { QUIZ_GAME_DEFAULT_SECONDS } from "@/app/lib/live/quiz-game";
 import { storageConflict, storesResponses } from "@/app/lib/survey/response-storage";
 import { useTranslation } from "@/app/i18n/context";
+import { inCombinedWordcloud } from "@/app/lib/results/combined-wordcloud";
 import { BrandingCard } from "./branding-card";
 import { OgPreviewCard } from "./og-preview-card";
 import { ProtectionCard } from "./protection-card";
@@ -46,7 +47,7 @@ export function BuilderSettings() {
   const settings = survey.settings;
   const stateless = !storesResponses(settings);
   const conflict = storageConflict(survey);
-  const wordclouds = survey.questions.filter((q) => q.type === "wordcloud");
+  const wordclouds = survey.questions.filter((q) => inCombinedWordcloud(q, settings.isQuiz));
   const combinedWordcloudHint = settings.liveMode
     ? "builder.settings.combinedWordcloudLiveMode"
     : wordclouds.length === 0

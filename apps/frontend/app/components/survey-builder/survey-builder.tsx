@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import type { Survey, UpdateSurveyRequest } from "@/app/types/survey";
 import { useUpdateSurvey } from "@/app/hooks/survey";
+import { getSurveyApi } from "@/app/lib/survey/api";
 import { validateSurveyForSave } from "@/app/lib/survey/builder-validation";
 import { useAutosave } from "@/app/hooks/use-autosave";
 import { collabEnabled } from "@/app/lib/collab/provider";
@@ -47,15 +48,22 @@ function toUpdateRequest(survey: Survey): UpdateSurveyRequest {
   };
 }
 
+async function loadSurvey(id: string): Promise<Survey> {
+  const res = await getSurveyApi(id);
+  if (!res.success || !res.data) throw new Error(res.error ?? "Failed to load survey");
+  return res.data;
+}
+
 interface BuilderInnerProps {
   surveyId: string;
   save?: (req: UpdateSurveyRequest) => Promise<Survey>;
+  load?: () => Promise<Survey>;
   ownerActions: boolean;
 }
 
-function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
+function BuilderInner({ surveyId, save, load, ownerActions }: BuilderInnerProps) {
   const { t } = useTranslation();
-  const { survey, markSaved, reorderQuestions, locallyDirty, ready, activePageId, setAttemptedSave } =
+  const { survey, prepareSave, markSaved, reorderQuestions, locallyDirty, ready, activePageId, setAttemptedSave } =
     useBuilder();
   const pageQuestions = survey.questions.filter(
     (q) => sectionKey(q.sectionId) === activePageId,
@@ -75,14 +83,18 @@ function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
     [save, updateSurvey, markSaved],
   );
 
+  const saveLatest = useCallback(
+    async () => persist(toUpdateRequest(await prepareSave(load ?? (() => loadSurvey(surveyId))))),
+    [persist, prepareSave, load, surveyId],
+  );
+
   // Debounced autosave keeps live co-editing durable without a manual Save (#85).
   const { isAutosaving, flush } = useAutosave({
     enabled: collabEnabled(),
     ready,
     locallyDirty,
     survey,
-    save: persist,
-    toRequest: toUpdateRequest,
+    save: saveLatest,
   });
 
   // Persist immediately when the tab is hidden/closed so in-flight edits aren't
@@ -134,7 +146,7 @@ function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
     }
     try {
       setSavingOverride(true);
-      await persist(toUpdateRequest(survey));
+      await saveLatest();
       setAttemptedSave(false);
       toast.success(t("builder.saved"));
     } catch (err) {
@@ -204,16 +216,18 @@ function BuilderInner({ surveyId, save, ownerActions }: BuilderInnerProps) {
 export function SurveyBuilder({
   survey,
   save,
+  load,
   ownerActions = true,
 }: {
   survey: Survey;
   /** Override the owner save (e.g. passwordless collab edit via slug, #22). */
   save?: (req: UpdateSurveyRequest) => Promise<Survey>;
+  load?: () => Promise<Survey>;
   ownerActions?: boolean;
 }) {
   return (
     <BuilderProvider initialSurvey={survey}>
-      <BuilderInner surveyId={survey.id} save={save} ownerActions={ownerActions} />
+      <BuilderInner surveyId={survey.id} save={save} load={load} ownerActions={ownerActions} />
     </BuilderProvider>
   );
 }

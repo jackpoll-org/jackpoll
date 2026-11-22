@@ -150,6 +150,91 @@ class CollabLinkResourceTest {
 
     @Test
     @TestSecurity(user = "owner-1")
+    void linkHolderCannotWidenQuestionResultSharing() {
+        String q1 = java.util.UUID.randomUUID().toString();
+        String q2 = java.util.UUID.randomUUID().toString();
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Question sharing\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"title":"Question sharing","status":"draft",
+                 "settings":{"postSubmitCombinedWordcloud":true},
+                 "questions":[{"id":"%s","type":"multiple-choice","title":"Pick","required":false,"order":0,
+                   "showInLiveResults":false,"settings":{"resultChart":"pie"},"options":[{"label":"A"}]}]}
+                """.formatted(q1))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"title":"Question sharing","status":"draft",
+                 "settings":{"postSubmitCombinedWordcloud":true},
+                 "questions":[
+                   {"id":"%s","type":"multiple-choice","title":"Pick renamed","required":false,"order":0,
+                    "showInLiveResults":true,"settings":{"resultChart":"wordcloud"},"options":[{"label":"A"}]},
+                   {"id":"%s","type":"dropdown","title":"New","required":false,"order":1,
+                    "settings":{"resultChart":"wordcloud"},"options":[{"label":"B"}]}]}
+                """.formatted(q1, q2))
+            .when().put(COLLAB + "/" + slug)
+            .then().statusCode(200);
+
+        given().when().get(SURVEYS + "/" + id)
+            .then().statusCode(200)
+            .body("data.questions[0].title", is("Pick renamed"))
+            .body("data.questions[0].showInLiveResults", is(false))
+            .body("data.questions[0].settings.resultChart", is("pie"))
+            .body("data.questions[1].title", is("New"))
+            .body("data.questions[1].settings.resultChart", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void linkHolderCanStillNarrowQuestionResultSharing() {
+        String q1 = java.util.UUID.randomUUID().toString();
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Narrow sharing\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"title":"Narrow sharing","status":"draft",
+                 "questions":[{"id":"%s","type":"multiple-choice","title":"Pick","required":false,"order":0,
+                   "settings":{"resultChart":"wordcloud"},"options":[{"label":"A"}]}]}
+                """.formatted(q1))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"title":"Narrow sharing","status":"draft",
+                 "questions":[{"id":"%s","type":"multiple-choice","title":"Pick","required":false,"order":0,
+                   "showInLiveResults":false,"settings":{"resultChart":"bar"},"options":[{"label":"A"}]}]}
+                """.formatted(q1))
+            .when().put(COLLAB + "/" + slug)
+            .then().statusCode(200);
+
+        given().when().get(SURVEYS + "/" + id)
+            .then().statusCode(200)
+            .body("data.questions[0].showInLiveResults", is(false))
+            .body("data.questions[0].settings.resultChart", is("bar"));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
     void linkHolderCanPreviewTheSurveyTheLinkEdits() {
         String id = given()
             .contentType(ContentType.JSON)

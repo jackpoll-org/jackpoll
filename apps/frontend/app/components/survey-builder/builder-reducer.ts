@@ -22,10 +22,13 @@ export interface BuilderState {
    * not also race to persist it — preventing an N-client save echo storm (#85).
    */
   locallyDirty: boolean;
+  sharingBaseline: Record<string, Sharing>;
+  ownSharing: Record<string, Sharing>;
 }
 
-/** Internal state shape before the locally-dirty flag is layered on. */
-type CoreState = Omit<BuilderState, "locallyDirty">;
+type Sharing = Pick<Question, "showInLiveResults"> & { resultChart?: unknown };
+
+type CoreState = Pick<BuilderState, "survey" | "dirty">;
 
 export type BuilderAction =
   | { type: "reset"; survey: Survey }
@@ -55,7 +58,8 @@ export type BuilderAction =
   | { type: "setLanguages"; languages: string[]; defaultLanguage: string }
   | { type: "setTranslation"; locale: string; key: string; value: string }
   // Live co-editing: merge a remote document snapshot (issue #85)
-  | { type: "applyRemote"; content: CollabContent };
+  | { type: "applyRemote"; content: CollabContent }
+  | { type: "refreshSharingBaseline"; survey: Survey };
 
 export const FIRST_PAGE_ID = "__first-page__";
 
@@ -70,19 +74,119 @@ function reorderSections(sections: Section[]): Section[] {
 
 /**
  * Public reducer: runs the core transition, then layers on `locallyDirty`.
- * Only local edits set it true; `reset`/`saved`/`applyRemote` clear it.
+ * Only local edits set it true; `reset`/`saved` clear it, `applyRemote` keeps it
+ * only while this client has unsaved result-sharing changes.
  */
 export function builderReducer(
   state: BuilderState,
   action: BuilderAction,
 ): BuilderState {
+  if (action.type === "refreshSharingBaseline") {
+    const withheld = withheldSharing(state);
+    const server = action.survey.questions.filter((q) => withheld.includes(q.id));
+    return { ...state, sharingBaseline: { ...state.sharingBaseline, ...sharingBaselineOf({ ...action.survey, questions: server }) } };
+  }
   const next = coreReducer(state, action);
   if (next === state) return state; // edge no-ops keep identity (and the flag)
-  const locallyDirty =
-    action.type !== "reset" &&
-    action.type !== "saved" &&
-    action.type !== "applyRemote";
-  return { ...next, locallyDirty };
+  if (action.type === "reset") return initialBuilderState(action.survey);
+  if (action.type === "saved") {
+    return {
+      ...initialBuilderState(keepWithheldSharing(state, action.survey)),
+      sharingBaseline: sharingBaselineOf(action.survey),
+    };
+  }
+  if (action.type === "applyRemote") {
+    return { ...state, ...next, locallyDirty: Object.keys(state.ownSharing).length > 0 };
+  }
+  const changed = next.survey.questions
+    .filter((q) => exposure(q) !== exposure(findQuestion(state.survey, q.id)))
+    .map((q) => [q.id, sharingOf(q)] as const);
+  return {
+    ...state,
+    ...next,
+    locallyDirty: true,
+    ownSharing: { ...state.ownSharing, ...Object.fromEntries(changed) },
+  };
+}
+
+export function initialBuilderState(survey: Survey): BuilderState {
+  return {
+    survey,
+    dirty: false,
+    locallyDirty: false,
+    sharingBaseline: sharingBaselineOf(survey),
+    ownSharing: {},
+  };
+}
+
+const findQuestion = (survey: Survey, id: string) => survey.questions.find((q) => q.id === id);
+
+const sharingOf = (q: Question): Sharing => ({
+  showInLiveResults: q.showInLiveResults,
+  resultChart: q.settings?.resultChart,
+});
+
+const exposure = (q: Question | undefined) =>
+  q ? `${q.showInLiveResults !== false}|${q.settings?.resultChart === "wordcloud"}` : undefined;
+
+function sharingBaselineOf(survey: Survey): Record<string, Sharing> {
+  return Object.fromEntries(survey.questions.map((q) => [q.id, sharingOf(q)]));
+}
+
+function withSharing(q: Question, sharing: Sharing): Question {
+  const next = { ...q, showInLiveResults: sharing.showInLiveResults };
+  if (q.settings?.resultChart === sharing.resultChart) return next;
+  const settings = { ...q.settings, resultChart: sharing.resultChart };
+  if (sharing.resultChart === undefined) delete settings.resultChart;
+  return { ...next, settings };
+}
+
+function withoutWidening(q: Question, base: Sharing): Question {
+  const widensLive = base.showInLiveResults === false && q.showInLiveResults !== false;
+  const widensCloud = q.settings?.resultChart === "wordcloud" && base.resultChart !== "wordcloud";
+  if (!widensLive && !widensCloud) return q;
+  const current = sharingOf(q);
+  return withSharing(q, {
+    showInLiveResults: widensLive ? base.showInLiveResults : current.showInLiveResults,
+    resultChart: widensCloud ? base.resultChart : current.resultChart,
+  });
+}
+
+export function surveyToSave(state: BuilderState): Survey {
+  const questions = state.survey.questions.map((q) => {
+    return withoutWidening(q, state.ownSharing[q.id] ?? state.sharingBaseline[q.id] ?? {});
+  });
+  return questions.some((q, i) => q !== state.survey.questions[i])
+    ? { ...state.survey, questions }
+    : state.survey;
+}
+
+export function withheldSharing(state: BuilderState): string[] {
+  const sent = surveyToSave(state);
+  return sent.questions.filter((q, i) => q !== state.survey.questions[i]).map((q) => q.id);
+}
+
+export async function resolveSaveable(
+  getState: () => BuilderState,
+  dispatch: (action: BuilderAction) => void,
+  load: () => Promise<Survey>,
+): Promise<Survey> {
+  if (withheldSharing(getState()).length === 0) return getState().survey;
+  const server = await load().catch(() => null);
+  if (!server) return surveyToSave(getState());
+  const action: BuilderAction = { type: "refreshSharingBaseline", survey: server };
+  dispatch(action);
+  return surveyToSave(builderReducer(getState(), action));
+}
+
+function keepWithheldSharing(state: BuilderState, saved: Survey): Survey {
+  const withheld = new Set(withheldSharing(state));
+  if (withheld.size === 0) return saved;
+  const questions = saved.questions.map((q) => {
+    const local = findQuestion(state.survey, q.id);
+    return local && withheld.has(q.id) ? withSharing(q, sharingOf(local)) : q;
+  });
+  return { ...saved, questions };
 }
 
 function mergeRemoteSettings(local: SurveySettings, remote: SurveySettings): SurveySettings {

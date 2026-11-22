@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { choiceCountsToWords, cloudFontRange, cloudFontSize, countsToWords } from "../wordcloud";
+import { CLOUD_COLORS, choiceCountsToWords, cloudFontRange, cloudFontSize, colorWords, countsToWords } from "../wordcloud";
 
 describe("countsToWords", () => {
   it("turns a word -> count map into words, most frequent first", () => {
@@ -78,5 +78,12 @@ describe("cloudFontRange", () => {
   it("clamps tiny and huge boxes", () => {
     expect(cloudFontRange(100, 80)).toEqual({ minFontSize: 12, maxFontSize: 24 });
     expect(cloudFontRange(3000, 2000)).toEqual({ minFontSize: 45, maxFontSize: 160 });
+  });
+});
+
+describe("colorWords", () => {
+  it("falls back to the default cloud colours for an empty palette", () => {
+    const words = colorWords([{ text: "a", value: 2 }, { text: "b", value: 1 }], []);
+    expect(words.map((w) => w.color)).toEqual([CLOUD_COLORS[0], CLOUD_COLORS[1]]);
   });
 });

@@ -32,6 +32,7 @@ import { CollabTextInput } from "./collab-text-input";
 import { QuestionValidationEditor } from "./question-validation-editor";
 import { QuestionLogicEditor } from "./question-logic-editor";
 import { DeleteQuestionButton } from "./delete-question-button";
+import { inCombinedWordcloud } from "@/app/lib/results/combined-wordcloud";
 import { QuestionQuizEditor, QuizPointsField, hasQuizPoints } from "./question-quiz-editor";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/app/components/ui/collapsible";
 import { getValidationRules } from "@/app/lib/survey/validation";
@@ -334,7 +335,7 @@ export function QuestionCard({ question, index, total }: QuestionCardProps) {
               )}
 
               {(survey.settings.postSubmitCombinedWordcloud
-                ? question.type === "wordcloud"
+                ? inCombinedWordcloud(question, survey.settings.isQuiz)
                 : survey.settings.showLiveResults) &&
                 liveResultsApplicable(question.type) && (
                 <div className="flex items-center gap-2">

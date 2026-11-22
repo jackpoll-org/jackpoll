@@ -77,7 +77,7 @@ public class SurveyResource {
     @PUT
     @Path("/{id}")
     public ApiResponse<SurveyDto> update(@PathParam("id") String id, @Valid UpdateSurveyRequest req) {
-        apiKeyGuard.checkUpdate(ownerId(), id, req.settings());
+        apiKeyGuard.checkUpdate(ownerId(), id, req);
         return ApiResponse.ok(surveyService.update(ownerId(), id, req));
     }
 

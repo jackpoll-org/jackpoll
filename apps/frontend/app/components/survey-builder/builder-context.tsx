@@ -17,7 +17,13 @@ import type {
   Survey,
   SurveySettings,
 } from "@/app/types/survey";
-import { FIRST_PAGE_ID, builderReducer, firstPageSectionId } from "./builder-reducer";
+import {
+  FIRST_PAGE_ID,
+  builderReducer,
+  firstPageSectionId,
+  initialBuilderState,
+  resolveSaveable,
+} from "./builder-reducer";
 import { hasImplicitFirstPage } from "@/app/lib/survey/pagination";
 import { useAuthContext } from "@/app/components/auth/auth-provider";
 import {
@@ -40,6 +46,7 @@ import {
 
 interface BuilderContextValue {
   survey: Survey;
+  prepareSave: (load: () => Promise<Survey>) => Promise<Survey>;
   dirty: boolean;
   /** True only when this client has unsaved edits — drives autosave (#85). */
   locallyDirty: boolean;
@@ -101,11 +108,15 @@ export function BuilderProvider({
   initialSurvey: Survey;
   children: React.ReactNode;
 }) {
-  const [state, dispatch] = useReducer(builderReducer, {
-    survey: initialSurvey,
-    dirty: false,
-    locallyDirty: false,
-  });
+  const [state, dispatch] = useReducer(builderReducer, initialSurvey, initialBuilderState);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  const prepareSave = useCallback(
+    (load: () => Promise<Survey>) => resolveSaveable(() => stateRef.current, dispatch, load),
+    [],
+  );
 
   // ── Live co-editing (issue #85) ──────────────────────────────────
   const { user } = useAuthContext();
@@ -343,6 +354,7 @@ export function BuilderProvider({
   const value = useMemo<BuilderContextValue>(
     () => ({
       survey: state.survey,
+      prepareSave,
       dirty: state.dirty,
       locallyDirty: state.locallyDirty,
       ready,
@@ -376,6 +388,7 @@ export function BuilderProvider({
     }),
     [
       state.survey,
+      prepareSave,
       state.dirty,
       state.locallyDirty,
       ready,

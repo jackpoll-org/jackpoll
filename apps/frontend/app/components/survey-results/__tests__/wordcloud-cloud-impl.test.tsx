@@ -11,6 +11,7 @@ vi.mock("@/app/lib/results/wordcloud-layout", () => ({
   })),
 }));
 
+import { fitCloud } from "@/app/lib/results/wordcloud-layout";
 import { WordcloudCloud } from "../wordcloud-cloud-impl";
 
 afterEach(cleanup);
@@ -40,5 +41,27 @@ describe("WordcloudCloud", () => {
 
     await waitFor(() => expect(container.querySelector("text")).not.toBeNull());
     expect(container.querySelector("text")?.getAttribute("fill")).toBe("#abcdef");
+  });
+
+  it("colours words by their order in the word list, even when one is dropped", async () => {
+    vi.mocked(fitCloud).mockImplementationOnce(async (words) => ({
+      placed: [words[0], words[2]].map((w, i) => ({ text: w.text, key: w.key, color: w.color, size: 20, x: i, y: i })),
+      dropped: [words[1]],
+    }));
+    const { container } = render(
+      <WordcloudCloud
+        width={300}
+        height={200}
+        colors={["#aa0000", "#00aa00", "#0000aa"]}
+        words={[
+          { text: "a", value: 3 },
+          { text: "b", value: 2 },
+          { text: "c", value: 1 },
+        ]}
+      />,
+    );
+
+    await waitFor(() => expect(container.querySelectorAll("text")).toHaveLength(2));
+    expect([...container.querySelectorAll("text")].map((el) => el.getAttribute("fill"))).toEqual(["#aa0000", "#0000aa"]);
   });
 });

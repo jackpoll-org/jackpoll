@@ -2,21 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/app/i18n/context";
-import { cloudFontRange, type CloudScale, type CloudWord } from "@/app/lib/results/wordcloud";
+import { CLOUD_COLORS, cloudFontRange, colorWords, type CloudScale, type CloudWord } from "@/app/lib/results/wordcloud";
 import { fitCloud, type PlacedWord } from "@/app/lib/results/wordcloud-layout";
-
-const CLOUD_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-  "var(--chart-6)",
-  "var(--chart-7)",
-  "var(--chart-8)",
-  "var(--chart-9)",
-  "var(--chart-10)",
-];
 
 // d3-cloud measures each word on a canvas to lay them out without overlap. The
 // canvas can't resolve CSS variables (e.g. var(--font-geist-sans)), so the font
@@ -69,8 +56,9 @@ export function WordcloudCloud({
   const wordsKey = words
     .map((w) => `${w.key ?? w.text}\u0000${w.value}\u0000${w.color ?? ""}`)
     .join("\u0001");
+  const paletteKey = palette.join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by content via wordsKey
-  const stableWords = useMemo(() => words, [wordsKey]);
+  const stableWords = useMemo(() => colorWords(words, palette), [wordsKey, paletteKey]);
 
   useEffect(() => {
     if (stableWords.length === 0 || width === 0 || height === 0) return;
@@ -103,7 +91,7 @@ export function WordcloudCloud({
       <div className="overflow-hidden">
         <svg width={width} height={height} role="img" aria-label={words.map((w) => w.text).join(", ")}>
           <g transform={`translate(${width / 2}, ${height / 2})`}>
-            {layout.placed.map((w, i) => (
+            {layout.placed.map((w) => (
               // Keying by text+size remounts a word only when its count changes
               // (or it's new), so just those words replay the pop animation while
               // unchanged words quietly re-position on relayout.
@@ -115,7 +103,7 @@ export function WordcloudCloud({
                   fontFamily={CLOUD_FONT}
                   fontWeight={CLOUD_FONT_WEIGHT}
                   fontSize={w.size}
-                  fill={w.color ?? palette[i % palette.length]}
+                  fill={w.color}
                   style={{
                     userSelect: "none",
                     transformBox: "fill-box",

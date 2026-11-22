@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Survey, UpdateSurveyRequest } from "@/app/types/survey";
+import type { Survey } from "@/app/types/survey";
 
 const AUTOSAVE_DELAY_MS = 3500;
 
@@ -12,12 +12,10 @@ interface UseAutosaveArgs {
   ready: boolean;
   /** Only the locally-editing client persists (avoids the N-client echo storm). */
   locallyDirty: boolean;
-  /** Latest survey snapshot to persist. */
+  /** Latest survey snapshot; each change restarts the debounce. */
   survey: Survey;
-  /** Persist + return the saved survey (owner REST or passwordless collab). */
-  save: (req: UpdateSurveyRequest) => Promise<Survey>;
-  /** Build the request body from a survey snapshot. */
-  toRequest: (survey: Survey) => UpdateSurveyRequest;
+  /** Persist the latest local state (owner REST or passwordless collab). */
+  save: () => Promise<unknown>;
 }
 
 interface UseAutosaveResult {
@@ -38,24 +36,15 @@ export function useAutosave({
   locallyDirty,
   survey,
   save,
-  toRequest,
 }: UseAutosaveArgs): UseAutosaveResult {
   const [isAutosaving, setIsAutosaving] = useState(false);
 
-  // Hold the freshest values so the debounced timer always saves the latest
-  // snapshot without re-arming on every keystroke.
-  const surveyRef = useRef(survey);
   const saveRef = useRef(save);
-  const toRequestRef = useRef(toRequest);
   const dirtyRef = useRef(locallyDirty);
   const savingRef = useRef(false);
   useEffect(() => {
-    surveyRef.current = survey;
-  }, [survey]);
-  useEffect(() => {
     saveRef.current = save;
-    toRequestRef.current = toRequest;
-  }, [save, toRequest]);
+  }, [save]);
   useEffect(() => {
     dirtyRef.current = locallyDirty;
   }, [locallyDirty]);
@@ -65,7 +54,7 @@ export function useAutosave({
     savingRef.current = true;
     setIsAutosaving(true);
     try {
-      await saveRef.current(toRequestRef.current(surveyRef.current));
+      await saveRef.current();
     } catch {
       // Best-effort: a failed autosave stays dirty and retries on the next
       // edit; the manual Save button surfaces hard errors to the user.

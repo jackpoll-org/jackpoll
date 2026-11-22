@@ -194,4 +194,105 @@ class PublicSurveyResourceTest {
             .body("data.questions.size()", is(1))
             .body("data.questions[0].type", is("wordcloud"));
     }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void combinedWordcloud_exposesChoiceQuestionsShownAsWordcloud() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Workshop\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Workshop",
+                  "status": "published",
+                  "settings": { "postSubmitCombinedWordcloud": true },
+                  "questions": [
+                    {"type":"multiple-choice","title":"Pie","required":false,"order":0,
+                     "options":[{"label":"A"}]},
+                    {"type":"checkboxes","title":"Cloud","required":false,"order":1,
+                     "settings":{"resultChart":"wordcloud"},"options":[{"label":"X"},{"label":"Y"}]},
+                    {"type":"dropdown","title":"Hidden","required":false,"order":2,
+                     "showInLiveResults":false,
+                     "settings":{"resultChart":"wordcloud"},"options":[{"label":"Z"}]},
+                    {"type":"ranking","title":"Rank","required":false,"order":3,
+                     "settings":{"resultChart":"wordcloud"},"options":[{"label":"R"}]}
+                  ]
+                }
+                """)
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+
+        var survey = given().when().get(PUBLIC + "/" + id).then().statusCode(200).extract();
+        String cloudId = survey.path("data.questions[1].id");
+        String optX = survey.path("data.questions[1].options[0].id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"" + cloudId + "\",\"value\":[\"" + optX + "\"]}]}")
+            .when().post(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(201);
+
+        given()
+            .when().get(PUBLIC + "/" + id + "/live-results")
+            .then().statusCode(200)
+            .body("data.totalResponses", is(0))
+            .body("data.questions.size()", is(1))
+            .body("data.questions[0].questionId", is(cloudId))
+            .body("data.questions[0].answered", is(0))
+            .body("data.questions[0].optionCounts." + optX, is(1));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void combinedWordcloud_inAQuizExposesOnlyUnscoredChoiceQuestions() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Quiz\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String k = id.substring(0, 8);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {
+                  "title": "Quiz",
+                  "status": "published",
+                  "settings": { "postSubmitCombinedWordcloud": true, "isQuiz": true },
+                  "questions": [
+                    {"type":"multiple-choice","title":"Scored","required":false,"order":0,
+                     "correctAnswers":["s-%1$s"],"settings":{"resultChart":"wordcloud"},
+                     "options":[{"id":"s-%1$s","label":"A"}]},
+                    {"type":"checkboxes","title":"Poll","required":false,"order":1,
+                     "correctAnswers":["p-%1$s"],"settings":{"resultChart":"wordcloud","poll":true},
+                     "options":[{"id":"p-%1$s","label":"B"}]}
+                  ]
+                }
+                """.formatted(k))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+
+        var survey = given().when().get(PUBLIC + "/" + id).then().statusCode(200).extract();
+        String scoredId = survey.path("data.questions[0].id");
+        String pollId = survey.path("data.questions[1].id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"answers\":[{\"questionId\":\"" + scoredId + "\",\"value\":\"s-" + k + "\"},"
+                + "{\"questionId\":\"" + pollId + "\",\"value\":[\"p-" + k + "\"]}]}")
+            .when().post(SURVEYS + "/" + id + "/responses")
+            .then().statusCode(201);
+
+        given()
+            .when().get(PUBLIC + "/" + id + "/live-results")
+            .then().statusCode(200)
+            .body("data.questions.size()", is(1))
+            .body("data.questions[0].questionId", is(pollId))
+            .body("data.questions[0].optionCounts.'p-" + k + "'", is(1));
+    }
 }

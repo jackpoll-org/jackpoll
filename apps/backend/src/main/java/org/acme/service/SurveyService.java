@@ -2,8 +2,10 @@ package org.acme.service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.acme.dto.SurveyDtos.CreateSurveyRequest;
@@ -147,6 +149,7 @@ public class SurveyService {
         var previous = survey.settings;
         var scoringBefore = scoringSignature(survey);
         var palettesBefore = colorPalettes(survey);
+        var sharingBefore = editLink ? questionSharing(survey) : null;
         mapper.applyUpdate(survey, req);
         ensureValidPalettes(survey, palettesBefore);
         if (!owner && survey.settings != null) {
@@ -168,6 +171,9 @@ public class SurveyService {
             survey.settings.studentResults = previous != null && previous.studentResults;
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
+        if (editLink) {
+            keepQuestionSharing(survey, sharingBefore);
+        }
         if (survey.sections != null && survey.sections.size() > org.acme.dto.SurveyDtos.MAX_SECTIONS) {
             throw new IllegalArgumentException("A survey can have at most "
                 + org.acme.dto.SurveyDtos.MAX_SECTIONS + " pages.");
@@ -177,6 +183,35 @@ public class SurveyService {
         repository.persist(survey);
         if (!scoringBefore.equals(scoringSignature(survey))) {
             responseService.rescore(survey);
+        }
+    }
+
+    private record QuestionSharing(Object resultChart, Boolean showInLiveResults) {}
+
+    private static Map<String, QuestionSharing> questionSharing(Survey survey) {
+        var sharing = new HashMap<String, QuestionSharing>();
+        for (var q : survey.questions) {
+            sharing.put(q.id, new QuestionSharing(
+                q.settings == null ? null : q.settings.get("resultChart"), q.showInLiveResults));
+        }
+        return sharing;
+    }
+
+    private static void keepQuestionSharing(Survey survey, Map<String, QuestionSharing> before) {
+        for (var q : survey.questions) {
+            var old = before.get(q.id);
+            Object chart = q.settings == null ? null : q.settings.get("resultChart");
+            if (old != null && Boolean.FALSE.equals(old.showInLiveResults())
+                    && !Boolean.FALSE.equals(q.showInLiveResults)) {
+                q.showInLiveResults = false;
+            }
+            Object allowed = old == null ? null : old.resultChart();
+            if ("wordcloud".equals(chart) && !"wordcloud".equals(allowed)) {
+                var settings = q.settings == null ? new HashMap<String, Object>() : new HashMap<String, Object>(q.settings);
+                if (allowed == null) settings.remove("resultChart");
+                else settings.put("resultChart", allowed);
+                q.settings = settings;
+            }
         }
     }
 

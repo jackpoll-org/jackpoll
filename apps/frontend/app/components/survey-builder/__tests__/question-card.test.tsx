@@ -116,4 +116,26 @@ describe("QuestionCard live results switch", () => {
     fireEvent.click(screen.getByRole("button", { name: "builder.question.more" }));
     expect(screen.queryByText("builder.showInLiveResults")).toBeNull();
   });
+
+  it("shows the switch for a choice question shown as a word cloud while the combined word cloud is on", () => {
+    const choice: Question = {
+      id: "c1", type: "multiple-choice", title: "Pick", required: false, order: 0, sectionId: null, options: [],
+      settings: { resultChart: "wordcloud" },
+    };
+    mock.survey = survey([choice], [], { postSubmitCombinedWordcloud: true });
+    render(<QuestionCard question={choice} index={0} total={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "builder.question.more" }));
+    expect(screen.getByText("builder.showInLiveResults")).toBeTruthy();
+  });
+
+  it("hides the switch for a scored quiz choice question shown as a word cloud", () => {
+    const choice: Question = {
+      id: "c1", type: "multiple-choice", title: "Pick", required: false, order: 0, sectionId: null,
+      options: [{ id: "o1", label: "A" }], correctAnswers: ["o1"], settings: { resultChart: "wordcloud" },
+    };
+    mock.survey = survey([choice], [], { isQuiz: true, postSubmitCombinedWordcloud: true });
+    render(<QuestionCard question={choice} index={0} total={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "builder.question.more" }));
+    expect(screen.queryByText("builder.showInLiveResults")).toBeNull();
+  });
 });
