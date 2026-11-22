@@ -68,6 +68,14 @@ public class ResponseRepository implements PanacheRepositoryBase<SurveyResponse,
         return query.setMaxResults(limit).getResultList();
     }
 
+    public java.util.Set<String> questionsWithAnswers(java.util.Collection<String> questionIds) {
+        if (questionIds.isEmpty()) return java.util.Set.of();
+        return new java.util.HashSet<>(getEntityManager()
+            .createQuery("select distinct a.questionId from ResponseAnswer a where a.questionId in ?1", String.class)
+            .setParameter(1, questionIds)
+            .getResultList());
+    }
+
     /** Count real responses (preview excluded — they don't count to limits). */
     public long countBySurvey(String surveyId) {
         return count("surveyId = ?1 and preview = false", surveyId);

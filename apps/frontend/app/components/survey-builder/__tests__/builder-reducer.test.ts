@@ -567,7 +567,7 @@ describe("builderReducer", () => {
       expect(next.locallyDirty).toBe(widened.locallyDirty);
       expect(next.dirty).toBe(widened.dirty);
       expect(next.sharingBaseline).toEqual({
-        q1: { showInLiveResults: true, resultChart: "wordcloud" },
+        q1: { type: "multiple-choice", options: [{ id: "a", label: "A" }], showInLiveResults: true, resultChart: "wordcloud" },
         q2: widened.sharingBaseline.q2,
       });
     });
@@ -638,6 +638,146 @@ describe("builderReducer", () => {
         const sent = await pending;
         expect(sent.title).toBe("Later");
         expect(sent.questions[0].showInLiveResults).toBe(true);
+      });
+    });
+
+    describe("quiz scoring", () => {
+      const scored = (id: string, overrides: Partial<Question> = {}) =>
+        choice(id, { showInLiveResults: true, correctAnswers: ["a"], settings: { resultChart: "wordcloud" }, ...overrides });
+      const quiz = (...questions: Question[]) =>
+        initialBuilderState({ ...baseSurvey(), settings: { ...baseSurvey().settings, isQuiz: true }, questions });
+      const remoteQuiz = (s: BuilderState, isQuiz: boolean, questions: Question[]) =>
+        builderReducer(s, {
+          type: "applyRemote",
+          content: {
+            title: s.survey.title,
+            description: undefined,
+            status: "draft",
+            settings: { ...s.survey.settings, isQuiz },
+            questions,
+            sections: [],
+          },
+        });
+
+      it("does not send a peer's poll or cleared answer key that lifts the quiz exclusion", () => {
+        const start = quiz(scored("q1"), scored("q2"));
+        const widened = remoteQuiz(start, true, [
+          scored("q1", { title: "Renamed", settings: { resultChart: "wordcloud", poll: true } }),
+          scored("q2", { correctAnswers: [] }),
+        ]);
+        const sent = surveyToSave(widened);
+        expect(sent.questions[0].title).toBe("Renamed");
+        expect(sent.questions[0].settings?.poll).toBeUndefined();
+        expect(sent.questions[1].correctAnswers).toEqual(["a"]);
+        expect(widened.survey.questions[0].settings?.poll).toBe(true);
+        expect(widened.survey.questions[1].correctAnswers).toEqual([]);
+      });
+
+      it("restores every quiz field when a peer changes two at once", () => {
+        const points = { optionPoints: { a: 2 } };
+        const start = quiz(
+          scored("q1"),
+          scored("q2", { correctAnswers: [], settings: { resultChart: "wordcloud", ...points } }),
+          scored("q3", { settings: { resultChart: "wordcloud", ...points } }),
+        );
+        const widened = remoteQuiz(start, true, [
+          scored("q1", { correctAnswers: [], settings: { resultChart: "wordcloud", poll: true } }),
+          scored("q2", { correctAnswers: [], settings: { resultChart: "wordcloud", poll: true, optionPoints: { a: 0 } } }),
+          scored("q3", { correctAnswers: [], settings: { resultChart: "wordcloud", optionPoints: { a: 0 } } }),
+        ]);
+        const [q1, q2, q3] = surveyToSave(widened).questions;
+        expect(q1.correctAnswers).toEqual(["a"]);
+        expect(q1.settings?.poll).toBeUndefined();
+        expect(q2.settings).toEqual({ resultChart: "wordcloud", ...points });
+        expect(q3.correctAnswers).toEqual(["a"]);
+        expect(q3.settings?.optionPoints).toEqual(points.optionPoints);
+        expect(q1.showInLiveResults).toBe(true);
+      });
+
+      it("hides a question a peer exposed by replacing its scored options", () => {
+        const start = quiz(scored("q1", { correctAnswers: [], settings: { resultChart: "wordcloud", optionPoints: { a: 2 } } }));
+        const replaced = remoteQuiz(start, true, [
+          scored("q1", {
+            correctAnswers: [],
+            options: [{ id: "b", label: "B" }],
+            settings: { resultChart: "wordcloud", optionPoints: { a: 2 } },
+          }),
+        ]);
+        const sent = surveyToSave(replaced).questions[0];
+        expect(sent.options).toEqual([{ id: "b", label: "B" }]);
+        expect(sent.showInLiveResults).toBe(false);
+        expect(replaced.survey.questions[0].showInLiveResults).toBe(true);
+        const saved = builderReducer(replaced, { type: "saved", survey: surveyToSave(replaced) });
+        expect(saved.survey.questions[0].showInLiveResults).toBe(true);
+      });
+
+      it("sends this client's own option replacement", () => {
+        const start = quiz(scored("q1", { correctAnswers: [], settings: { resultChart: "wordcloud", optionPoints: { a: 2 } } }));
+        const own = builderReducer(start, { type: "updateQuestion", id: "q1", patch: { options: [{ id: "b", label: "B" }] } });
+        expect(surveyToSave(own)).toBe(own.survey);
+      });
+
+      it("does not send a peer turning the quiz off when that exposes a scored question", () => {
+        const start = quiz(scored("q1"));
+        const off = remoteQuiz(start, false, [scored("q1")]);
+        expect(surveyToSave(off).settings.isQuiz).toBe(true);
+        expect(off.survey.settings.isQuiz).toBe(false);
+        const both = remoteQuiz(start, false, [scored("q1", { settings: { resultChart: "wordcloud", poll: true } })]);
+        expect(surveyToSave(both).settings.isQuiz).toBe(true);
+        expect(surveyToSave(both).questions[0].settings?.poll).toBeUndefined();
+      });
+
+      it("sends a peer's quiz change that exposes nothing new", () => {
+        const start = quiz(scored("q1", { settings: { resultChart: "bar" } }));
+        const changed = remoteQuiz(start, false, [scored("q1", { correctAnswers: [], settings: { resultChart: "bar", poll: true } })]);
+        expect(surveyToSave(changed)).toBe(changed.survey);
+      });
+
+      it("sends this client's own poll, cleared key and quiz-off", () => {
+        const start = quiz(scored("q1"), scored("q2"));
+        const polled = builderReducer(start, {
+          type: "updateQuestion",
+          id: "q1",
+          patch: { settings: { resultChart: "wordcloud", poll: true } },
+        });
+        const cleared = builderReducer(polled, { type: "updateQuestion", id: "q2", patch: { correctAnswers: [] } });
+        const off = builderReducer(cleared, { type: "updateSettings", patch: { isQuiz: false } });
+        const sent = surveyToSave(off);
+        expect(sent).toBe(off.survey);
+        expect(sent.settings.isQuiz).toBe(false);
+        expect(remoteQuiz(off, false, off.survey.questions).locallyDirty).toBe(true);
+      });
+
+      it("keeps a quiz widening the server already saved after refreshing", async () => {
+        const start = quiz(scored("q1"));
+        const widened = remoteQuiz(start, false, [scored("q1", { settings: { resultChart: "wordcloud", poll: true } })]);
+        let current = widened;
+        const dispatch = vi.fn((action: BuilderAction) => {
+          current = builderReducer(current, action);
+        });
+        const server = { ...widened.survey, settings: { ...widened.survey.settings, isQuiz: false } };
+        const sent = await resolveSaveable(() => current, dispatch, vi.fn().mockResolvedValue(server));
+        expect(sent.settings.isQuiz).toBe(false);
+        expect(sent.questions[0].settings?.poll).toBe(true);
+      });
+
+      it("still withholds a quiz widening the server does not have", async () => {
+        const start = quiz(scored("q1"));
+        const widened = remoteQuiz(start, false, [scored("q1", { settings: { resultChart: "wordcloud", poll: true } })]);
+        let current = widened;
+        const dispatch = vi.fn((action: BuilderAction) => {
+          current = builderReducer(current, action);
+        });
+        const sent = await resolveSaveable(() => current, dispatch, vi.fn().mockResolvedValue(start.survey));
+        expect(sent.settings.isQuiz).toBe(true);
+        expect(sent.questions[0].settings?.poll).toBeUndefined();
+      });
+
+      it("keeps a withheld quiz-off locally after saving", () => {
+        const off = remoteQuiz(quiz(scored("q1")), false, [scored("q1")]);
+        const saved = builderReducer(off, { type: "saved", survey: surveyToSave(off) });
+        expect(saved.survey.settings.isQuiz).toBe(false);
+        expect(surveyToSave(saved).settings.isQuiz).toBe(true);
       });
     });
 

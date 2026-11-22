@@ -277,6 +277,45 @@ class ApiKeyTest {
     }
 
     @Test
+    void surveysOnlyKeyCannotLiftTheQuizExclusionOfAQuestion() {
+        String key = keyFor("agent-quiz-exposure", false);
+        String fullKey = keyFor("agent-quiz-exposure", true);
+        String id = given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body("{\"title\":\"Quiz\"}")
+            .when().post(API + "/surveys")
+            .then().statusCode(201).extract().path("data.id");
+        String k = id.substring(0, 8);
+        String body = """
+            {"title":"Quiz","status":"published","settings":{"isQuiz":%2$s},
+             "questions":[{"id":"c1-%1$s","type":"multiple-choice","title":"Q","required":false,"order":0,
+               "correctAnswers":%3$s,"settings":{"resultChart":"wordcloud"%4$s},
+               "options":[{"id":"o1-%1$s","label":"A"},{"id":"o2-%1$s","label":"B"}]},
+              {"id":"s1-%1$s","type":"%5$s","title":"S","required":false,"order":1,
+               "options":[{"id":"o3-%1$s","label":"C"}]}]}
+            """;
+        String scored = "[\"o1-" + k + "\"]";
+
+        given().auth().oauth2(fullKey).contentType(ContentType.JSON)
+            .body(body.formatted(k, true, scored, "", "short-answer"))
+            .when().put(API + "/surveys/" + id).then().statusCode(200);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, true, scored, ",\"poll\":true", "short-answer"))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, true, "[]", "", "short-answer"))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, false, scored, "", "short-answer"))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, true, scored, "", "dropdown"))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON)
+            .body(body.formatted(k, true, "[\"o2-" + k + "\"]", "", "short-answer"))
+            .when().put(API + "/surveys/" + id).then().statusCode(200);
+    }
+
+    @Test
     @TestSecurity(user = "key-expiry-owner")
     void ownerChoosesAnExpiry() {
         given().contentType(ContentType.JSON).body("{\"name\":\"Short\",\"expiresInDays\":7}")

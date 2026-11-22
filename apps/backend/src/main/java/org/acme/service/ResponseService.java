@@ -438,7 +438,7 @@ public class ResponseService {
             var deltas = new ArrayList<Map<String, Object>>();
             for (var a : req.answers()) {
                 var q = byId.get(a.questionId());
-                if (q == null || !liveAllowed(survey, q)) continue;
+                if (q == null || !LiveExposure.allowed(survey, q)) continue;
                 if (q.type != QuestionType.WORDCLOUD) return "updated";
                 boolean filter = q.settings == null
                     || !Boolean.FALSE.equals(q.settings.get("filterProfanity"));
@@ -1121,7 +1121,7 @@ public class ResponseService {
 
         var questionResults = SurveyPages.questionsInPageOrder(survey).stream()
             .filter(q -> q.type.isAnswerable())
-            .map(q -> aggregateQuestion(q, responses))
+            .map(q -> aggregateQuestion(q, responses, value -> true))
             .toList();
 
         var quiz = (survey.settings != null && survey.settings.isQuiz)
@@ -1168,9 +1168,12 @@ public class ResponseService {
         var responses = run != null
             ? responseRepository.findBySurvey(surveyId, false, run.id)
             : responseRepository.findBySurvey(surveyId);
+        var current = new HashMap<String, Question>();
+        master.questions.forEach(q -> current.put(q.id, q));
         var questions = SurveyPages.questionsInPageOrder(survey).stream()
-            .filter(q -> liveAllowed(survey, q))
-            .map(q -> aggregateQuestion(q, responses))
+            .filter(q -> LiveExposure.allowed(survey, q))
+            .map(q -> aggregateQuestion(q, LiveExposure.answeredSince(current.get(q.id), q, responses),
+                value -> countsPublicly(q, value)))
             .toList();
         if (survey.settings.postSubmitCombinedWordcloud) {
             var wordCounts = questions.stream()
@@ -1183,36 +1186,11 @@ public class ResponseService {
             survey.id, survey.title, responses.size(), null, null, questions, null);
     }
 
-    /** Server-side guard: free-text and file-upload answers are never exposed. */
-    private static boolean liveAllowed(Survey survey, Question q) {
-        if (survey.settings == null || !survey.settings.sharesLiveResults()) return false;
-        if (survey.settings.postSubmitCombinedWordcloud && !shownAsWordcloud(survey, q)) return false;
-        if (!q.type.isAnswerable() || (survey.settings.isQuiz && QuizScoring.scoresOrder(q))) return false;
-        switch (q.type) {
-            case SHORT_ANSWER, LONG_ANSWER, FILE_UPLOAD, SIGNATURE, DATE -> {
-                return false;
-            }
-            default -> {
-                // multiple-choice / dropdown / checkboxes / grids
-            }
-        }
-        return q.showInLiveResults == null ? true : q.showInLiveResults;
-    }
-
-    private static boolean shownAsWordcloud(Survey survey, Question q) {
-        return switch (q.type) {
-            case WORDCLOUD -> true;
-            case MULTIPLE_CHOICE, DROPDOWN, CHECKBOXES ->
-                q.settings != null && "wordcloud".equals(q.settings.get("resultChart"))
-                    && !(survey.settings.isQuiz && QuizScoring.isScorable(q));
-            default -> false;
-        };
-    }
-
     // ── Aggregation ───────────────────────────────────────────────
 
-    private QuestionResultDto aggregateQuestion(Question q, List<SurveyResponse> responses) {
-        var values = collectValues(q.id, responses);
+    private QuestionResultDto aggregateQuestion(Question q, List<SurveyResponse> responses,
+                                                java.util.function.Predicate<Object> counted) {
+        var values = collectValues(q.id, responses).stream().filter(counted).toList();
 
         Map<String, Long> optionCounts = null;
         List<RowResultDto> rows = null;
@@ -1571,49 +1549,43 @@ public class ResponseService {
             }
             var q = byId.get(a.questionId());
             if (q == null || a.value() == null) continue;
-            if (q.type == QuestionType.SLIDER) {
-                if (!(a.value() instanceof Number num)) {
-                    throw badRequest("Invalid value for a slider question.");
-                }
+            var error = answerError(q, a.value());
+            if (error != null) throw badRequest(error);
+        }
+    }
+
+    private static boolean countsPublicly(Question q, Object value) {
+        return q.type == QuestionType.CHECKBOXES ? isTextList(value) : answerError(q, value) == null;
+    }
+
+    private static String answerError(Question q, Object value) {
+        return switch (q.type) {
+            case SLIDER -> {
+                if (!(value instanceof Number num)) yield "Invalid value for a slider question.";
                 double v = num.doubleValue();
-                if (v < settingDouble(q, "min", 0) || v > settingDouble(q, "max", 100)) {
-                    throw badRequest("A slider answer is out of range.");
-                }
-            } else if (q.type == QuestionType.LONG_ANSWER) {
-                if (!(a.value() instanceof String text)) {
-                    throw badRequest("Invalid value for a paragraph question.");
-                }
-                if (text.length() > MAX_LONG_ANSWER_LENGTH) {
-                    throw badRequest("A paragraph answer is too long.");
-                }
-            } else if (q.type == QuestionType.MULTIPLE_CHOICE || q.type == QuestionType.DROPDOWN) {
-                if (!isOptionOf(q, a.value())) throw badRequest("Invalid choice.");
-            } else if (q.type == QuestionType.CHECKBOXES) {
-                if (!(a.value() instanceof java.util.Collection<?> picks)
-                    || !picks.stream().allMatch(pick -> isOptionOf(q, pick))) {
-                    throw badRequest("Invalid choice.");
-                }
-            } else if (q.type == QuestionType.SHORT_ANSWER || q.type == QuestionType.DATE) {
-                if (!(a.value() instanceof String)) throw badRequest("Invalid answer.");
-            } else if (q.type == QuestionType.RANKING || q.type == QuestionType.WORDCLOUD) {
-                if (!isTextList(a.value())) throw badRequest("Invalid answer.");
-            } else if (q.type == QuestionType.MULTIPLE_CHOICE_GRID) {
-                if (!isGrid(a.value(), String.class::isInstance)) throw badRequest("Invalid answer.");
-            } else if (q.type == QuestionType.CHECKBOX_GRID) {
-                if (!isGrid(a.value(), ResponseService::isTextList)) throw badRequest("Invalid answer.");
-            } else if (q.type == QuestionType.RATING_GRID) {
-                if (!isGrid(a.value(), Number.class::isInstance)) throw badRequest("Invalid answer.");
-            } else if (q.type == QuestionType.RATING) {
-                if (!(a.value() instanceof Number num)) {
-                    throw badRequest("Invalid value for a rating question.");
-                }
+                yield v < settingDouble(q, "min", 0) || v > settingDouble(q, "max", 100)
+                    ? "A slider answer is out of range." : null;
+            }
+            case LONG_ANSWER -> {
+                if (!(value instanceof String text)) yield "Invalid value for a paragraph question.";
+                yield text.length() > MAX_LONG_ANSWER_LENGTH ? "A paragraph answer is too long." : null;
+            }
+            case MULTIPLE_CHOICE, DROPDOWN -> isOptionOf(q, value) ? null : "Invalid choice.";
+            case CHECKBOXES -> value instanceof java.util.Collection<?> picks
+                && picks.stream().allMatch(pick -> isOptionOf(q, pick)) ? null : "Invalid choice.";
+            case SHORT_ANSWER, DATE -> value instanceof String ? null : "Invalid answer.";
+            case RANKING, WORDCLOUD -> isTextList(value) ? null : "Invalid answer.";
+            case MULTIPLE_CHOICE_GRID -> isGrid(value, String.class::isInstance) ? null : "Invalid answer.";
+            case CHECKBOX_GRID -> isGrid(value, ResponseService::isTextList) ? null : "Invalid answer.";
+            case RATING_GRID -> isGrid(value, Number.class::isInstance) ? null : "Invalid answer.";
+            case RATING -> {
+                if (!(value instanceof Number num)) yield "Invalid value for a rating question.";
                 double v = num.doubleValue();
                 double[] range = ratingRange(q);
-                if (v < range[0] || v > range[1]) {
-                    throw badRequest("A rating answer is out of range.");
-                }
+                yield v < range[0] || v > range[1] ? "A rating answer is out of range." : null;
             }
-        }
+            default -> null;
+        };
     }
 
     private static boolean isTextList(Object value) {
@@ -1625,7 +1597,7 @@ public class ResponseService {
     }
 
     /** Allowed [min,max] for a rating answer, derived from its variant (#77). */
-    private double[] ratingRange(Question q) {
+    private static double[] ratingRange(Question q) {
         var variant = q.settings != null && q.settings.get("variant") != null
             ? q.settings.get("variant").toString()
             : "stars";

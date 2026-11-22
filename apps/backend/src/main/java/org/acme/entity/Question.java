@@ -73,6 +73,9 @@ public class Question extends PanacheEntityBase {
     @Column(name = "case_sensitive_answers")
     public Boolean caseSensitiveAnswers;
 
+    @Column(name = "type_changed_at")
+    public java.time.Instant typeChangedAt;
+
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("order ASC")
     public List<QuestionOption> options = new ArrayList<>();

@@ -257,7 +257,9 @@ public class SurveyMapper {
                 Question q;
                 if (qd.id() != null && existingQuestions.containsKey(qd.id())) {
                     q = existingQuestions.get(qd.id());
+                    var storedType = q.type;
                     updateQuestionFromDto(q, qd, order++);
+                    if (q.type != storedType) q.typeChangedAt = java.time.Instant.now();
                 } else {
                     q = new Question();
                     q.id = qd.id() != null ? qd.id() : UUID.randomUUID().toString();
@@ -459,6 +461,10 @@ public class SurveyMapper {
         mergeOptions(q, d.options(), OptionKind.OPTION);
         mergeOptions(q, d.rows(), OptionKind.ROW);
         mergeOptions(q, d.columns(), OptionKind.COLUMN);
+    }
+
+    public Question previewQuestion(QuestionDto d) {
+        return fromQuestionDto(d, null, 0);
     }
 
     private Question fromQuestionDto(QuestionDto d, Survey survey, int order) {

@@ -12,6 +12,7 @@ import org.acme.dto.SurveyDtos.CreateSurveyRequest;
 import org.acme.dto.SurveyDtos.SurveyDto;
 import org.acme.dto.SurveyDtos.UpdateSurveyRequest;
 import org.acme.entity.CollaboratorRole;
+import org.acme.entity.Question;
 import org.acme.entity.Survey;
 import org.acme.entity.SurveyStatus;
 import org.acme.entity.SurveySettings;
@@ -150,7 +151,12 @@ public class SurveyService {
         var scoringBefore = scoringSignature(survey);
         var palettesBefore = colorPalettes(survey);
         var sharingBefore = editLink ? questionSharing(survey) : null;
+        boolean quizBefore = previous != null && previous.isQuiz;
+        var questionIdsBefore = survey.questions.stream().map(q -> q.id).collect(java.util.stream.Collectors.toSet());
         mapper.applyUpdate(survey, req);
+        var added = survey.questions.stream().filter(q -> !questionIdsBefore.contains(q.id)).toList();
+        var readded = responses.questionsWithAnswers(added.stream().map(q -> q.id).toList());
+        added.stream().filter(q -> readded.contains(q.id)).forEach(q -> q.typeChangedAt = java.time.Instant.now());
         ensureValidPalettes(survey, palettesBefore);
         if (!owner && survey.settings != null) {
             survey.settings.ogShowOwner = previous == null ? null : previous.ogShowOwner;
@@ -171,8 +177,8 @@ public class SurveyService {
             survey.settings.studentResults = previous != null && previous.studentResults;
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
         }
-        if (editLink) {
-            keepQuestionSharing(survey, sharingBefore);
+        if (editLink && survey.settings != null) {
+            keepQuestionSharing(survey, sharingBefore, quizBefore);
         }
         if (survey.sections != null && survey.sections.size() > org.acme.dto.SurveyDtos.MAX_SECTIONS) {
             throw new IllegalArgumentException("A survey can have at most "
@@ -186,33 +192,46 @@ public class SurveyService {
         }
     }
 
-    private record QuestionSharing(Object resultChart, Boolean showInLiveResults) {}
+    private static final List<String> EXPOSURE_SETTINGS = List.of("resultChart", "poll", "scoreOrder", "optionPoints");
 
-    private static Map<String, QuestionSharing> questionSharing(Survey survey) {
-        var sharing = new HashMap<String, QuestionSharing>();
-        for (var q : survey.questions) {
-            sharing.put(q.id, new QuestionSharing(
-                q.settings == null ? null : q.settings.get("resultChart"), q.showInLiveResults));
-        }
+    private static Map<String, Question> questionSharing(Survey survey) {
+        var sharing = new HashMap<String, Question>();
+        for (var q : survey.questions) sharing.put(q.id, LiveExposure.copyOf(q));
         return sharing;
     }
 
-    private static void keepQuestionSharing(Survey survey, Map<String, QuestionSharing> before) {
+    private static void keepQuestionSharing(Survey survey, Map<String, Question> before, boolean quizBefore) {
+        boolean quiz = quizBefore || survey.settings.isQuiz;
         for (var q : survey.questions) {
             var old = before.get(q.id);
-            Object chart = q.settings == null ? null : q.settings.get("resultChart");
-            if (old != null && Boolean.FALSE.equals(old.showInLiveResults())
-                    && !Boolean.FALSE.equals(q.showInLiveResults)) {
+            if (old != null && Boolean.FALSE.equals(old.showInLiveResults) && !Boolean.FALSE.equals(q.showInLiveResults)) {
                 q.showInLiveResults = false;
             }
-            Object allowed = old == null ? null : old.resultChart();
-            if ("wordcloud".equals(chart) && !"wordcloud".equals(allowed)) {
-                var settings = q.settings == null ? new HashMap<String, Object>() : new HashMap<String, Object>(q.settings);
-                if (allowed == null) settings.remove("resultChart");
-                else settings.put("resultChart", allowed);
-                q.settings = settings;
+            Object allowed = old == null ? null : setting(old, "resultChart");
+            if ("wordcloud".equals(setting(q, "resultChart")) && !"wordcloud".equals(allowed)) {
+                putSetting(q, "resultChart", allowed);
             }
+            if (old == null || !LiveExposure.widens(quiz, old, quiz, q)) continue;
+            q.showInLiveResults = old.showInLiveResults;
+            q.correctAnswers = old.correctAnswers;
+            for (var key : EXPOSURE_SETTINGS) putSetting(q, key, setting(old, key));
+            if (LiveExposure.widens(quiz, old, quiz, q)) q.showInLiveResults = false;
         }
+        if (quizBefore && !survey.settings.isQuiz && survey.questions.stream()
+                .anyMatch(q -> before.containsKey(q.id) && LiveExposure.widens(true, q, false, q))) {
+            survey.settings.isQuiz = true;
+        }
+    }
+
+    private static Object setting(Question q, String key) {
+        return q.settings == null ? null : q.settings.get(key);
+    }
+
+    private static void putSetting(Question q, String key, Object value) {
+        var settings = q.settings == null ? new HashMap<String, Object>() : new HashMap<String, Object>(q.settings);
+        if (value == null) settings.remove(key);
+        else settings.put(key, value);
+        q.settings = settings;
     }
 
     private static final int MAX_PALETTE_COLORS = 10;

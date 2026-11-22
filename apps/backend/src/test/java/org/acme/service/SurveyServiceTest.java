@@ -59,6 +59,7 @@ class SurveyServiceTest {
         respondentTokens = mock(org.acme.repository.RespondentTokenRepository.class);
         service.respondentTokens = respondentTokens;
         service.liveSessions = mock(org.acme.repository.LiveSessionRepository.class);
+        service.responses = mock(org.acme.repository.ResponseRepository.class);
         service.mapper = new SurveyMapper();
         service.folders = mock(org.acme.repository.FolderRepository.class);
         when(service.folders.findByIdAndOwner("f1", OWNER)).thenReturn(Optional.of(new org.acme.entity.Folder()));

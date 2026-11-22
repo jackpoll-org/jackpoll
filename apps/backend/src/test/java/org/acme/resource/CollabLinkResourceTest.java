@@ -235,6 +235,134 @@ class CollabLinkResourceTest {
 
     @Test
     @TestSecurity(user = "owner-1")
+    void linkHolderCannotLiftTheQuizExclusionOfAQuestion() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Quiz exposure\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String k = id.substring(0, 8);
+        String body = """
+            {"title":"%2$s","status":"draft","settings":{"isQuiz":%3$s},
+             "questions":[
+               {"id":"p-%1$s","type":"multiple-choice","title":"Poll","required":false,"order":0,
+                "correctAnswers":["a-%1$s"],"settings":{"resultChart":"wordcloud"%4$s},"options":[{"id":"a-%1$s","label":"A"}]},
+               {"id":"c-%1$s","type":"dropdown","title":"Key","required":false,"order":1,
+                "correctAnswers":%5$s,"settings":{"resultChart":"wordcloud"},"options":[{"id":"b-%1$s","label":"B"}]},
+               {"id":"r-%1$s","type":"ranking","title":"Order","required":false,"order":2,
+                "settings":{%6$s},"options":[{"id":"c-%1$s","label":"C"},{"id":"d-%1$s","label":"D"}]},
+               {"id":"n-%1$s","type":"checkboxes","title":"Narrow","required":false,"order":3,
+                "settings":{"resultChart":"wordcloud"%7$s},"options":[{"id":"e-%1$s","label":"E"}]}]}
+            """;
+        String key = "[\"b-" + k + "\"]";
+        given().contentType(ContentType.JSON)
+            .body(body.formatted(k, "Owner", true, "", key, "\"scoreOrder\":true", ",\"poll\":true"))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        given().contentType(ContentType.JSON)
+            .body(body.formatted(k, "Link", true, ",\"poll\":true", "[]", "", ""))
+            .when().put(COLLAB + "/" + slug)
+            .then().statusCode(200);
+        given().when().get(SURVEYS + "/" + id)
+            .then().statusCode(200)
+            .body("data.title", is("Link"))
+            .body("data.questions[0].settings.poll", nullValue())
+            .body("data.questions[1].correctAnswers[0]", is("b-" + k))
+            .body("data.questions[2].settings.scoreOrder", is(true))
+            .body("data.questions[3].settings.poll", nullValue());
+
+        given().contentType(ContentType.JSON)
+            .body(body.formatted(k, "Quiz off", false, "", key, "\"scoreOrder\":true", ""))
+            .when().put(COLLAB + "/" + slug)
+            .then().statusCode(200);
+        given().when().get(SURVEYS + "/" + id)
+            .then().statusCode(200)
+            .body("data.title", is("Quiz off"))
+            .body("data.settings.isQuiz", is(true));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void linkHolderCannotLiftTheQuizExclusionByChangingSeveralFieldsOrOptions() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Quiz fields\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String k = id.substring(0, 8);
+        String body = """
+            {"title":"%2$s","status":"draft","settings":{"isQuiz":true},
+             "questions":[
+               {"id":"p-%1$s","type":"multiple-choice","title":"Key","required":false,"order":0,
+                "correctAnswers":%3$s,"settings":{"resultChart":"wordcloud"%4$s},"options":[{"id":"a-%1$s","label":"A"}]},
+               {"id":"o-%1$s","type":"dropdown","title":"Points","required":false,"order":1,
+                "settings":{"resultChart":"wordcloud",%5$s},"options":[{"id":"b-%1$s","label":"B"}]},
+               {"id":"x-%1$s","type":"checkboxes","title":"Options","required":false,"order":2,
+                "settings":{"resultChart":"wordcloud","optionPoints":{"c-%1$s":2}},"options":[{"id":"%6$s-%1$s","label":"C"}]}]}
+            """;
+        String points = "\"optionPoints\":{\"b-" + k + "\":2}";
+        given().contentType(ContentType.JSON)
+            .body(body.formatted(k, "Owner", "[\"a-" + k + "\"]", "", points, "c"))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        given().contentType(ContentType.JSON)
+            .body(body.formatted(k, "Link", "[]", ",\"poll\":true", "\"poll\":true", "d"))
+            .when().put(COLLAB + "/" + slug)
+            .then().statusCode(200);
+        given().when().get(SURVEYS + "/" + id)
+            .then().statusCode(200)
+            .body("data.title", is("Link"))
+            .body("data.questions[0].correctAnswers[0]", is("a-" + k))
+            .body("data.questions[0].settings.poll", nullValue())
+            .body("data.questions[1].settings.poll", nullValue())
+            .body("data.questions[1].settings.optionPoints.'b-" + k + "'", is(2))
+            .body("data.questions[2].options[0].id", is("d-" + k))
+            .body("data.questions[2].showInLiveResults", is(false));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void linkHolderCanChangeQuizScoringThatExposesNothingNew() {
+        String id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"title\":\"Quiz scoring\"}")
+            .when().post(SURVEYS)
+            .then().statusCode(201).extract().path("data.id");
+        String k = id.substring(0, 8);
+        String body = """
+            {"title":"Quiz scoring","status":"draft","settings":{"isQuiz":%2$s},
+             "questions":[{"id":"q-%1$s","type":"multiple-choice","title":"Bar","required":false,"order":0,
+               "correctAnswers":%3$s,"settings":{"resultChart":"bar"%4$s},"options":[{"id":"a-%1$s","label":"A"}]}]}
+            """;
+        given().contentType(ContentType.JSON)
+            .body(body.formatted(k, true, "[\"a-" + k + "\"]", ""))
+            .when().put(SURVEYS + "/" + id)
+            .then().statusCode(200);
+        String slug = given()
+            .when().post(SURVEYS + "/" + id + "/collab-link/rotate")
+            .then().statusCode(200).extract().path("data.slug");
+
+        given().contentType(ContentType.JSON)
+            .body(body.formatted(k, false, "[]", ",\"poll\":true"))
+            .when().put(COLLAB + "/" + slug)
+            .then().statusCode(200);
+        given().when().get(SURVEYS + "/" + id)
+            .then().statusCode(200)
+            .body("data.settings.isQuiz", is(false))
+            .body("data.questions[0].settings.poll", is(true))
+            .body("data.questions[0].correctAnswers[0]", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
     void linkHolderCanPreviewTheSurveyTheLinkEdits() {
         String id = given()
             .contentType(ContentType.JSON)

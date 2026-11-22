@@ -13,8 +13,10 @@ import org.acme.dto.SurveyDtos.UpdateSurveyRequest;
 import org.acme.entity.Question;
 import org.acme.entity.SurveySettings;
 import org.acme.exception.ForbiddenAccessException;
+import org.acme.mapper.SurveyMapper;
 import org.acme.repository.ResponseRepository;
 import org.acme.service.ApiKeyService;
+import org.acme.service.LiveExposure;
 import org.acme.service.SurveyService;
 
 import io.quarkus.security.identity.SecurityIdentity;
@@ -33,11 +35,15 @@ public class ApiKeyGuard {
     @Inject
     ResponseRepository responses;
 
+    @Inject
+    SurveyMapper mapper;
+
     public void checkUpdate(String userId, String surveyId, UpdateSurveyRequest req) {
         if (!lacksResponseAccess()) return;
         var survey = surveyService.requireEditable(userId, surveyId);
         if (changesSettingsSharing(req.settings(), survey.settings)
-            || changesQuestionSharing(survey.questions, req.questions())) {
+            || changesQuestionSharing(survey.questions, req.questions())
+            || widensQuestionExposure(survey.questions, survey.settings, req)) {
             throw new ForbiddenAccessException(
                 "This API key can't change result sharing or data retention. Allow it to read responses first.");
         }
@@ -66,6 +72,17 @@ public class ApiKeyGuard {
             if (old == null) return cloud;
             return cloud != isWordcloudChart(old.settings)
                 || Boolean.FALSE.equals(q.showInLiveResults()) != Boolean.FALSE.equals(old.showInLiveResults);
+        });
+    }
+
+    private boolean widensQuestionExposure(List<Question> current, SurveySettings settings, UpdateSurveyRequest req) {
+        if (req.questions() == null || current == null) return false;
+        boolean quizBefore = settings != null && settings.isQuiz;
+        boolean quizAfter = req.settings() == null ? quizBefore : req.settings().isQuiz();
+        Map<String, Question> byId = current.stream().collect(Collectors.toMap(q -> q.id, Function.identity(), (a, b) -> a));
+        return req.questions().stream().anyMatch(d -> {
+            var old = d.id() == null ? null : byId.get(d.id());
+            return old != null && LiveExposure.widens(quizBefore, old, quizAfter, mapper.previewQuestion(d));
         });
     }
 

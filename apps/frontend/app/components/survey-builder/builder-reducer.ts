@@ -11,6 +11,7 @@ import { newId } from "@/app/components/question-types/helpers";
 import { getQuestionTypeDefinition } from "@/app/components/question-types/registry";
 import { PROTECTED_SETTINGS, type CollabContent } from "@/app/lib/collab/doc";
 import { questionsInPageOrder, sectionKey } from "@/app/lib/survey/pagination";
+import { widensExposure } from "@/app/lib/results/live-exposure";
 
 export interface BuilderState {
   survey: Survey;
@@ -24,9 +25,15 @@ export interface BuilderState {
   locallyDirty: boolean;
   sharingBaseline: Record<string, Sharing>;
   ownSharing: Record<string, Sharing>;
+  quizBaseline: boolean;
+  ownQuiz?: boolean;
 }
 
-type Sharing = Pick<Question, "showInLiveResults"> & { resultChart?: unknown };
+const SHARING_SETTINGS = ["resultChart", "poll", "scoreOrder", "optionPoints"] as const;
+const QUIZ_FIELDS = ["correctAnswers", "poll", "scoreOrder", "optionPoints"] as const;
+
+type Sharing = Partial<Pick<Question, "type" | "options" | "showInLiveResults" | "correctAnswers">> &
+  Partial<Record<(typeof SHARING_SETTINGS)[number], unknown>>;
 
 type CoreState = Pick<BuilderState, "survey" | "dirty">;
 
@@ -84,7 +91,11 @@ export function builderReducer(
   if (action.type === "refreshSharingBaseline") {
     const withheld = withheldSharing(state);
     const server = action.survey.questions.filter((q) => withheld.includes(q.id));
-    return { ...state, sharingBaseline: { ...state.sharingBaseline, ...sharingBaselineOf({ ...action.survey, questions: server }) } };
+    return {
+      ...state,
+      sharingBaseline: { ...state.sharingBaseline, ...sharingBaselineOf({ ...action.survey, questions: server }) },
+      quizBaseline: withholdsQuiz(state) ? isQuiz(action.survey) : state.quizBaseline,
+    };
   }
   const next = coreReducer(state, action);
   if (next === state) return state; // edge no-ops keep identity (and the flag)
@@ -93,10 +104,12 @@ export function builderReducer(
     return {
       ...initialBuilderState(keepWithheldSharing(state, action.survey)),
       sharingBaseline: sharingBaselineOf(action.survey),
+      quizBaseline: isQuiz(action.survey),
     };
   }
   if (action.type === "applyRemote") {
-    return { ...state, ...next, locallyDirty: Object.keys(state.ownSharing).length > 0 };
+    const ownChanges = Object.keys(state.ownSharing).length > 0 || state.ownQuiz !== undefined;
+    return { ...state, ...next, locallyDirty: ownChanges };
   }
   const changed = next.survey.questions
     .filter((q) => exposure(q) !== exposure(findQuestion(state.survey, q.id)))
@@ -106,6 +119,7 @@ export function builderReducer(
     ...next,
     locallyDirty: true,
     ownSharing: { ...state.ownSharing, ...Object.fromEntries(changed) },
+    ownQuiz: isQuiz(next.survey) !== isQuiz(state.survey) ? isQuiz(next.survey) : state.ownQuiz,
   };
 }
 
@@ -116,49 +130,84 @@ export function initialBuilderState(survey: Survey): BuilderState {
     locallyDirty: false,
     sharingBaseline: sharingBaselineOf(survey),
     ownSharing: {},
+    quizBaseline: isQuiz(survey),
   };
 }
 
 const findQuestion = (survey: Survey, id: string) => survey.questions.find((q) => q.id === id);
 
+const isQuiz = (survey: Survey) => survey.settings?.isQuiz === true;
+
 const sharingOf = (q: Question): Sharing => ({
+  type: q.type,
+  options: q.options,
   showInLiveResults: q.showInLiveResults,
-  resultChart: q.settings?.resultChart,
+  correctAnswers: q.correctAnswers,
+  ...Object.fromEntries(SHARING_SETTINGS.map((key) => [key, q.settings?.[key]])),
 });
 
-const exposure = (q: Question | undefined) =>
-  q ? `${q.showInLiveResults !== false}|${q.settings?.resultChart === "wordcloud"}` : undefined;
+const exposure = (q: Question | undefined) => {
+  if (!q) return undefined;
+  const sharing = sharingOf(q);
+  return JSON.stringify([
+    q.showInLiveResults !== false,
+    sharing.resultChart === "wordcloud",
+    q.type,
+    q.options?.map((o) => o.id),
+    ...QUIZ_FIELDS.map((key) => sharing[key]),
+  ]);
+};
 
 function sharingBaselineOf(survey: Survey): Record<string, Sharing> {
   return Object.fromEntries(survey.questions.map((q) => [q.id, sharingOf(q)]));
 }
 
 function withSharing(q: Question, sharing: Sharing): Question {
-  const next = { ...q, showInLiveResults: sharing.showInLiveResults };
-  if (q.settings?.resultChart === sharing.resultChart) return next;
-  const settings = { ...q.settings, resultChart: sharing.resultChart };
-  if (sharing.resultChart === undefined) delete settings.resultChart;
+  const next = { ...q, showInLiveResults: sharing.showInLiveResults, correctAnswers: sharing.correctAnswers };
+  const changed = SHARING_SETTINGS.filter((key) => q.settings?.[key] !== sharing[key]);
+  if (changed.length === 0) return next;
+  const settings: Record<string, unknown> = { ...q.settings };
+  for (const key of changed) {
+    if (sharing[key] === undefined) delete settings[key];
+    else settings[key] = sharing[key];
+  }
   return { ...next, settings };
 }
 
-function withoutWidening(q: Question, base: Sharing): Question {
-  const widensLive = base.showInLiveResults === false && q.showInLiveResults !== false;
-  const widensCloud = q.settings?.resultChart === "wordcloud" && base.resultChart !== "wordcloud";
-  if (!widensLive && !widensCloud) return q;
-  const current = sharingOf(q);
-  return withSharing(q, {
-    showInLiveResults: widensLive ? base.showInLiveResults : current.showInLiveResults,
-    resultChart: widensCloud ? base.resultChart : current.resultChart,
-  });
+function withoutWidening(q: Question, base: Sharing | undefined, quiz: boolean): Question {
+  const known = base ?? {};
+  const widensLive = known.showInLiveResults === false && q.showInLiveResults !== false;
+  const widensCloud = q.settings?.resultChart === "wordcloud" && known.resultChart !== "wordcloud";
+  const shared =
+    widensLive || widensCloud
+      ? withSharing(q, {
+          ...sharingOf(q),
+          showInLiveResults: widensLive ? known.showInLiveResults : q.showInLiveResults,
+          resultChart: widensCloud ? known.resultChart : q.settings?.resultChart,
+        })
+      : q;
+  if (!base) return shared;
+  const before = { ...withSharing(shared, base), type: base.type ?? shared.type, options: base.options };
+  if (!widensExposure(before, quiz, shared, quiz)) return shared;
+  const restored = withSharing(shared, base);
+  return widensExposure(before, quiz, restored, quiz) ? { ...restored, showInLiveResults: false } : restored;
 }
 
 export function surveyToSave(state: BuilderState): Survey {
-  const questions = state.survey.questions.map((q) => {
-    return withoutWidening(q, state.ownSharing[q.id] ?? state.sharingBaseline[q.id] ?? {});
-  });
-  return questions.some((q, i) => q !== state.survey.questions[i])
-    ? { ...state.survey, questions }
-    : state.survey;
+  const quizBefore = state.ownQuiz ?? state.quizBaseline;
+  const quiz = quizBefore || isQuiz(state.survey);
+  const baseOf = (id: string) => state.ownSharing[id] ?? state.sharingBaseline[id];
+  const questions = state.survey.questions.map((q) => withoutWidening(q, baseOf(q.id), quiz));
+  const keepQuiz =
+    quizBefore &&
+    !isQuiz(state.survey) &&
+    questions.some((q) => baseOf(q.id) && widensExposure(q, true, q, false));
+  if (!keepQuiz && questions.every((q, i) => q === state.survey.questions[i])) return state.survey;
+  return {
+    ...state.survey,
+    questions,
+    ...(keepQuiz ? { settings: { ...state.survey.settings, isQuiz: true } } : {}),
+  };
 }
 
 export function withheldSharing(state: BuilderState): string[] {
@@ -166,12 +215,16 @@ export function withheldSharing(state: BuilderState): string[] {
   return sent.questions.filter((q, i) => q !== state.survey.questions[i]).map((q) => q.id);
 }
 
+function withholdsQuiz(state: BuilderState): boolean {
+  return isQuiz(surveyToSave(state)) !== isQuiz(state.survey);
+}
+
 export async function resolveSaveable(
   getState: () => BuilderState,
   dispatch: (action: BuilderAction) => void,
   load: () => Promise<Survey>,
 ): Promise<Survey> {
-  if (withheldSharing(getState()).length === 0) return getState().survey;
+  if (surveyToSave(getState()) === getState().survey) return getState().survey;
   const server = await load().catch(() => null);
   if (!server) return surveyToSave(getState());
   const action: BuilderAction = { type: "refreshSharingBaseline", survey: server };
@@ -181,12 +234,17 @@ export async function resolveSaveable(
 
 function keepWithheldSharing(state: BuilderState, saved: Survey): Survey {
   const withheld = new Set(withheldSharing(state));
-  if (withheld.size === 0) return saved;
+  const quiz = withholdsQuiz(state);
+  if (withheld.size === 0 && !quiz) return saved;
   const questions = saved.questions.map((q) => {
     const local = findQuestion(state.survey, q.id);
     return local && withheld.has(q.id) ? withSharing(q, sharingOf(local)) : q;
   });
-  return { ...saved, questions };
+  return {
+    ...saved,
+    questions,
+    ...(quiz ? { settings: { ...saved.settings, isQuiz: isQuiz(state.survey) } } : {}),
+  };
 }
 
 function mergeRemoteSettings(local: SurveySettings, remote: SurveySettings): SurveySettings {
