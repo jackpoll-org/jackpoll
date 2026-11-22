@@ -1,0 +1,6 @@
+Première version sur F-Droid.
+
+• Sondages et quiz avec de nombreux types de questions, dont les réponses longues
+• Blocs de texte et d’image entre les questions
+• Correction des copies de quiz élève par élève
+• Notifications push via UnifiedPush (par ex. ntfy)

@@ -214,10 +214,233 @@ const PATTERNS_DE: [RegExp, (...m: string[]) => string][] = [
   [/^(?:Request|Upload) failed with status (\d+)$/, (_, s) => `Anfrage fehlgeschlagen (Status ${s}).`],
 ];
 
-function translateDe(message: string): string {
-  const exact = EXACT_DE[message];
+// ── French ──────────────────────────────────────────────────────────
+
+const EXACT_FR: Record<string, string> = {
+  "A color palette can have at most 10 colors, each written as #rgb or #rrggbb.":
+    "Une palette peut contenir au maximum 10 couleurs, chacune au format #rgb ou #rrggbb.",
+  "A paragraph answer is too long.": "Une réponse de type paragraphe est trop longue.",
+  "A rating answer is out of range.": "Une note est en dehors de la plage autorisée.",
+  "A survey can have at most 10 webhooks.": "Un sondage peut avoir au maximum 10 webhooks.",
+  "A survey can have at most 500 pages.": "Un sondage peut avoir au maximum 500 pages.",
+  "A survey can have at most 10000 tokens.": "Un sondage peut avoir au maximum 10000 jetons.",
+  "A slider answer is out of range.": "Une valeur de curseur est en dehors de la plage autorisée.",
+  "A user with this email already exists": "Un compte existe déjà avec cette adresse e-mail.",
+  "Account not found": "Compte introuvable.",
+  "Account not found.": "Compte introuvable.",
+  "An answer is too large.": "Une réponse est trop volumineuse.",
+  "Code must be 6 digits": "Le code doit comporter 6 chiffres.",
+  "Code not found.": "Code introuvable.",
+  "Could not change the password. Please try again.": "Impossible de modifier le mot de passe. Veuillez réessayer.",
+  "Could not reset the password. Please try again.": "Impossible de réinitialiser le mot de passe. Veuillez réessayer.",
+  "Current password is incorrect": "Le mot de passe actuel est incorrect.",
+  "Draft has expired": "Le brouillon a expiré.",
+  "Draft not found": "Brouillon introuvable.",
+  "Editing is no longer available.": "La modification n’est plus possible.",
+  "Email is required.": "L’adresse e-mail est obligatoire.",
+  "Empty file.": "Le fichier est vide.",
+  "File could not be virus-scanned right now. Please try again later.":
+    "Le fichier n’a pas pu être analysé par l’antivirus pour le moment. Veuillez réessayer plus tard.",
+  "Grading is only available for quizzes.": "La notation n’est disponible que pour les quiz.",
+  "Host could not be resolved.": "L’hôte n’a pas pu être résolu.",
+  "Invalid amount.": "Montant invalide.",
+  "Invalid answer.": "Réponse invalide.",
+  "Invalid choice.": "Choix invalide.",
+  "Invalid email or password": "Adresse e-mail ou mot de passe incorrect.",
+  "Invalid expiry date.": "Date d’expiration invalide.",
+  "Invalid image key.": "Image invalide.",
+  "Invalid or expired code. Please try again.": "Le code est invalide ou a expiré. Veuillez réessayer.",
+  "Invalid URL.": "URL invalide.",
+  "Invalid value for a paragraph question.": "Valeur invalide pour une question de type paragraphe.",
+  "Invalid value for a rating question.": "Valeur invalide pour une question de notation.",
+  "Invalid value for a slider question.": "Valeur invalide pour une question à curseur.",
+  "Link is too long.": "Le lien est trop long.",
+  "Link must start with http:// or https://": "Le lien doit commencer par http:// ou https://.",
+  "Link not found.": "Lien introuvable.",
+  "Live results are not enabled.": "Les résultats en direct ne sont pas activés.",
+  "Name is required.": "Le nom est obligatoire.",
+  "No email address on file": "Aucune adresse e-mail n’est enregistrée.",
+  "No file provided.": "Aucun fichier fourni.",
+  "No invitation for this survey.": "Aucune invitation pour ce sondage.",
+  "One of your selections is no longer available. Please choose another.":
+    "L’un de vos choix n’est plus disponible. Veuillez en choisir un autre.",
+  "Password must contain at least one uppercase letter, one lowercase letter, and one number":
+    "Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre.",
+  "Please accept the terms of use.": "Veuillez accepter les conditions d’utilisation.",
+  "Please enter your name before submitting.": "Veuillez saisir votre nom avant d’envoyer.",
+  "Please enter your token before submitting.": "Veuillez saisir votre jeton avant d’envoyer.",
+  "Please reload the page to keep playing.": "Veuillez recharger la page pour continuer à jouer.",
+  "Please wait a minute before sending another test.": "Veuillez patienter une minute avant d’envoyer un autre test.",
+  "Registration failed. Please try again later.": "L’inscription a échoué. Veuillez réessayer plus tard.",
+  "Registration is disabled on this instance.": "Les inscriptions sont désactivées sur cette instance.",
+  "Request body too large": "La requête est trop volumineuse.",
+  "Response not found.": "Réponse introuvable.",
+  "Saving for later is turned off for this survey.": "L’enregistrement pour plus tard est désactivé pour ce sondage.",
+  "Sign in to preview this survey.": "Connectez-vous pour prévisualiser ce sondage.",
+  "The password is incorrect.": "Le mot de passe est incorrect.",
+  "There is no answer to grade for this question.": "Il n’y a aucune réponse à noter pour cette question.",
+  "There is no such question to comment on.": "Cette question n’existe pas.",
+  "Players don't see feedback in live quizzes.": "Les participants ne voient pas de retour dans les quiz en direct.",
+  "This collaboration link has expired.": "Ce lien de collaboration a expiré.",
+  "This link has expired.": "Ce lien a expiré.",
+  "This question can't be graded manually.": "Cette question ne peut pas être notée manuellement.",
+  "This question is no longer open.": "Cette question n’est plus ouverte.",
+  "This survey has reached its response limit.": "Ce sondage a atteint sa limite de réponses.",
+  "This survey is closed.": "Ce sondage est clôturé.",
+  "This survey is no longer accepting responses.": "Ce sondage n’accepte plus de réponses.",
+  "This survey is not open yet.": "Ce sondage n’est pas encore ouvert.",
+  "This survey is not accepting responses.": "Ce sondage n’accepte pas de réponses.",
+  "This survey requires an access code.": "Ce sondage nécessite un code d’accès.",
+  "This token has already answered this question.": "Ce jeton a déjà été utilisé pour répondre à cette question.",
+  "This token has already been used.": "Ce jeton a déjà été utilisé.",
+  "This token is not valid.": "Ce jeton n’est pas valide.",
+  "This unsubscribe link is invalid or has expired.": "Ce lien de désabonnement est invalide ou a expiré.",
+  "Token not found.": "Jeton introuvable.",
+  "Too many attempts. Please wait a moment and try again.": "Trop de tentatives. Veuillez patienter un instant et réessayer.",
+  "Too many invitations. Please try again later.": "Trop d’invitations. Veuillez réessayer plus tard.",
+  "Too many requests. Please wait a moment and try again.": "Trop de requêtes. Veuillez patienter un instant et réessayer.",
+  "Too many submissions. Please wait a moment and try again.": "Trop d’envois. Veuillez patienter un instant et réessayer.",
+  "Too many uploads. Please wait a moment and try again.": "Trop d’importations. Veuillez patienter un instant et réessayer.",
+  "Turn off \"Don't store responses\" to use live mode, live results, result lookup codes, response editing, one response per browser, a response limit, respondent tokens, email notifications or receipts.":
+    "Désactivez « Ne pas conserver les réponses » pour utiliser le mode direct, les résultats en direct, les codes de consultation des résultats, la modification des réponses, une réponse par navigateur, une limite de réponses, les jetons des participants, les notifications par e-mail ou les accusés de réception.",
+  "Turn off \"Don't store responses\" to use paragraph, manually graded, file upload or signature questions, or answer limits.":
+    "Désactivez « Ne pas conserver les réponses » pour utiliser des questions de type paragraphe, notées manuellement, d’importation de fichier ou de signature, ou des limites de réponses par option.",
+  "Unsupported or corrupt file. Allowed: images (JPG, PNG, GIF, WEBP, SVG), PDF, Word/Excel/PowerPoint, TXT, CSV.":
+    "Fichier non pris en charge ou endommagé. Formats autorisés : images (JPG, PNG, GIF, WEBP, SVG), PDF, Word/Excel/PowerPoint, TXT, CSV.",
+  "Upload not found.": "Fichier importé introuvable.",
+  "URL must point to a public address.": "L’URL doit pointer vers une adresse publique.",
+  "URL must start with http:// or https://": "L’URL doit commencer par http:// ou https://.",
+  "URL must use http or https.": "L’URL doit utiliser http ou https.",
+  "User not found": "Utilisateur introuvable.",
+  "Webhook not found": "Webhook introuvable.",
+  "You already own this survey.": "Ce sondage vous appartient déjà.",
+  "You don't have edit access to this survey.": "Vous n’avez pas les droits de modification sur ce sondage.",
+  "You have already answered this question.": "Vous avez déjà répondu à cette question.",
+  "You have already responded to this survey.": "Vous avez déjà répondu à ce sondage.",
+  "Your session has expired. Please sign in again.": "Votre session a expiré. Veuillez vous reconnecter.",
+  "Your submission could not be processed.": "Votre envoi n’a pas pu être traité.",
+  // Frontend fallbacks when a response carries no error text.
+  "Draft not available": "Brouillon indisponible.",
+  "Failed to accept invitation": "Impossible d’accepter l’invitation.",
+  "Failed to add collaborator": "Impossible d’ajouter le collaborateur.",
+  "Failed to cancel": "Échec de la résiliation.",
+  "Failed to change password": "Impossible de modifier le mot de passe.",
+  "Failed to clear responses": "Impossible d’effacer les réponses.",
+  "Failed to create folder": "Impossible de créer le dossier.",
+  "Failed to create survey": "Impossible de créer le sondage.",
+  "Failed to create webhook": "Impossible de créer le webhook.",
+  "Failed to decline invitation": "Impossible de refuser l’invitation.",
+  "Failed to delete account": "Impossible de supprimer le compte.",
+  "Failed to delete folder": "Impossible de supprimer le dossier.",
+  "Failed to delete preview data": "Impossible de supprimer les données d’aperçu.",
+  "Failed to delete response": "Impossible de supprimer la réponse.",
+  "Failed to delete survey": "Impossible de supprimer le sondage.",
+  "Failed to delete template": "Impossible de supprimer le modèle.",
+  "Failed to delete webhook": "Impossible de supprimer le webhook.",
+  "Failed to duplicate survey": "Impossible de dupliquer le sondage.",
+  "Failed to load access code": "Impossible de charger le code d’accès.",
+  "Failed to load analytics": "Impossible de charger les statistiques.",
+  "Failed to load collab link": "Impossible de charger le lien de collaboration.",
+  "Failed to load collaborators": "Impossible de charger les collaborateurs.",
+  "Failed to load folders": "Impossible de charger les dossiers.",
+  "Failed to load invitations": "Impossible de charger les invitations.",
+  "Failed to load leaderboard": "Impossible de charger le classement.",
+  "Failed to load your score": "Impossible de charger votre score.",
+  "Failed to load notification preferences": "Impossible de charger les préférences de notification.",
+  "Failed to load notifications": "Impossible de charger les notifications.",
+  "Failed to load responses": "Impossible de charger les réponses.",
+  "Failed to load results": "Impossible de charger les résultats.",
+  "Failed to load sessions": "Impossible de charger les sessions.",
+  "Failed to load share link": "Impossible de charger le lien de partage.",
+  "Failed to load survey": "Impossible de charger le sondage.",
+  "Failed to load surveys": "Impossible de charger les sondages.",
+  "Failed to load templates": "Impossible de charger les modèles.",
+  "Failed to load unread count": "Impossible de charger le nombre de notifications non lues.",
+  "Failed to load webhooks": "Impossible de charger les webhooks.",
+  "Failed to mark all notifications read": "Impossible de marquer les notifications comme lues.",
+  "Failed to mark notification read": "Impossible de marquer la notification comme lue.",
+  "Failed to organize survey": "Impossible de classer le sondage.",
+  "Failed to remove collaborator": "Impossible de retirer le collaborateur.",
+  "Failed to rename folder": "Impossible de renommer le dossier.",
+  "Failed to reorder surveys": "Impossible de réorganiser les sondages.",
+  "Failed to rotate": "Échec du renouvellement.",
+  "Failed to rotate code": "Impossible de renouveler le code.",
+  "Failed to rotate link": "Impossible de renouveler le lien.",
+  "Failed to save": "Échec de l’enregistrement.",
+  "Failed to save draft": "Impossible d’enregistrer le brouillon.",
+  "Failed to save grade": "Impossible d’enregistrer la note.",
+  "Failed to save notification preferences": "Impossible d’enregistrer les préférences de notification.",
+  "Failed to save survey": "Impossible d’enregistrer le sondage.",
+  "Failed to save template": "Impossible d’enregistrer le modèle.",
+  "Failed to send test": "Impossible d’envoyer le test.",
+  "Failed to start": "Échec du démarrage.",
+  "Failed to start checkout": "Impossible de lancer le paiement.",
+  "Failed to start the session": "Impossible de démarrer la session.",
+  "Failed to submit response": "Impossible d’envoyer la réponse.",
+  "Failed to update": "Échec de la mise à jour.",
+  "Failed to update code": "Impossible de mettre à jour le code.",
+  "Failed to update link": "Impossible de mettre à jour le lien.",
+  "Failed to update live state": "Impossible de mettre à jour l’état du direct.",
+  "Failed to update profile": "Impossible de mettre à jour le profil.",
+  "Failed to update response": "Impossible de mettre à jour la réponse.",
+  "Live results unavailable": "Résultats en direct indisponibles.",
+  "Not authenticated": "Non connecté.",
+  "Survey not available": "Sondage indisponible.",
+  "This edit link is not available.": "Ce lien de modification n’est pas disponible.",
+  "This link is not available.": "Ce lien n’est pas disponible.",
+  "Captcha challenge could not be solved": "La vérification captcha n’a pas pu être résolue.",
+  "Could not export your data. Please try again.": "Impossible d’exporter vos données. Veuillez réessayer.",
+  // Bean Validation defaults (backend ValidationExceptionMapper).
+  "must not be blank": "ne doit pas être vide",
+  "must not be null": "doit être renseigné",
+  "must not be empty": "ne doit pas être vide",
+  "must be a well-formed email address": "doit être une adresse e-mail valide",
+};
+
+const FIELDS_FR: Record<string, string> = {
+  "First name": "Prénom",
+  "Last name": "Nom",
+  "Street and number": "Numéro et rue",
+  City: "Ville",
+  "Company name": "Raison sociale",
+  "Address line 2": "Complément d’adresse",
+};
+const fieldFr = (name: string) => FIELDS_FR[name] ?? name;
+
+const PATTERNS_FR: [RegExp, (...m: string[]) => string][] = [
+  [/^(Survey|Folder|Template|Notification|Response|Upload) not found(: .*)?\.?$/, (_, what) =>
+    `${{ Survey: "Sondage", Folder: "Dossier", Template: "Modèle", Notification: "Notification", Response: "Réponse", Upload: "Fichier importé" }[what]} introuvable.`],
+  [/^Question (\d+) needs a title before publishing\.$/, (_, n) => `La question ${n} doit avoir un titre avant la publication.`],
+  [/^Question (\d+) has an empty answer option — fill it in before publishing\.$/, (_, n) =>
+    `La question ${n} comporte une option de réponse vide ; complétez-la avant la publication.`],
+  [/^File exceeds the maximum size of (\d+) MB\.$/, (_, n) => `Le fichier dépasse la taille maximale de ${n} Mo.`],
+  [/^File rejected: it failed a malware scan \((.*)\)\.$/, (_, t) => `Fichier refusé : l’analyse antivirus a détecté une menace (${t}).`],
+  [/^Points must be between 0 and (.+)\.$/, (_, n) => `Les points doivent être compris entre 0 et ${n}.`],
+  [/^Minimum for (\S+) (\S+) is €(.+)\.$/, (_, tier, interval, min) => `Montant minimum pour ${tier} (${interval}) : ${min} €.`],
+  [/^Description must be at most (\d+) characters\.$/, (_, n) => `La description ne doit pas dépasser ${n} caractères.`],
+  [/^(.+) must be at most (\d+) characters\.$/, (_, f, n) => `${fieldFr(f)} ne doit pas dépasser ${n} caractères.`],
+  [/^(.+) is required\.$/, (_, f) => `${fieldFr(f)} est obligatoire.`],
+  [/^You can change your display name again on (.+)$/, (_, d) => {
+    const date = new Date(d);
+    return `Vous pourrez de nouveau modifier votre nom d’affichage à partir du ${Number.isNaN(date.getTime()) ? d : date.toLocaleString("fr-FR")}.`;
+  }],
+  [/^size must be between (\d+) and (\d+)$/, (_, a, b) => `la longueur doit être comprise entre ${a} et ${b}`],
+  [/^must be greater than or equal to (.+)$/, (_, n) => `doit être supérieur ou égal à ${n}`],
+  [/^must be less than or equal to (.+)$/, (_, n) => `doit être inférieur ou égal à ${n}`],
+  [/^(?:Request|Upload) failed with status (\d+)$/, (_, s) => `Échec de la requête (statut ${s}).`],
+];
+
+type Table = { exact: Record<string, string>; patterns: [RegExp, (...m: string[]) => string][] };
+
+const TABLES: Partial<Record<Locale, Table>> = {
+  de: { exact: EXACT_DE, patterns: PATTERNS_DE },
+  fr: { exact: EXACT_FR, patterns: PATTERNS_FR },
+};
+
+function translateWith(table: Table, message: string): string {
+  const exact = table.exact[message];
   if (exact) return exact;
-  for (const [re, fn] of PATTERNS_DE) {
+  for (const [re, fn] of table.patterns) {
     const m = message.match(re);
     if (m) return fn(...m);
   }
@@ -231,13 +454,14 @@ function currentLocale(): Locale {
 
 /** Backend error messages are English; show them in the app's language. */
 export function localizeServerError(message: string, locale: Locale = currentLocale()): string {
-  if (locale !== "de") return message;
+  const table = TABLES[locale];
+  if (!table) return message;
   // Validation errors arrive as "path.to.field: message, other.field: message".
   if (/^[\w.[\]]+: /.test(message)) {
     return message
       .split(/, (?=[\w.[\]]+: )/)
-      .map((part) => translateDe(part.replace(/^[\w.[\]]+: /, "")))
+      .map((part) => translateWith(table, part.replace(/^[\w.[\]]+: /, "")))
       .join(", ");
   }
-  return translateDe(message);
+  return translateWith(table, message);
 }

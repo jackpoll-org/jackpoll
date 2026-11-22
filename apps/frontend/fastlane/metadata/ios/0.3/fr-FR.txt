@@ -1,0 +1,5 @@
+Nouveautés de cette version :
+• Questions à réponse longue pour les explications et les rédactions, avec correction manuelle dans les quiz
+• Blocs de texte et d’image entre les questions, pour les textes sources et les consignes
+• Correction des copies de quiz élève par élève et téléchargement des fichiers importés
+• Les nuages de mots affichent désormais toutes les réponses sur téléphone et en mode présentation

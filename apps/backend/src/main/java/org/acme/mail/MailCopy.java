@@ -33,7 +33,7 @@ public final class MailCopy {
 
     /** Languages the mails exist in. The first is the fallback. */
     public static final String DEFAULT_LOCALE = "en";
-    public static final Set<String> LOCALES = Set.of("en", "de");
+    public static final Set<String> LOCALES = Set.of("en", "de", "fr");
 
     private static final Map<String, MailCopy> CACHE = new ConcurrentHashMap<>();
 

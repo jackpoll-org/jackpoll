@@ -1,0 +1,1 @@
+• Les notifications push demandent désormais l’autorisation sur Android 13 et versions ultérieures lorsque vous les activez

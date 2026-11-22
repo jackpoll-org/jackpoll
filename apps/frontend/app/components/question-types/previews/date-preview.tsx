@@ -7,6 +7,7 @@ import { formatDateOnly } from "@/app/lib/survey/format";
 import { dateConfig } from "../editors/date-editor";
 import type { QuestionPreviewProps } from "../types";
 import { useTranslation } from "@/app/i18n/context";
+import { INTL_LOCALE } from "@/app/i18n/format";
 
 /** Preview / answer renderer for date/time questions (native picker).
  *  "datetime" mode renders separate date and time inputs, each bound by its
@@ -23,7 +24,7 @@ export function DatePreview({
   const current = typeof value === "string" ? value : "";
   // Force dd.mm.yyyy / 24h formatting for German rather than the browser/OS
   // locale, independent of the min/max values themselves (#).
-  const inputLang = locale === "de" ? "de-DE" : "en-US";
+  const inputLang = INTL_LOCALE[locale];
 
   if (cfg.fixedDates) {
     const dates = [...new Set(cfg.dates.filter(Boolean))].sort();
