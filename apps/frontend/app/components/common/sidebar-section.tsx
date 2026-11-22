@@ -48,6 +48,7 @@ interface SidebarSectionProps {
   prefs: SidebarTreePrefs;
   onPrefsChange: (prefs: SidebarTreePrefs) => void;
   menu?: ReactNode;
+  dropId?: string;
 }
 
 export function SidebarSection({
@@ -64,6 +65,7 @@ export function SidebarSection({
   prefs,
   onPrefsChange,
   menu,
+  dropId,
 }: SidebarSectionProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
@@ -85,6 +87,7 @@ export function SidebarSection({
       defaultOpen={defaultOpen}
       prefs={prefs}
       onPrefsChange={onPrefsChange}
+      dropId={dropId}
       menu={
         <>
           {menu}

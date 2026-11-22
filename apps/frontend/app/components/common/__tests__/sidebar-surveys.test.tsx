@@ -11,6 +11,8 @@ const renameFolder = vi.fn().mockResolvedValue(undefined);
 const startFromTemplate = vi.fn().mockResolvedValue(undefined);
 let templates: { id: string; name: string }[] = [];
 let search = new URLSearchParams();
+let hoveredDropId: string | null = null;
+const droppables = new Map<string, boolean>();
 
 vi.mock("@/app/hooks/survey", () => ({
   useSurveys: () => ({ data: { surveys }, isLoading: false }),
@@ -41,6 +43,13 @@ vi.mock("@/app/components/auth/auth-provider", () => ({
   useAuthContext: () => ({ user: { id: "me" } }),
 }));
 vi.mock("@/app/hooks/use-mobile", () => ({ useIsMobile: () => false }));
+vi.mock("@dnd-kit/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@dnd-kit/core")>()),
+  useDroppable: ({ id, disabled }: { id: string; disabled?: boolean }) => {
+    droppables.set(id, !disabled);
+    return { setNodeRef: () => {}, isOver: !disabled && id === hoveredDropId };
+  },
+}));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { SidebarProvider } from "@/app/components/ui/sidebar";
@@ -77,6 +86,8 @@ beforeEach(() => {
   templates = [];
   search = new URLSearchParams();
   startFromTemplate.mockClear();
+  hoveredDropId = null;
+  droppables.clear();
   surveys = [
     survey("d1", "draft"),
     survey("p1", "published"),
@@ -317,5 +328,14 @@ describe("SidebarSurveys while folders load", () => {
     renderSidebar();
     expect(screen.queryByText("Quiz filed")).toBeNull();
     expect(screen.queryByText("nav.unorganized")).toBeNull();
+  });
+
+  it("makes folders and Unorganized drop targets and highlights the hovered one", () => {
+    hoveredDropId = "sidebar:folder:f1";
+    renderSidebar();
+    const enabled = [...droppables].filter(([, on]) => on).map(([id]) => id);
+    expect(enabled.sort()).toEqual(["sidebar:folder:f1", "sidebar:unfiled"]);
+    expect(screen.getByRole("link", { name: "Physics" })).toHaveAttribute("data-drop-over", "true");
+    expect(screen.getByRole("link", { name: "nav.unorganized" })).not.toHaveAttribute("data-drop-over");
   });
 });

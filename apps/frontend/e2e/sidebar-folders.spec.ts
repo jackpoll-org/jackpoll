@@ -201,4 +201,95 @@ test.describe("sidebar folders", () => {
     await expect(page.getByText("boom")).toBeVisible();
     await expect(page).not.toHaveURL(/\/edit$/);
   });
+
+  test("dragging a survey onto a sidebar folder moves it there", async ({ page }) => {
+    await page.goto("/surveys?folder=none&lang=en");
+    const nav = sidebar(page);
+    const target = nav.getByRole("link", { name: "Physics" });
+    const organized = page.waitForRequest(
+      (req) => req.method() === "PUT" && new URL(req.url()).pathname.endsWith("/surveys/s1/organize"),
+    );
+
+    const grip = page.getByRole("button", { name: /Intro quiz/ }).filter({ has: page.locator("svg") }).first();
+    const from = (await grip.boundingBox())!;
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 20, from.y + 20, { steps: 5 });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 20 });
+    await expect(target).toHaveAttribute("data-drop-over", "true");
+    await page.mouse.up();
+
+    expect((await organized).postDataJSON()).toEqual({ tags: ["exam"], folderId: "f1" });
+    await expect(target).not.toHaveAttribute("data-drop-over");
+  });
+
+  test("the sidebar divider resizes the sidebar and remembers the width", async ({ page }) => {
+    await page.goto("/surveys?lang=en");
+    const handle = page.getByRole("separator", { name: "Resize sidebar" });
+    const container = page.locator("[data-slot=sidebar-container]");
+    await expect(handle).toHaveAttribute("aria-valuenow", "256");
+
+    const box = (await handle.boundingBox())!;
+    const grabX = box.x + 1;
+    await page.mouse.move(grabX, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(grabX + 64, box.y + 200, { steps: 10 });
+    await page.mouse.up();
+    await expect(handle).toHaveAttribute("aria-valuenow", "320");
+    await expect.poll(async () => Math.round((await container.boundingBox())!.width)).toBe(320);
+
+    const moved = (await handle.boundingBox())!;
+    await page.mouse.move(moved.x + moved.width / 2, moved.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(1000, moved.y + 200, { steps: 5 });
+    await page.mouse.up();
+    await expect(handle).toHaveAttribute("aria-valuenow", "400");
+
+    await page.reload();
+    await expect(handle).toHaveAttribute("aria-valuenow", "400");
+    await handle.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(handle).toHaveAttribute("aria-valuenow", "384");
+    await expect.poll(async () => Math.round((await container.boundingBox())!.width)).toBe(384);
+    await handle.dblclick();
+    await expect(handle).toHaveAttribute("aria-valuenow", "256");
+  });
+
+  for (const view of ["Grid view", "List view"]) {
+    test(`a sidebar drop goes to the folder under the pointer (${view})`, async ({ page }) => {
+      await page.route("**/api/**/folders", (route) =>
+        route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: true,
+            data: [
+              { id: "f1", name: "Physics" },
+              { id: "f2", name: "Chemistry" },
+              { id: "f3", name: "Biology" },
+            ],
+            error: null,
+          }),
+        }),
+      );
+      await page.goto("/surveys?folder=none&lang=en");
+      await page.getByLabel(view).click();
+      const target = sidebar(page).getByRole("link", { name: "Chemistry" });
+      const organized = page.waitForRequest(
+        (req) => req.method() === "PUT" && new URL(req.url()).pathname.endsWith("/surveys/s1/organize"),
+      );
+
+      const grip = page.getByRole("button", { name: /Intro quiz/ }).filter({ has: page.locator("svg") }).first();
+      const from = (await grip.boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + 20, from.y + 20, { steps: 5 });
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 20 });
+      await expect(target).toHaveAttribute("data-drop-over", "true");
+      await page.mouse.up();
+
+      expect((await organized).postDataJSON()).toEqual({ tags: ["exam"], folderId: "f2" });
+    });
+  }
 });

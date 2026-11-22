@@ -4,6 +4,7 @@ import {
   resolveReorder,
   arrayMove,
   folderDropId,
+  sidebarDropId,
   dropTargetFolderId,
   isFolderDropTarget,
   UNFILED_DROP_ID,
@@ -61,6 +62,17 @@ describe("folder-dnd helpers", () => {
 
   it("is a no-op when dropped on the folder it already lives in", () => {
     expect(resolveFolderDrop("s2", "folder:f1", surveys)).toBeNull();
+  });
+
+  it("resolves sidebar folder and Unorganized drops like dashboard targets", () => {
+    expect(resolveFolderDrop("s1", sidebarDropId(folderDropId("f1")), surveys)).toEqual({
+      id: "s1",
+      folderId: "f1",
+      tags: ["x"],
+    });
+    expect(resolveFolderDrop("s2", sidebarDropId(UNFILED_DROP_ID), surveys)?.folderId).toBeNull();
+    expect(resolveFolderDrop("s2", sidebarDropId(folderDropId("f1")), surveys)).toBeNull();
+    expect(resolveFolderDrop("s1", sidebarDropId("section:tags"), surveys)).toBeNull();
   });
 
   it("is a no-op for unknown survey or non-target drop", () => {

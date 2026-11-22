@@ -4,11 +4,8 @@ import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FileText, LayoutGrid, List, Search, X } from "lucide-react";
 import {
-  DndContext,
   DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
+  useDndMonitor,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -117,12 +114,6 @@ export function SurveyDashboard() {
     updateUrl({ status: value === "all" ? null : value }, "replace");
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  // Drag activates from the card's grip handle (survey-card.tsx), so a small
-  // move threshold is all that's needed — the card body still scrolls/taps.
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
-
   const gridClass =
     density === "compact"
       ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
@@ -211,6 +202,12 @@ export function SurveyDashboard() {
     if (sort !== "manual") setSort("manual");
     reorder.mutate(result);
   }
+
+  useDndMonitor({
+    onDragStart: (e: DragStartEvent) => setDraggingId(String(e.active.id)),
+    onDragEnd: handleDragEnd,
+    onDragCancel: () => setDraggingId(null),
+  });
 
   const draggingSurvey = draggingId
     ? surveys.find((s) => s.id === draggingId)
@@ -335,12 +332,7 @@ export function SurveyDashboard() {
           <TemplatePickerDialog customTemplates={customTemplates} />
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          onDragStart={(e: DragStartEvent) => setDraggingId(String(e.active.id))}
-          onDragEnd={handleDragEnd}
-          onDragCancel={() => setDraggingId(null)}
-        >
+        <>
           {!allView && !unfiledView && (
             <SharedSurveysFolder
               surveys={sharedFiltered}
@@ -406,7 +398,7 @@ export function SurveyDashboard() {
               </Card>
             ) : null}
           </DragOverlay>
-        </DndContext>
+        </>
       )}
     </div>
   );

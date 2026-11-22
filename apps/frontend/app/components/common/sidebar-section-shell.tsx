@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useDroppable } from "@dnd-kit/core";
 import { ChevronRight, MoreHorizontal } from "lucide-react";
 import {
   Collapsible,
@@ -20,6 +21,7 @@ import {
   SidebarMenuSub,
 } from "@/app/components/ui/sidebar";
 import { useTranslation } from "@/app/i18n/context";
+import { cn } from "@/lib/utils";
 import { isOpen, withOpen, type SidebarTreePrefs } from "@/app/lib/survey/sidebar-tree";
 
 const BUTTON_PADDING = "group-has-data-[sidebar=menu-action]/menu-item:pr-14";
@@ -35,6 +37,7 @@ interface SidebarSectionShellProps {
   onPrefsChange: (prefs: SidebarTreePrefs) => void;
   menu?: ReactNode;
   className?: string;
+  dropId?: string;
   children: ReactNode;
 }
 
@@ -49,9 +52,11 @@ export function SidebarSectionShell({
   onPrefsChange,
   menu,
   className,
+  dropId,
   children,
 }: SidebarSectionShellProps) {
   const { t } = useTranslation();
+  const { setNodeRef, isOver } = useDroppable({ id: dropId ?? `section:${id}`, disabled: !dropId });
   const label = (
     <>
       {icon}
@@ -68,7 +73,14 @@ export function SidebarSectionShell({
     >
       <SidebarMenuItem className={className}>
         {href ? (
-          <SidebarMenuButton asChild isActive={isActive} tooltip={title} className={BUTTON_PADDING}>
+          <SidebarMenuButton
+            ref={setNodeRef}
+            asChild
+            isActive={isActive}
+            tooltip={title}
+            data-drop-over={isOver || undefined}
+            className={cn(BUTTON_PADDING, isOver && "bg-sidebar-accent ring-2 ring-sidebar-ring")}
+          >
             <Link href={href}>{label}</Link>
           </SidebarMenuButton>
         ) : (

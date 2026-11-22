@@ -18,6 +18,7 @@ import {
 } from "@/app/components/ui/sidebar";
 import { NavUser } from "@/app/components/common/nav-user";
 import { SidebarSurveys } from "@/app/components/common/sidebar-surveys";
+import { SidebarResizeHandle } from "@/app/components/common/sidebar-resize-handle";
 import { useTranslation } from "@/app/i18n/context";
 import { LegalNav } from "@/app/components/legal/legal-nav";
 
@@ -84,6 +85,7 @@ export function AppSidebar() {
         <LegalNav className="flex flex-wrap justify-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden" />
         <NavUser />
       </SidebarFooter>
+      <SidebarResizeHandle />
     </Sidebar>
   );
 }

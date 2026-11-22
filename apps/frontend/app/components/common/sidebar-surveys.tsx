@@ -20,6 +20,7 @@ import { useAuthContext } from "@/app/components/auth/auth-provider";
 import { useFolders, useSurveys } from "@/app/hooks/survey";
 import { useFolderDialog } from "@/app/hooks/use-folder-dialog";
 import { useTranslation } from "@/app/i18n/context";
+import { UNFILED_DROP_ID, folderDropId, sidebarDropId } from "@/app/lib/survey/folder-dnd";
 import { useSidebarTree } from "@/app/lib/preferences/ui-prefs";
 import {
   ALL_FOLDER,
@@ -92,6 +93,7 @@ export function SidebarSurveys() {
         isLoading={isLoading}
         emptyLabel={t("nav.surveysEmpty")}
         defaultOpen
+        dropId={sidebarDropId(UNFILED_DROP_ID)}
         prefs={prefs}
         onPrefsChange={savePrefs}
         menu={
@@ -125,6 +127,7 @@ export function SidebarSurveys() {
             showAllHref={(status) => showAllHref(folder.id, status)}
             emptyLabel={t("dashboard.folder.emptyFolder")}
             defaultOpen={false}
+            dropId={sidebarDropId(folderDropId(folder.id))}
             prefs={prefs}
             onPrefsChange={savePrefs}
             menu={

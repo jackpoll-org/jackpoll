@@ -14,6 +14,7 @@ function navigate(url: string) {
 const folders: Folder[] = [{ id: "f1", name: "Physics" }];
 let foldersState: { data?: Folder[]; isLoading?: boolean; isError?: boolean } = { data: folders };
 const reorder = vi.fn();
+const organize = vi.fn();
 let dragEnd: ((event: unknown) => Promise<void>) | undefined;
 let surveys = [
   survey("d1", "draft"),
@@ -31,7 +32,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/app/hooks/survey", () => ({
   useSurveys: () => ({ data: { surveys }, isLoading: false, isError: false }),
   useFolders: () => foldersState,
-  useOrganizeSurvey: () => ({ mutateAsync: vi.fn() }),
+  useOrganizeSurvey: () => ({ mutateAsync: organize }),
   useReorderSurveys: () => ({ mutate: reorder }),
   useCreateFolder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRenameFolder: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -59,15 +60,8 @@ vi.mock("../survey-card", () => ({
 }));
 vi.mock("@dnd-kit/core", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@dnd-kit/core")>()),
-  DndContext: ({
-    children,
-    onDragEnd,
-  }: {
-    children: React.ReactNode;
-    onDragEnd: (event: unknown) => Promise<void>;
-  }) => {
+  useDndMonitor: ({ onDragEnd }: { onDragEnd: (event: unknown) => Promise<void> }) => {
     dragEnd = onDragEnd;
-    return <>{children}</>;
   },
 }));
 vi.mock("../template-picker-dialog", () => ({ TemplatePickerDialog: () => null }));
@@ -112,6 +106,7 @@ beforeEach(() => {
   localStorage.clear();
   foldersState = { data: folders };
   reorder.mockClear();
+  organize.mockClear();
   router.push.mockClear();
   router.replace.mockClear();
 });
@@ -279,5 +274,22 @@ describe("SurveyDashboard URL state", () => {
     } finally {
       surveys.pop();
     }
+  });
+
+  it("moves a survey dropped onto a sidebar folder or Unorganized, keeping its tags", async () => {
+    renderDashboard("/surveys?folder=f1");
+    await dragEnd!({ active: { id: "d1" }, over: { id: "sidebar:folder:f1" } });
+    await dragEnd!({ active: { id: "x2" }, over: { id: "sidebar:unfiled" } });
+    expect(organize.mock.calls).toEqual([
+      [{ id: "d1", tags: ["exam"], folderId: "f1" }],
+      [{ id: "x2", tags: ["exam", "final"], folderId: null }],
+    ]);
+    expect(reorder).not.toHaveBeenCalled();
+  });
+
+  it("ignores sidebar drops of surveys shared with me", async () => {
+    renderDashboard("/surveys?folder=all");
+    await dragEnd!({ active: { id: "o1" }, over: { id: "sidebar:folder:f1" } });
+    expect(organize).not.toHaveBeenCalled();
   });
 });

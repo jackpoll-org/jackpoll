@@ -12,10 +12,15 @@ export const UNFILED_DROP_ID = "unfiled";
 export const ALL_DROP_ID = "all";
 /** Prefix for a folder droppable id, e.g. `folder:abc`. */
 const FOLDER_DROP_PREFIX = "folder:";
+const SIDEBAR_DROP_PREFIX = "sidebar:";
 
 /** Build the droppable id for a folder. */
 export function folderDropId(folderId: string): string {
   return `${FOLDER_DROP_PREFIX}${folderId}`;
+}
+
+export function sidebarDropId(dropId: string): string {
+  return `${SIDEBAR_DROP_PREFIX}${dropId}`;
 }
 
 /** The target folderId a droppable id represents (null = unfiled/all). */
@@ -48,9 +53,12 @@ export interface FolderMove {
  */
 export function resolveFolderDrop(
   activeId: string,
-  overId: string | null,
+  dropId: string | null,
   surveys: readonly Survey[],
 ): FolderMove | null {
+  const overId = dropId?.startsWith(SIDEBAR_DROP_PREFIX)
+    ? dropId.slice(SIDEBAR_DROP_PREFIX.length)
+    : dropId;
   if (!overId || !isFolderDropTarget(overId)) return null;
   const survey = surveys.find((s) => s.id === activeId);
   if (!survey) return null;
