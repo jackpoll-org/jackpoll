@@ -33,6 +33,7 @@ import {
   maxPointsFor,
   nextPendingIndex,
   POINTS_LIMIT,
+  respondentLabel,
 } from "@/app/lib/survey/grading";
 import type { Question, SurveyResponseDto, UploadedFile } from "@/app/types/survey";
 import { AnswerFeedbackField } from "./answer-feedback-field";
@@ -115,6 +116,7 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
   const pendingIndex = nextPendingIndex(ordered, index);
   const isQuiz = survey.data.settings.isQuiz;
   const liveMode = survey.data.settings.liveMode === true;
+  const position = t("grading.position", { n: String(index + 1), total: String(ordered.length) });
   const firstGradable = pages
     .flatMap((page) => page.questions)
     .find((q) => isGradable(q, liveMode));
@@ -159,13 +161,10 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold tracking-tight">
-              {response.respondentName || response.respondentToken || t("grading.anonymous")}
+              {respondentLabel(response, t)}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {t("grading.position", {
-                n: String(index + 1),
-                total: String(ordered.length),
-              })}{" "}
+              {position}{" "}
               · {new Date(response.submittedAt).toLocaleString()}
             </p>
           </div>
@@ -180,7 +179,7 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
       )}
 
       <ResultPages
-        key={response.id}
+        key={`pages-${response.id}`}
         survey={survey.data}
         pages={pages}
         answers={response.answers}
@@ -197,9 +196,10 @@ export function GradingView({ surveyId, responseId, sessionId }: GradingViewProp
 
       {isQuiz && (
         <ReviewCard
-          key={response.id}
+          key={`review-${response.id}`}
           surveyId={surveyId}
           response={response}
+          position={position}
           onNext={pendingIndex >= 0 && pendingIndex !== index
             ? () => goTo(pendingIndex)
             : index < ordered.length - 1

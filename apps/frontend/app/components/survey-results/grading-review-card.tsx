@@ -12,7 +12,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { useReviewResponse } from "@/app/hooks/survey";
 import { useSaveAfterPause } from "@/app/hooks/use-save-after-pause";
 import { useTranslation } from "@/app/i18n/context";
-import { formatResultCode } from "@/app/lib/survey/grading";
+import { formatResultCode, respondentLabel } from "@/app/lib/survey/grading";
 import type { SurveyResponseDto } from "@/app/types/survey";
 
 const MAX_BONUS = 1000;
@@ -21,10 +21,11 @@ const MAX_FEEDBACK = 5000;
 interface ReviewCardProps {
   surveyId: string;
   response: SurveyResponseDto;
+  position: string;
   onNext?: () => void;
 }
 
-export function ReviewCard({ surveyId, response, onNext }: ReviewCardProps) {
+export function ReviewCard({ surveyId, response, position, onNext }: ReviewCardProps) {
   const { t } = useTranslation();
   const review = useReviewResponse(surveyId);
   const [bonus, setBonus] = useState(response.bonusPoints != null ? String(response.bonusPoints) : "");
@@ -64,7 +65,12 @@ export function ReviewCard({ surveyId, response, onNext }: ReviewCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <CardTitle className="text-base font-medium">{t("grading.summary")}</CardTitle>
+        <div className="grid min-w-0 gap-0.5">
+          <CardTitle className="text-base font-medium">{t("grading.summary")}</CardTitle>
+          <p className="truncate text-sm text-muted-foreground">
+            <span>{respondentLabel(response, t)}</span> · {position}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xl font-semibold tabular-nums">
             {t("grading.total")}: {response.score ?? 0}/{response.maxScore ?? 0}

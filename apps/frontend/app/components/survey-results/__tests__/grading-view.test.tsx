@@ -90,7 +90,7 @@ describe("GradingView", () => {
     const heading = screen.getByRole("heading", { name: "Student b" });
     const next = screen.getByRole("button", { name: /grading.next$/ });
     expect(next.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText(/grading.position 2 2/)).toBeTruthy();
+    expect(screen.getAllByText(/grading.position 2 2/)[0].closest("[data-slot=card]")).toBeNull();
     expect(screen.getByText(/identifies a row/)).toBeTruthy();
     expect(screen.getByRole("img", { name: "erm.png" })).toBeTruthy();
     const download = screen.getByRole("link", { name: /grading.download/ });
@@ -444,5 +444,38 @@ describe("GradingView page order", () => {
     expect(positions).toEqual(positions.toSorted((a, b) => a - b));
     expect(screen.getByRole("heading", { name: "Part two" })).toBeTruthy();
     expect(screen.getAllByLabelText("grading.points")).toHaveLength(1);
+  });
+
+  it("shows every question once after a save refreshes the submission", () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const view = render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      responses = [response("b", "2026-09-24T10:05:00Z", { score: 3, answers: [
+        { questionId: "essay", value: "A primary key\nidentifies a row.", feedback: "Good" },
+      ] })];
+      view.rerender(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+      responses = [response("b", "2026-09-24T10:05:00Z", { score: 4 })];
+      view.rerender(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+
+      for (const title of ["Context text", "Added later", "Created first"]) {
+        expect(screen.getAllByText(title)).toHaveLength(1);
+      }
+      expect(screen.getAllByRole("heading", { name: "Part two" })).toHaveLength(1);
+      expect(errors.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+});
+
+describe("GradingView review card", () => {
+  it("names the student and their position next to the result", () => {
+    responses = [response("a", "2026-09-24T10:00:00Z"), response("b", "2026-09-24T10:05:00Z")];
+    render(<GradingView surveyId="s1" responseId="b" sessionId={null} />);
+
+    expect(screen.getAllByText("Student b")).toHaveLength(2);
+    expect(screen.getAllByText(/grading.position 2 2/)).toHaveLength(2);
+    const summary = screen.getByText("grading.summary");
+    expect(summary.closest("[data-slot=card]")?.textContent).toContain("Student b");
   });
 });

@@ -1,3 +1,4 @@
+import type { TranslateFn } from "@/app/i18n/context";
 import type { Question, SurveyResponseDto } from "@/app/types/survey";
 import { isAnswerable } from "./content-block";
 
@@ -17,6 +18,10 @@ export const CHOICE_TYPES = new Set<Question["type"]>(["multiple-choice", "dropd
 type PointsMap = Record<string, number>;
 
 export const POINTS_LIMIT = 1000;
+
+export function respondentLabel(response: SurveyResponseDto, t: TranslateFn): string {
+  return response.respondentName || response.respondentToken || t("grading.anonymous");
+}
 
 function pointsMap(question: Question, key: "optionPoints" | "answerPoints", min: number): PointsMap | null {
   const raw = question.settings?.[key];
