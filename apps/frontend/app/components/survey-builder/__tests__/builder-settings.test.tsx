@@ -204,3 +204,14 @@ describe("BuilderSettings combined word cloud hints", () => {
     expect(screen.queryByText("builder.settings.combinedWordcloudNoQuestion")).toBeNull();
   });
 });
+
+describe("BuilderSettings progress", () => {
+  it("toggles showing progress, off by default", () => {
+    survey = baseSurvey();
+    render(<BuilderSettings />);
+    const toggle = screen.getByRole("switch", { name: "builder.settings.showProgressBar" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
+    expect(updateSettings).toHaveBeenCalledWith({ showProgressBar: true });
+  });
+});

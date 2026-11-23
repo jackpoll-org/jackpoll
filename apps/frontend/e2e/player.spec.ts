@@ -20,17 +20,17 @@ test.describe("survey player", () => {
     await expect(
       page.getByRole("heading", { name: "Customer Feedback" }),
     ).toBeVisible();
-    await expect(page.getByRole("progressbar", { name: "Step 1 of 2" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Page 1 of 2 · 0 of 2 answered" })).toBeVisible();
 
     // Required short-answer left blank → advancing is blocked with an alert.
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(page.getByRole("alert").first()).toBeVisible();
-    await expect(page.getByRole("progressbar", { name: "Step 1 of 2" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Page 1 of 2 · 0 of 2 answered" })).toBeVisible();
 
     // Fill it in and advance to page two.
     await page.getByRole("textbox").first().fill("Ada Lovelace");
     await page.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(page.getByRole("progressbar", { name: "Step 2 of 2" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Page 2 of 2 · 1 of 2 answered" })).toBeVisible();
     await expect(
       page.getByText("How did you hear about us?"),
     ).toBeVisible();
@@ -51,11 +51,11 @@ test.describe("survey player", () => {
 
     await page.getByRole("textbox").first().fill("Grace Hopper");
     await page.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(page.getByRole("progressbar", { name: "Step 2 of 2" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Page 2 of 2 · 1 of 2 answered" })).toBeVisible();
 
     // The answer is retained when returning to the previous page.
     await page.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(page.getByRole("progressbar", { name: "Step 1 of 2" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Page 1 of 2 · 1 of 2 answered" })).toBeVisible();
     await expect(page.getByRole("textbox").first()).toHaveValue("Grace Hopper");
   });
 

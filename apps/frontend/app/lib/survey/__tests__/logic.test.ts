@@ -48,6 +48,8 @@ describe("evaluateCondition", () => {
   it("empty / notEmpty", () => {
     expect(evaluateCondition({ questionId: "q1", operator: "empty" }, { q1: "" })).toBe(true);
     expect(evaluateCondition({ questionId: "q1", operator: "notEmpty" }, { q1: "x" })).toBe(true);
+    expect(evaluateCondition({ questionId: "q1", operator: "empty" }, { q1: { r1: [], r2: "" } })).toBe(true);
+    expect(evaluateCondition({ questionId: "q1", operator: "notEmpty" }, { q1: { r1: ["c1"], r2: "" } })).toBe(true);
   });
   it("greaterThan / lessThan", () => {
     expect(evaluateCondition({ questionId: "q1", operator: "greaterThan", value: "3" }, { q1: "5" })).toBe(true);

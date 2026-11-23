@@ -4,7 +4,7 @@ import type {
   Question,
   Section,
 } from "@/app/types/survey";
-import type { AnswerValue } from "./validation";
+import { isEmpty, type AnswerValue } from "./validation";
 
 /** Read the conditional-logic rule stored in a question's settings JSON. */
 export function getLogicRule(question: Question): LogicRule | null {
@@ -32,14 +32,6 @@ export function withLogicRule(
 export function hasLogic(question: Question): boolean {
   const rule = getLogicRule(question);
   return !!rule && rule.conditions.length > 0;
-}
-
-function isEmpty(value: AnswerValue): boolean {
-  if (value == null) return true;
-  if (typeof value === "number") return false;
-  if (typeof value === "string") return value.trim() === "";
-  if (Array.isArray(value)) return value.length === 0;
-  return Object.keys(value).length === 0;
 }
 
 function asText(value: AnswerValue): string {

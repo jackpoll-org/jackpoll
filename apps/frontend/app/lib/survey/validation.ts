@@ -45,7 +45,7 @@ export function withValidationRules(
   return { ...(question.settings ?? {}), validation: rules };
 }
 
-function isEmpty(answer: AnswerValue): boolean {
+export function isEmpty(answer: AnswerValue): boolean {
   if (answer == null) return true;
   // A slider always reports a number — including 0 — so it is never "empty".
   if (typeof answer === "number") return false;

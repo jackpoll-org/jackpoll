@@ -453,6 +453,19 @@ export function BuilderSettings() {
         </p>
         <div className="flex items-center gap-2 border-t pt-3">
           <Switch
+            id="show-progress-bar"
+            checked={settings.showProgressBar}
+            onCheckedChange={(c) => updateSettings({ showProgressBar: c })}
+          />
+          <Label htmlFor="show-progress-bar" className="font-normal">
+            {t("builder.settings.showProgressBar")}
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t("builder.settings.showProgressBarHelp")}
+        </p>
+        <div className="flex items-center gap-2 border-t pt-3">
+          <Switch
             id="allow-save-later"
             checked={!settings.disableSaveLater && !stateless}
             disabled={stateless}

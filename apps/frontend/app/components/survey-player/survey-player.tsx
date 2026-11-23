@@ -21,6 +21,7 @@ import { useHasResponded, useSubmitResponse } from "@/app/hooks/survey";
 import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import { isQuestionVisible } from "@/app/lib/survey/logic";
 import { buildPages } from "@/app/lib/survey/pagination";
+import { computeProgress } from "@/app/lib/survey/progress";
 import { matchOutcome } from "@/app/lib/survey/outcomes";
 import { resolvePiping } from "@/app/lib/survey/piping";
 import { normalizeRedirectUrl } from "@/app/lib/survey/redirect";
@@ -238,6 +239,25 @@ export function SurveyPlayer({
   const currentPageIndex = Math.min(page, Math.max(0, pageCount - 1));
   const currentPage = pages[currentPageIndex];
   const isLastPage = currentPageIndex >= pageCount - 1;
+  const [sentWordclouds, setSentWordclouds] = useState<ReadonlySet<string>>(() => new Set());
+  const progress = useMemo(
+    () => computeProgress(survey, answers, currentPageIndex, { pages, sent: sentWordclouds }),
+    [survey, answers, currentPageIndex, pages, sentWordclouds],
+  );
+  const conversational = !!survey.settings.conversational;
+  const stepLabel = conversational
+    ? progress.question === null
+      ? null
+      : t("player.progress.question", { current: progress.question, total: progress.total })
+    : t("player.progress.page", { current: progress.page, total: progress.pageCount });
+  const progressLabel = conversational && stepLabel
+    ? `${stepLabel} · ${t("player.progress.answeredOnly", { answered: progress.answered })}`
+    : [
+        !conversational && pageCount > 1 ? stepLabel : null,
+        t("player.progress.answered", { answered: progress.answered, total: progress.total }),
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
   const isTimed = survey.settings.isQuiz && !!survey.settings.timeLimit;
   const [remaining, setRemaining] = useState(survey.settings.timeLimit ?? 0);
@@ -260,13 +280,11 @@ export function SurveyPlayer({
     }
     if (pageCount > 1) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStepAnnounce(
-        t("player.stepOf", { current: currentPageIndex + 1, total: pageCount }),
-      );
+      setStepAnnounce(stepLabel ?? "");
     }
     topRef.current?.focus();
     scrollToTop();
-  }, [currentPageIndex, pageCount, t]);
+  }, [currentPageIndex, pageCount, stepLabel]);
 
   // Keep a ref to the latest auto-submit so the timer isn't stale. doSubmit is
   // a hoisted function declared below; referencing it here is safe and this
@@ -432,6 +450,7 @@ export function SurveyPlayer({
       preview: preview || undefined,
       runId,
     });
+    setSentWordclouds((prev) => new Set(prev).add(question.id));
     if (analytics) trackEvent(survey.id, "submit");
   }
 
@@ -743,29 +762,23 @@ export function SurveyPlayer({
         </div>
       )}
 
-      {pageCount > 1 && survey.settings.showProgressBar && (
+      {survey.settings.showProgressBar && progress.total > 0 && (
         <div className="grid gap-1">
           <div
             className="h-2 w-full overflow-hidden rounded-full bg-primary/20"
             role="progressbar"
-            aria-valuenow={currentPageIndex + 1}
-            aria-valuemin={1}
-            aria-valuemax={pageCount}
-            aria-label={t("player.stepOf", {
-              current: currentPageIndex + 1,
-              total: pageCount,
-            })}
+            aria-valuenow={progress.answered}
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-label={progressLabel}
           >
             <div
               className="h-full bg-primary motion-safe:transition-all"
-              style={{ width: `${((currentPageIndex + 1) / pageCount) * 100}%` }}
+              style={{ width: `${(progress.answered / progress.total) * 100}%` }}
             />
           </div>
-          <p className="text-xs text-muted-foreground">
-            {t("player.stepOf", {
-              current: currentPageIndex + 1,
-              total: pageCount,
-            })}
+          <p aria-hidden className="text-xs text-muted-foreground">
+            {progressLabel}
           </p>
         </div>
       )}

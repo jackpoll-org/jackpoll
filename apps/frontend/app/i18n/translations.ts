@@ -263,7 +263,7 @@ export const en = {
   "builder.page.titlePlaceholder": "Page title (optional)",
   "builder.page.descPlaceholder": "Description (optional)",
   "builder.page.help":
-    "Each page is one screen for respondents. The progress bar advances one step per page.",
+    "Each page is one screen for respondents.",
   "builder.question.dragReorder": "Drag to reorder",
   "builder.question.moveUp": "Move question up",
   "builder.question.moveDown": "Move question down",
@@ -281,6 +281,9 @@ export const en = {
   "builder.settings.conversational": "Conversational mode (one question per screen)",
   "builder.settings.conversationalHelp":
     "Shows questions one at a time with next/back, like a chat. Pages are ignored in this mode.",
+  "builder.settings.showProgressBar": "Show progress",
+  "builder.settings.showProgressBarHelp":
+    "Respondents see which page or question they are on and how many questions they have answered.",
   "builder.settings.liveResults": "Live results",
   "builder.settings.liveResultsToggle": "Let respondents see live results (off by default)",
   "builder.settings.postSubmitSummary": "Show a results summary after submitting",
@@ -1362,7 +1365,10 @@ export const en = {
   "player.poweredBy": "Powered by Jackpoll",
   "player.linkUnavailable": "This link is not available.",
   "player.noscript": "Turn on JavaScript to answer this survey.",
-  "player.stepOf": "Step {current} of {total}",
+  "player.progress.page": "Page {current} of {total}",
+  "player.progress.question": "Question {current} of {total}",
+  "player.progress.answered": "{answered} of {total} answered",
+  "player.progress.answeredOnly": "{answered} answered",
 
   // ── Save & Resume (issue #26) ────────────────────────────────────
   "draft.saved": "Progress saved",
@@ -1769,7 +1775,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.page.titlePlaceholder": "Seitentitel (optional)",
   "builder.page.descPlaceholder": "Beschreibung (optional)",
   "builder.page.help":
-    "Jede Seite ist ein Bildschirm für Teilnehmende. Der Fortschrittsbalken springt pro Seite eine Stufe weiter.",
+    "Jede Seite ist ein Bildschirm für Teilnehmende.",
   "builder.question.dragReorder": "Zum Umsortieren ziehen",
   "builder.question.moveUp": "Frage nach oben verschieben",
   "builder.question.moveDown": "Frage nach unten verschieben",
@@ -1787,6 +1793,9 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.settings.conversational": "Dialogmodus (eine Frage pro Bildschirm)",
   "builder.settings.conversationalHelp":
     "Zeigt Fragen einzeln mit Weiter/Zurück, wie ein Chat. Seiten werden in diesem Modus ignoriert.",
+  "builder.settings.showProgressBar": "Fortschritt anzeigen",
+  "builder.settings.showProgressBarHelp":
+    "Teilnehmende sehen, auf welcher Seite oder bei welcher Frage sie sind und wie viele Fragen sie beantwortet haben.",
   "builder.settings.liveResults": "Live-Ergebnisse",
   "builder.settings.liveResultsToggle":
     "Teilnehmenden Live-Ergebnisse zeigen (standardmäßig aus)",
@@ -2875,7 +2884,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "player.poweredBy": "Bereitgestellt von Jackpoll",
   "player.linkUnavailable": "Dieser Link ist nicht verfügbar.",
   "player.noscript": "Aktiviere JavaScript, um diese Umfrage zu beantworten.",
-  "player.stepOf": "Schritt {current} von {total}",
+  "player.progress.page": "Seite {current} von {total}",
+  "player.progress.question": "Frage {current} von {total}",
+  "player.progress.answered": "{answered} von {total} beantwortet",
+  "player.progress.answeredOnly": "{answered} beantwortet",
 
   "draft.saved": "Fortschritt gespeichert",
   "draft.saveLater": "Speichern & später fortsetzen",
@@ -3273,7 +3285,7 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "builder.page.titlePlaceholder": "Titre de la page (facultatif)",
   "builder.page.descPlaceholder": "Description (facultative)",
   "builder.page.help":
-    "Chaque page correspond à un écran pour les répondants. La barre de progression avance d’une étape par page.",
+    "Chaque page correspond à un écran pour les répondants.",
   "builder.question.dragReorder": "Faire glisser pour réorganiser",
   "builder.question.moveUp": "Monter la question",
   "builder.question.moveDown": "Descendre la question",
@@ -3291,6 +3303,9 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "builder.settings.conversational": "Mode conversationnel (une question par écran)",
   "builder.settings.conversationalHelp":
     "Affiche les questions une par une avec Suivant/Retour, comme dans une discussion. Les pages sont ignorées dans ce mode.",
+  "builder.settings.showProgressBar": "Afficher la progression",
+  "builder.settings.showProgressBarHelp":
+    "Les répondants voient la page ou la question en cours et à combien de questions ils ont déjà répondu.",
   "builder.settings.liveResults": "Résultats en direct",
   "builder.settings.liveResultsToggle": "Permettre aux répondants de voir les résultats en direct (désactivé par défaut)",
   "builder.settings.postSubmitSummary": "Afficher un résumé des résultats après l’envoi",
@@ -4370,7 +4385,10 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "player.poweredBy": "Propulsé par Jackpoll",
   "player.linkUnavailable": "Ce lien n’est pas disponible.",
   "player.noscript": "Activez JavaScript pour répondre à ce sondage.",
-  "player.stepOf": "Étape {current} sur {total}",
+  "player.progress.page": "Page {current} sur {total}",
+  "player.progress.question": "Question {current} sur {total}",
+  "player.progress.answered": "Réponses : {answered} sur {total}",
+  "player.progress.answeredOnly": "Réponses : {answered}",
 
   // ── Save & Resume (issue #26) ────────────────────────────────────
   "draft.saved": "Progression enregistrée",
