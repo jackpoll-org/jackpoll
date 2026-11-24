@@ -130,6 +130,7 @@ export interface SurveySettings {
   redirectUrl?: string;
   showProgressBar: boolean;
   shuffleQuestions: boolean;
+  shuffleOptions?: boolean;
   // Quiz mode (issue #10) — forward-compat, unused in milestone 1
   isQuiz: boolean;
   timeLimit?: number;
@@ -195,6 +196,7 @@ export interface SurveySettings {
   /** Link preview design; unset = "classic". */
   ogStyle?: "classic" | "bold" | "minimal" | "spotlight" | "split";
   gradingScale?: GradeStep[] | null;
+  showGradingScale?: boolean;
   studentResults?: boolean;
   resultsReleased?: boolean;
   disableSaveLater?: boolean;
@@ -527,6 +529,7 @@ export interface SurveyResponseDto {
   grade?: string | null;
   resultCode?: string | null;
   corrections?: AnswerCorrection[] | null;
+  outcomeId?: string | null;
 }
 
 export interface AnswerCorrection {

@@ -156,6 +156,7 @@ interface SurveySettings {
   redirectUrl?: string
   showProgressBar: boolean
   shuffleQuestions: boolean
+  shuffleOptions?: boolean
   theme?: 'light' | 'dark' | 'auto'
   // Quiz mode
   isQuiz: boolean

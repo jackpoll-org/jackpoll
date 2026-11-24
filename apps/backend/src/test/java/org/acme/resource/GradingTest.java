@@ -237,6 +237,36 @@ class GradingTest {
 
     @Test
     @TestSecurity(user = "owner-1")
+    void gradingScaleReachesStudentsOnlyWhenTheOwnerShowsIt() {
+        var scale = ", \"gradingScale\": [{\"label\":\"A\",\"minScore\":5},{\"label\":\"F\",\"minScore\":0}]";
+        var quiz = createQuiz(", \"studentResults\": true" + scale);
+        String code = submit(quiz, "Essay").extract().path("data.resultCode");
+        releaseResults(quiz, scale);
+
+        lookup(quiz, code).statusCode(200).body("data.survey.settings.gradingScale", nullValue());
+        given().when().get("/api/v1/public/surveys/" + quiz.id()).then().statusCode(200)
+            .body("data.settings.gradingScale", nullValue());
+        given().when().get(SURVEYS + "/" + quiz.id()).then().statusCode(200)
+            .body("data.settings.gradingScale[0].label", is("A"));
+
+        releaseResults(quiz, scale + ", \"showGradingScale\": true");
+
+        lookup(quiz, code).statusCode(200)
+            .body("data.survey.settings.showGradingScale", is(true))
+            .body("data.survey.settings.gradingScale[0].label", is("A"))
+            .body("data.survey.settings.gradingScale[1].minScore", is(0));
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
+    void gradingScaleStaysPrivateWithoutResultCodes() {
+        var quiz = createQuiz(", \"showGradingScale\": true, \"gradingScale\": [{\"label\":\"A\",\"minScore\":5}]");
+        given().when().get("/api/v1/public/surveys/" + quiz.id()).then().statusCode(200)
+            .body("data.settings.gradingScale", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "owner-1")
     void resultLookupNeverRevealsTheRespondentToken() {
         var quiz = createQuiz(", \"studentResults\": true, \"requireRespondentToken\": true");
         given().contentType(ContentType.JSON).body("{\"tokens\":[\"alice\"]}")

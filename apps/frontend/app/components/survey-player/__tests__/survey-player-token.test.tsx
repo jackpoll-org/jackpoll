@@ -49,7 +49,8 @@ describe("SurveyPlayer respondent token", () => {
     render(<SurveyPlayer survey={survey({ requireRespondentToken: true })} />);
 
     await submit();
-    expect(mocks.toastError).toHaveBeenCalledWith("player.tokenRequired");
+    expect(screen.getByRole("alert")).toHaveTextContent("player.tokenRequired");
+    expect(mocks.toastError).not.toHaveBeenCalled();
     expect(mocks.submit).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText(/player.token/), { target: { value: " T-1 " } });

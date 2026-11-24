@@ -2,10 +2,12 @@
 
 import { Badge } from "@/app/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { useTranslation } from "@/app/i18n/context";
 import { formatAnswer } from "@/app/lib/survey/export";
 import { hasAnswer, isManuallyGraded, maxPointsFor } from "@/app/lib/survey/grading";
-import type { AnswerInput, Question, StudentResult } from "@/app/types/survey";
+import type { AnswerInput, Question, GradeStep, StudentResult, SurveyResponseDto } from "@/app/types/survey";
+import { cn } from "@/lib/utils";
 import { ResultPages } from "./result-pages";
 
 export function StudentResultView({ result }: { result: StudentResult }) {
@@ -49,6 +51,9 @@ export function StudentResultView({ result }: { result: StudentResult }) {
               <p className="text-sm font-medium">{t("studentResult.feedback")}</p>
               <p className="text-sm break-words whitespace-pre-wrap">{response.feedback}</p>
             </div>
+          )}
+          {survey.settings.showGradingScale && (
+            <GradingScale steps={survey.settings.gradingScale ?? []} response={response} />
           )}
         </CardContent>
       </Card>
@@ -94,5 +99,55 @@ function AnswerRow({ question, answer }: { question: Question; answer?: AnswerIn
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function GradingScale({
+  steps,
+  response,
+}: {
+  steps: GradeStep[];
+  response: SurveyResponseDto;
+}) {
+  const { t } = useTranslation();
+  const scale = steps
+    .filter((s): s is GradeStep & { minScore: number } => !!s.label.trim() && s.minScore != null)
+    .toSorted((a, b) => b.minScore - a.minScore);
+  if (scale.length === 0) return null;
+  const score = response.gradingPending ? null : response.score;
+  const current = score == null ? -1 : scale.findIndex((s) => s.minScore <= score);
+  const next = score == null ? undefined : current === -1 ? scale.at(-1) : scale[current - 1];
+  return (
+    <div className="grid gap-1">
+      <p className="text-sm font-medium">{t("studentResult.scale")}</p>
+      <Table className="w-auto">
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("studentResult.grade")}</TableHead>
+            <TableHead>{t("builder.grading.minScore")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {scale.map((step, i) => (
+            <TableRow
+              key={i}
+              aria-current={i === current || undefined}
+              className={cn(i === current && "bg-primary/10 font-semibold")}
+            >
+              <TableCell>{step.label}</TableCell>
+              <TableCell className="tabular-nums">{step.minScore}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {next && score != null && (
+        <p className="text-sm text-muted-foreground">
+          {t("studentResult.nextGrade", {
+            points: String(next.minScore - score),
+            grade: next.label,
+          })}
+        </p>
+      )}
+    </div>
   );
 }

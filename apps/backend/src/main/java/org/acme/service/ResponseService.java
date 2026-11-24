@@ -180,7 +180,7 @@ public class ResponseService {
             return new ResponseDto(
                 UUID.randomUUID().toString(), Instant.now().toString(),
                 req.durationMs(), null, null, null, java.util.List.of(), null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
         }
 
         boolean live = survey.settings != null && survey.settings.liveMode;
@@ -1394,14 +1394,26 @@ public class ResponseService {
     }
 
     /** An owner who never shows correct answers doesn't hand out the score either:
-     *  it would let respondents work out the answer key. Outcome pages are the
-     *  owner's own choice to show a result by score. Live players get theirs
-     *  only after the reveal, from {@link #liveScore}. */
+     *  it would let respondents work out the answer key. Result codes hold it back
+     *  until the release. Live players get theirs only after the reveal, from
+     *  {@link #liveScore}. */
     private static boolean scoreVisible(Survey survey) {
         var settings = survey.settings;
-        if (settings != null && settings.liveMode) return false;
-        return settings == null || !"never".equals(settings.showCorrectAnswers)
-            || (settings.outcomes != null && !settings.outcomes.isEmpty());
+        if (settings == null) return true;
+        if (settings.liveMode || (settings.isQuiz && settings.studentResults && !settings.resultsReleased)) return false;
+        return !"never".equals(settings.showCorrectAnswers);
+    }
+
+    private static String outcomeFor(Survey survey, SurveyResponse r) {
+        var settings = survey.settings;
+        if (settings == null || !settings.isQuiz || settings.liveMode || settings.outcomes == null || r.score == null
+            || (settings.studentResults && !settings.resultsReleased)) {
+            return null;
+        }
+        return settings.outcomes.stream()
+            .filter(o -> (o.minScore == null || r.score >= o.minScore) && (o.maxScore == null || r.score <= o.maxScore))
+            .map(o -> o.id)
+            .findFirst().orElse(null);
     }
 
     private static String gradeFor(Survey survey, SurveyResponse r) {
@@ -1481,7 +1493,8 @@ public class ResponseService {
             reveal ? r.feedback : null,
             reveal ? gradeFor(survey, r) : null,
             r.resultCode,
-            corrections);
+            corrections,
+            outcomeFor(survey, r));
     }
 
     // ── Server-side answer validation (issue #55) ─────────────────

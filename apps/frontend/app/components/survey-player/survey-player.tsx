@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Check, CheckCircle2 } from "lucide-react";
@@ -22,8 +22,8 @@ import { validateAnswer, type AnswerValue } from "@/app/lib/survey/validation";
 import { isQuestionVisible } from "@/app/lib/survey/logic";
 import { buildPages } from "@/app/lib/survey/pagination";
 import { computeProgress } from "@/app/lib/survey/progress";
-import { matchOutcome } from "@/app/lib/survey/outcomes";
 import { resolvePiping } from "@/app/lib/survey/piping";
+import { shuffleSurvey } from "@/app/lib/survey/shuffle";
 import { normalizeRedirectUrl } from "@/app/lib/survey/redirect";
 import { trackEvent } from "@/app/lib/survey/track";
 import { runErrorCode, type RunErrorCode } from "@/app/lib/survey/runs";
@@ -150,7 +150,7 @@ export function SurveyPlayer({
     resolveContentLocale(baseSurvey, locale),
   );
   const survey = useMemo(
-    () => localizeSurvey(baseSurvey, contentLang),
+    () => shuffleSurvey(localizeSurvey(baseSurvey, contentLang)),
     [baseSurvey, contentLang],
   );
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>(
@@ -208,6 +208,14 @@ export function SurveyPlayer({
       : (new URLSearchParams(window.location.search).get("token")?.trim() ?? ""),
   );
   const [respondentToken, setRespondentToken] = useState(urlToken);
+  const [identityErrors, setIdentityErrors] = useState<{ name?: string; token?: string }>({});
+  const [identityFocus, setIdentityFocus] = useState<{ id: string } | null>(null);
+
+  useEffect(() => {
+    const el = identityFocus && document.getElementById(identityFocus.id);
+    el?.focus();
+    el?.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, [identityFocus]);
 
   // Restore a local autosave once on mount, unless resuming a server draft.
   useEffect(() => {
@@ -294,6 +302,14 @@ export function SurveyPlayer({
     // eslint-disable-next-line react-hooks/immutability
     autoSubmitRef.current = () => void doSubmit(false);
   });
+
+  function submitIfTimeIsUp() {
+    const identified =
+      (!requireName || respondentName.trim()) && (!requireToken || preview || respondentToken.trim());
+    if (isTimed && remaining <= 0 && !submitted && !submitResponse.isPending && identified) {
+      autoSubmitRef.current();
+    }
+  }
 
   // Quiz countdown + auto-submit on expiry (issue #10).
   useEffect(() => {
@@ -482,6 +498,7 @@ export function SurveyPlayer({
     const visible = survey.questions.filter(
       (q) => isQuestionVisible(q, answers) && !isInstant(q),
     );
+    if (!validateIdentity()) return;
     if (validate) {
       const nextErrors: Record<string, string | null> = {};
       let hasError = false;
@@ -508,17 +525,6 @@ export function SurveyPlayer({
     // Require consent before submitting when the owner enabled it (#63).
     if (requireConsent && !consent) {
       toast.error(t("privacy.consentRequired"));
-      return;
-    }
-
-    // Require the respondent's name when the owner enabled it (#).
-    if (requireName && !respondentName.trim()) {
-      toast.error(t("player.nameRequired"));
-      return;
-    }
-
-    if (requireToken && !preview && !respondentToken.trim()) {
-      toast.error(t("player.tokenRequired"));
       return;
     }
 
@@ -630,8 +636,26 @@ export function SurveyPlayer({
     }
   }
 
+  function validateIdentity(): boolean {
+    const next = {
+      name: requireName && !respondentName.trim() ? t("player.nameRequired") : undefined,
+      token:
+        requireToken && !preview && !respondentToken.trim()
+          ? t("player.tokenRequired")
+          : undefined,
+    };
+    setIdentityErrors(next);
+    const message = next.name ?? next.token;
+    if (!message) return true;
+    void hNotify(NotificationType.Error);
+    setPage(0);
+    setIdentityFocus({ id: next.name ? "respondent-name" : "respondent-token" });
+    return false;
+  }
+
   /** Validate the visible questions on the current page before advancing. */
   function validateCurrentPage(): boolean {
+    if (currentPageIndex === 0 && !validateIdentity()) return false;
     const questions = currentPage?.questions ?? [];
     const nextErrors: Record<string, string | null> = {};
     let hasError = false;
@@ -727,39 +751,42 @@ export function SurveyPlayer({
         />
       )}
 
-      {requireName && currentPageIndex === 0 && (
-        <div className="grid gap-1.5">
-          <Label htmlFor="respondent-name">
-            {t("player.yourName")}
-            <span aria-hidden className="ml-1 text-destructive">*</span>
-          </Label>
-          <Input
-            id="respondent-name"
-            value={respondentName}
-            onChange={(e) => setRespondentName(e.target.value)}
-            placeholder={t("player.yourNamePlaceholder")}
-            autoComplete="name"
-            required
-          />
-        </div>
-      )}
-
-      {requireToken && currentPageIndex === 0 && (
-        <div className="grid gap-1.5">
-          <Label htmlFor="respondent-token">
-            {t("player.token")}
-            <span aria-hidden className="ml-1 text-destructive">*</span>
-          </Label>
-          <Input
-            id="respondent-token"
-            value={respondentToken}
-            onChange={(e) => setRespondentToken(e.target.value)}
-            placeholder={t("player.tokenPlaceholder")}
-            readOnly={!!urlToken}
-            autoComplete="off"
-            required={!preview}
-          />
-        </div>
+      {(requireName || requireToken) && currentPageIndex === 0 && (
+        <Card className="gap-4 border-primary/40 bg-primary/5 px-6 dark:bg-primary/10">
+          {requireName && (
+            <IdentityField
+              id="respondent-name"
+              label={t("player.yourName")}
+              error={identityErrors.name}
+              value={respondentName}
+              onChange={(e) => {
+                setRespondentName(e.target.value);
+                setIdentityErrors((prev) => ({ ...prev, name: undefined }));
+              }}
+              onBlur={submitIfTimeIsUp}
+              placeholder={t("player.yourNamePlaceholder")}
+              autoComplete="name"
+              required
+            />
+          )}
+          {requireToken && (
+            <IdentityField
+              id="respondent-token"
+              label={t("player.token")}
+              error={identityErrors.token}
+              value={respondentToken}
+              onChange={(e) => {
+                setRespondentToken(e.target.value);
+                setIdentityErrors((prev) => ({ ...prev, token: undefined }));
+              }}
+              onBlur={submitIfTimeIsUp}
+              placeholder={t("player.tokenPlaceholder")}
+              readOnly={!!urlToken}
+              autoComplete="off"
+              required={!preview}
+            />
+          )}
+        </Card>
       )}
 
       {survey.settings.showProgressBar && progress.total > 0 && (
@@ -975,6 +1002,39 @@ export function SurveyPlayer({
   );
 }
 
+function IdentityField({
+  id,
+  label,
+  error,
+  ...input
+}: { id: string; label: string; error?: string } & ComponentProps<typeof Input>) {
+  const errorId = `${id}-error`;
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id} className="font-semibold">
+        {label}
+        <span aria-hidden className="ml-1 text-destructive">*</span>
+      </Label>
+      <Input
+        id={id}
+        className="bg-background"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        {...input}
+      />
+      {error && (
+        <p
+          id={errorId}
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-background px-3 py-2 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Post-submission confirmation (#9) with quiz score when applicable (#10). */
 function ConfirmationScreen({
   survey,
@@ -1011,7 +1071,9 @@ function ConfirmationScreen({
   const showScore = survey.settings.isQuiz && result?.score != null;
   // Score-based outcome page (#83) — takes over the confirmation when matched.
   const outcome = survey.settings.isQuiz
-    ? matchOutcome(survey.settings.outcomes, result?.score ?? null)
+    ? (result?.outcomeId != null
+        ? (survey.settings.outcomes?.find((o) => o.id === result.outcomeId) ?? null)
+        : null)
     : null;
   const showSummary =
     survey.settings.showLiveResults && survey.settings.postSubmitSummary;

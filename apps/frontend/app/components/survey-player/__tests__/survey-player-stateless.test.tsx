@@ -152,3 +152,55 @@ describe("SurveyPlayer corrections", () => {
     expect(screen.queryByTestId("correction-q1")).toBeNull();
   });
 });
+
+describe("SurveyPlayer score after submitting", () => {
+  const outcomes = [
+    { id: "low", title: "Keep practising", maxScore: 0 },
+    { id: "high", title: "Explorer", minScore: 1 },
+  ];
+
+  it("shows the outcome the server picked without the score", async () => {
+    mocks.submit.mockResolvedValueOnce({
+      id: "r1",
+      submittedAt: "x",
+      answers: [],
+      outcomeId: "high",
+      resultCode: "ABCD2345",
+    });
+    render(<SurveyPlayer survey={survey({ showCorrectAnswers: "never", outcomes })} analytics />);
+    await submit();
+
+    expect(screen.getByText("Explorer")).toBeTruthy();
+    expect(screen.queryByText(/\d+ \/ \d+/)).toBeNull();
+    expect(screen.queryByText(/player\.(passed|failed)/)).toBeNull();
+    expect(screen.getByText("player.resultCodeHint")).toBeTruthy();
+  });
+
+  it("shows no outcome without an outcome id, even for outcomes stored without one", async () => {
+    mocks.submit.mockResolvedValueOnce({ id: "r1", submittedAt: "x", answers: [], resultCode: "ABCD2345" });
+    const legacy = [{ title: "Legacy outcome", minScore: 0 }] as unknown as typeof outcomes;
+    render(<SurveyPlayer survey={survey({ outcomes: legacy })} analytics />);
+    await submit();
+
+    expect(screen.queryByText("Legacy outcome")).toBeNull();
+    expect(screen.getByText("player.resultCodeHint")).toBeTruthy();
+  });
+
+  it("shows the score when the server sends it", async () => {
+    mocks.submit.mockResolvedValueOnce({
+      id: "r1",
+      submittedAt: "x",
+      answers: [],
+      score: 2,
+      maxScore: 3,
+      passed: true,
+      outcomeId: "high",
+    });
+    render(<SurveyPlayer survey={survey({ outcomes })} analytics />);
+    await submit();
+
+    expect(screen.getByText("Explorer")).toBeTruthy();
+    expect(screen.getByText("2 / 3")).toBeTruthy();
+    expect(screen.getByText("player.passed")).toBeTruthy();
+  });
+});

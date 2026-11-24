@@ -77,10 +77,10 @@ export const en = {
   "privacy.consentRequired": "Please accept the consent to submit.",
   "player.yourName": "Your name",
   "player.yourNamePlaceholder": "Enter your name",
-  "player.nameRequired": "Please enter your name before submitting.",
+  "player.nameRequired": "Please enter your name to continue.",
   "player.token": "Your token",
   "player.tokenPlaceholder": "Enter your token",
-  "player.tokenRequired": "Please enter your token before submitting.",
+  "player.tokenRequired": "Please enter your token to continue.",
 
   // ── Settings page ────────────────────────────────────────────────
   "settings.title": "Settings",
@@ -284,6 +284,12 @@ export const en = {
   "builder.settings.showProgressBar": "Show progress",
   "builder.settings.showProgressBarHelp":
     "Respondents see which page or question they are on and how many questions they have answered.",
+  "builder.settings.shuffleQuestions": "Shuffle question order",
+  "builder.settings.shuffleQuestionsHelp":
+    "Each respondent gets the questions of every page in their own order. Pages (except in conversational mode) and content blocks stay in place, and the order stays the same when they come back. Not used in live mode.",
+  "builder.settings.shuffleOptions": "Shuffle answer options",
+  "builder.settings.shuffleOptionsHelp":
+    "Each respondent gets the options of single choice, multiple choice and dropdown questions in their own order, including options like “None of the above”. Not used in live mode.",
   "builder.settings.liveResults": "Live results",
   "builder.settings.liveResultsToggle": "Let respondents see live results (off by default)",
   "builder.settings.postSubmitSummary": "Show a results summary after submitting",
@@ -498,6 +504,7 @@ export const en = {
   "builder.grading.minScore": "From points",
   "builder.grading.remove": "Remove grade",
   "builder.grading.add": "Add grade",
+  "builder.grading.showScale": "Show the grading scale on students' results page",
   "builder.grading.studentResults": "Students can look up their results with a personal code",
   "builder.grading.studentResultsHelp": "Each student gets a code after submitting. Once you release the results, they enter it on the results page to see their points, grade and feedback.",
   "builder.grading.release": "Release results to students",
@@ -509,6 +516,8 @@ export const en = {
   "studentResult.show": "Show my results",
   "studentResult.grade": "Grade",
   "studentResult.bonus": "Including {points} bonus points",
+  "studentResult.scale": "Grading scale",
+  "studentResult.nextGrade": "{points} more point(s) for grade {grade}",
   "studentResult.feedback": "Feedback",
   "studentResult.answerFeedback": "Feedback",
   "player.alreadyResponded": "You have already taken part. Thank you!",
@@ -1588,10 +1597,10 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "privacy.consentRequired": "Bitte stimme der Verarbeitung zu, um abzusenden.",
   "player.yourName": "Dein Name",
   "player.yourNamePlaceholder": "Namen eingeben",
-  "player.nameRequired": "Bitte gib deinen Namen ein, bevor du absendest.",
+  "player.nameRequired": "Bitte gib deinen Namen ein, um fortzufahren.",
   "player.token": "Dein Token",
   "player.tokenPlaceholder": "Token eingeben",
-  "player.tokenRequired": "Bitte gib deinen Token ein, bevor du absendest.",
+  "player.tokenRequired": "Bitte gib deinen Token ein, um fortzufahren.",
 
   // ── Einstellungen ────────────────────────────────────────────────
   "settings.title": "Einstellungen",
@@ -1796,6 +1805,12 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.settings.showProgressBar": "Fortschritt anzeigen",
   "builder.settings.showProgressBarHelp":
     "Teilnehmende sehen, auf welcher Seite oder bei welcher Frage sie sind und wie viele Fragen sie beantwortet haben.",
+  "builder.settings.shuffleQuestions": "Reihenfolge der Fragen mischen",
+  "builder.settings.shuffleQuestionsHelp":
+    "Jede Person bekommt die Fragen jeder Seite in einer eigenen Reihenfolge. Seiten (außer im Dialogmodus) und Inhaltsblöcke bleiben an ihrem Platz, und die Reihenfolge bleibt gleich, wenn sie zurückkommt. Nicht im Live-Modus.",
+  "builder.settings.shuffleOptions": "Antwortoptionen mischen",
+  "builder.settings.shuffleOptionsHelp":
+    "Jede Person bekommt die Optionen von Single-Choice-, Multiple-Choice- und Dropdown-Fragen in einer eigenen Reihenfolge, auch Optionen wie „Keine der genannten“. Nicht im Live-Modus.",
   "builder.settings.liveResults": "Live-Ergebnisse",
   "builder.settings.liveResultsToggle":
     "Teilnehmenden Live-Ergebnisse zeigen (standardmäßig aus)",
@@ -2013,6 +2028,7 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "builder.grading.minScore": "Ab Punkten",
   "builder.grading.remove": "Note entfernen",
   "builder.grading.add": "Note hinzufügen",
+  "builder.grading.showScale": "Notenschlüssel auf der Ergebnisseite der Teilnehmenden zeigen",
   "builder.grading.studentResults": "Teilnehmende können ihr Ergebnis mit einem persönlichen Code abrufen",
   "builder.grading.studentResultsHelp": "Nach dem Absenden bekommt jede Person einen Code. Sobald du die Ergebnisse freigibst, sieht sie damit auf der Ergebnisseite Punkte, Note und Feedback.",
   "builder.grading.release": "Ergebnisse freigeben",
@@ -2024,6 +2040,8 @@ export const de: Partial<Record<TranslationKey, string>> = {
   "studentResult.show": "Ergebnis anzeigen",
   "studentResult.grade": "Note",
   "studentResult.bonus": "Inklusive {points} Bonuspunkte",
+  "studentResult.scale": "Notenschlüssel",
+  "studentResult.nextGrade": "Noch {points} Punkt(e) bis zur Note {grade}",
   "studentResult.feedback": "Feedback",
   "studentResult.answerFeedback": "Feedback",
   "player.alreadyResponded": "Du hast bereits teilgenommen. Vielen Dank!",
@@ -3100,10 +3118,10 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "privacy.consentRequired": "Veuillez donner votre consentement pour envoyer vos réponses.",
   "player.yourName": "Votre nom",
   "player.yourNamePlaceholder": "Saisissez votre nom",
-  "player.nameRequired": "Veuillez saisir votre nom avant d’envoyer.",
+  "player.nameRequired": "Veuillez saisir votre nom pour continuer.",
   "player.token": "Votre jeton",
   "player.tokenPlaceholder": "Saisissez votre jeton",
-  "player.tokenRequired": "Veuillez saisir votre jeton avant d’envoyer.",
+  "player.tokenRequired": "Veuillez saisir votre jeton pour continuer.",
 
   // ── Settings page ────────────────────────────────────────────────
   "settings.title": "Paramètres",
@@ -3306,6 +3324,12 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "builder.settings.showProgressBar": "Afficher la progression",
   "builder.settings.showProgressBarHelp":
     "Les répondants voient la page ou la question en cours et à combien de questions ils ont déjà répondu.",
+  "builder.settings.shuffleQuestions": "Mélanger l’ordre des questions",
+  "builder.settings.shuffleQuestionsHelp":
+    "Chaque répondant reçoit les questions de chaque page dans son propre ordre. Les pages (sauf en mode conversationnel) et les blocs de contenu restent à leur place, et l’ordre reste le même quand il revient. Pas en mode direct.",
+  "builder.settings.shuffleOptions": "Mélanger les options de réponse",
+  "builder.settings.shuffleOptionsHelp":
+    "Chaque répondant reçoit les options des questions à choix unique, à choix multiples et à liste déroulante dans son propre ordre, y compris des options comme « Aucune de ces réponses ». Pas en mode direct.",
   "builder.settings.liveResults": "Résultats en direct",
   "builder.settings.liveResultsToggle": "Permettre aux répondants de voir les résultats en direct (désactivé par défaut)",
   "builder.settings.postSubmitSummary": "Afficher un résumé des résultats après l’envoi",
@@ -3520,6 +3544,7 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "builder.grading.minScore": "À partir de (points)",
   "builder.grading.remove": "Supprimer la note",
   "builder.grading.add": "Ajouter une note",
+  "builder.grading.showScale": "Afficher le barème de notes sur la page des résultats des élèves",
   "builder.grading.studentResults": "Les élèves peuvent consulter leurs résultats avec un code personnel",
   "builder.grading.studentResultsHelp": "Chaque élève reçoit un code après l’envoi. Une fois les résultats publiés, il le saisit sur la page des résultats pour voir ses points, sa note et vos commentaires.",
   "builder.grading.release": "Publier les résultats pour les élèves",
@@ -3531,6 +3556,8 @@ export const fr: Partial<Record<TranslationKey, string>> = {
   "studentResult.show": "Afficher mes résultats",
   "studentResult.grade": "Note",
   "studentResult.bonus": "Dont {points} points bonus",
+  "studentResult.scale": "Barème de notes",
+  "studentResult.nextGrade": "Encore {points} point(s) pour la note {grade}",
   "studentResult.feedback": "Commentaire",
   "studentResult.answerFeedback": "Commentaire",
   "player.alreadyResponded": "Vous avez déjà participé. Merci !",

@@ -425,6 +425,7 @@ describe("builderReducer", () => {
           retentionDays: 1,
           showLiveResults: true,
           resultsReleased: true,
+          showGradingScale: true,
           ogShowOwner: true,
           showProgressBar: !local.settings.showProgressBar,
         },
@@ -435,6 +436,7 @@ describe("builderReducer", () => {
     expect(next.survey.settings.retentionDays).toBe(local.settings.retentionDays);
     expect(next.survey.settings.showLiveResults).toBe(local.settings.showLiveResults);
     expect(next.survey.settings.resultsReleased).toBe(local.settings.resultsReleased);
+    expect(next.survey.settings.showGradingScale).toBe(local.settings.showGradingScale);
     expect(next.survey.settings.ogShowOwner).toBe(local.settings.ogShowOwner);
     expect(next.survey.settings.showProgressBar).toBe(!local.settings.showProgressBar);
   });

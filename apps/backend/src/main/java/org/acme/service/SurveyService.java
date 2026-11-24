@@ -176,6 +176,7 @@ public class SurveyService {
             survey.settings.postSubmitCombinedWordcloud = previous != null && previous.postSubmitCombinedWordcloud;
             survey.settings.studentResults = previous != null && previous.studentResults;
             survey.settings.resultsReleased = previous != null && previous.resultsReleased;
+            survey.settings.showGradingScale = previous != null && previous.showGradingScale;
         }
         if (editLink && survey.settings != null) {
             keepQuestionSharing(survey, sharingBefore, quizBefore);

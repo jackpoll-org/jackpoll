@@ -215,3 +215,29 @@ describe("BuilderSettings progress", () => {
     expect(updateSettings).toHaveBeenCalledWith({ showProgressBar: true });
   });
 });
+
+describe("BuilderSettings shuffling", () => {
+  it.each(["shuffleQuestions", "shuffleOptions"])("toggles %s, off by default", (key) => {
+    survey = baseSurvey();
+    render(<BuilderSettings />);
+    const toggle = screen.getByRole("switch", { name: `builder.settings.${key}` });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
+    expect(updateSettings).toHaveBeenCalledWith({ [key]: true });
+  });
+});
+
+describe("BuilderSettings grading scale for students", () => {
+  it("toggles showing the grading scale on the results page, off by default", () => {
+    survey = baseSurvey({ isQuiz: true });
+    const { unmount } = render(<BuilderSettings />);
+    expect(screen.queryByRole("switch", { name: "builder.grading.showScale" })).toBeNull();
+    unmount();
+    survey = baseSurvey({ isQuiz: true, studentResults: true });
+    render(<BuilderSettings />);
+    const toggle = screen.getByRole("switch", { name: "builder.grading.showScale" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
+    expect(updateSettings).toHaveBeenCalledWith({ showGradingScale: true });
+  });
+});

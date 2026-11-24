@@ -224,6 +224,8 @@ class ApiKeyTest {
         given().auth().oauth2(key).contentType(ContentType.JSON)
             .body(body.formatted(",\"showCorrectAnswers\":\"with-answers\""))
             .when().put(API + "/surveys/" + id).then().statusCode(403);
+        given().auth().oauth2(key).contentType(ContentType.JSON).body(body.formatted(",\"showGradingScale\":true"))
+            .when().put(API + "/surveys/" + id).then().statusCode(403);
 
         given().contentType(ContentType.JSON)
             .body("{\"answers\":[{\"questionId\":\"g1\",\"value\":\"hi\"}]}")

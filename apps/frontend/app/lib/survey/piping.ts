@@ -3,7 +3,7 @@ import { formatAnswer } from "@/app/lib/survey/export";
 import type { AnswerValue } from "@/app/lib/survey/validation";
 
 /** Matches piping tokens like {{questionId}} (ids are uuid / slug-ish). */
-const TOKEN = /\{\{\s*([\w-]+)\s*\}\}/g;
+export const TOKEN = /\{\{\s*([\w-]+)\s*\}\}/g;
 
 /**
  * Replace {{questionId}} tokens in text with the readable value of that

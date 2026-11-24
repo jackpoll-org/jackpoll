@@ -104,6 +104,44 @@ test.describe("survey player", () => {
     expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
   });
 
+  test("a required name blocks Next until it is entered", async ({ page }) => {
+    const ctx = await mockPublicSurvey(page, {
+      ...MOCK_SURVEY,
+      settings: { ...MOCK_SURVEY.settings, requireRespondentName: true },
+    });
+    await page.goto(EMBED);
+
+    const name = page.getByRole("textbox", { name: "Your name" });
+    await page.getByRole("textbox").nth(1).fill("Ada Lovelace");
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+
+    await expect(name).toHaveAccessibleDescription("Please enter your name to continue.");
+    await expect(page.getByRole("alert").filter({ hasText: "Please enter your name to continue." })).toBeVisible();
+    await expect(name).toBeFocused();
+    await expect(name).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByRole("progressbar", { name: /Page 1 of 2/ })).toBeVisible();
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await expect(page.locator("html")).toHaveClass(colorScheme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/);
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa"])
+        .include("[data-slot=card]:has(#respondent-name)")
+        .analyze();
+      const serious = results.violations.filter(
+        (v) => v.impact === "serious" || v.impact === "critical",
+      );
+      expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
+    }
+
+    await name.fill("Ada");
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByText("A friend").click();
+    await page.getByRole("button", { name: "Submit", exact: true }).click();
+
+    await expect(page.getByText("Thanks — your response was recorded!")).toBeVisible();
+    expect(ctx.submitted[0].respondentName).toBe("Ada");
+  });
+
   test("a participant who already answered sees a notice instead of the form", async ({ page }) => {
     await mockPublicSurvey(page, {
       ...MOCK_SURVEY,

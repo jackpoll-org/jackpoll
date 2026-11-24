@@ -39,6 +39,7 @@ export const PROTECTED_SETTINGS = [
   "postSubmitCombinedWordcloud",
   "studentResults",
   "resultsReleased",
+  "showGradingScale",
 ] as const satisfies readonly (keyof SurveySettings)[];
 
 function sharedSettings(settings: SurveySettings): SurveySettings {

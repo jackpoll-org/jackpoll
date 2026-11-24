@@ -387,7 +387,7 @@ class LiveSessionTest {
     @Test
     @TestSecurity(user = "owner-hidden-score")
     void playersOnlyLearnTheirScoreAfterTheReveal() {
-        var quiz = createScoredQuiz();
+        var quiz = createScoredQuiz(",\"outcomes\":[{\"id\":\"any\",\"title\":\"Any\"}]");
         startSession(quiz[0]);
         show(quiz, "question");
 
@@ -398,7 +398,8 @@ class LiveSessionTest {
             .then().statusCode(201)
             .body("data.score", nullValue())
             .body("data.maxScore", nullValue())
-            .body("data.passed", nullValue());
+            .body("data.passed", nullValue())
+            .body("data.outcomeId", nullValue());
         assertEquals(null, liveScore(quiz, "ada"));
 
         show(quiz, "reveal");

@@ -60,7 +60,7 @@ public class SurveyMapper {
             s.title,
             s.description,
             s.status,
-            toSettingsDto(s.settings),
+            toSettingsDto(s.settings, includeAnswers),
             toQuestionDtos(s, includeAnswers),
             toSectionDtos(s.sections),
             s.tags != null ? s.tags : java.util.List.of(),
@@ -82,7 +82,7 @@ public class SurveyMapper {
         return owner != null ? owner.name : null;
     }
 
-    private SurveySettingsDto toSettingsDto(SurveySettings v) {
+    private SurveySettingsDto toSettingsDto(SurveySettings v, boolean includeAnswers) {
         var s = v != null ? v : SurveySettings.defaults();
         return new SurveySettingsDto(
             s.allowMultipleResponses,
@@ -133,7 +133,7 @@ public class SurveyMapper {
             s.ogShowOwner,
             s.ogShowQuestion,
             s.ogStyle,
-            s.gradingScale == null ? null : s.gradingScale.stream()
+            s.gradingScale == null || !(includeAnswers || (s.showGradingScale && s.studentResults)) ? null : s.gradingScale.stream()
                 .map(g -> new org.acme.dto.SurveyDtos.GradeStepDto(g.label, g.minScore))
                 .toList(),
             s.studentResults,
@@ -146,7 +146,9 @@ public class SurveyMapper {
                 .toList(),
             s.hideSubmitAnother,
             s.submitAnotherLabel,
-            s.postSubmitCombinedWordcloud
+            s.postSubmitCombinedWordcloud,
+            s.shuffleOptions,
+            s.showGradingScale
         );
     }
 
@@ -337,6 +339,7 @@ public class SurveyMapper {
         s.redirectUrl = d.redirectUrl();
         s.showProgressBar = d.showProgressBar();
         s.shuffleQuestions = d.shuffleQuestions();
+        s.shuffleOptions = d.shuffleOptions();
         s.isQuiz = d.isQuiz();
         s.timeLimit = d.timeLimit();
         s.passingScore = d.passingScore();
@@ -363,7 +366,7 @@ public class SurveyMapper {
         s.outcomes = d.outcomes() == null ? null : d.outcomes().stream()
             .map(o -> {
                 var x = new org.acme.entity.Outcome();
-                x.id = o.id();
+                x.id = o.id() == null || o.id().isBlank() ? UUID.randomUUID().toString() : o.id();
                 x.title = o.title();
                 x.description = o.description();
                 x.imageUrl = o.imageUrl();
@@ -397,6 +400,7 @@ public class SurveyMapper {
                 return x;
             })
             .toList();
+        s.showGradingScale = d.showGradingScale();
         s.studentResults = d.studentResults();
         s.resultsReleased = d.resultsReleased();
         s.disableSaveLater = d.disableSaveLater();

@@ -150,7 +150,9 @@ public final class SurveyDtos {
         @Size(max = 10) java.util.List<@NotNull @Valid CompletionButtonDto> completionButtons,
         boolean hideSubmitAnother,
         @Size(max = 80) String submitAnotherLabel,
-        boolean postSubmitCombinedWordcloud
+        boolean postSubmitCombinedWordcloud,
+        boolean shuffleOptions,
+        boolean showGradingScale
     ) {
         public SurveySettingsDto withoutContent() {
             return new SurveySettingsDto(allowMultipleResponses, null, null, showProgressBar, shuffleQuestions,
@@ -161,7 +163,8 @@ public final class SurveyDtos {
                 privacyNotice, requireConsent, requireRespondentName, requireRespondentToken, liveMode,
                 liveQuestionSeconds, liveHideQuestionOnDevices, null, null, colorPalette, ogShowTitle,
                 ogShowDescription, ogShowOwner, ogShowQuestion, ogStyle, null, studentResults, resultsReleased,
-                disableSaveLater, doNotStoreResponses, null, hideSubmitAnother, null, postSubmitCombinedWordcloud);
+                disableSaveLater, doNotStoreResponses, null, hideSubmitAnother, null, postSubmitCombinedWordcloud,
+                shuffleOptions, showGradingScale);
         }
     }
 

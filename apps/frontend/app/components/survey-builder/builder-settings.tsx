@@ -464,6 +464,21 @@ export function BuilderSettings() {
         <p className="text-xs text-muted-foreground">
           {t("builder.settings.showProgressBarHelp")}
         </p>
+        {(["shuffleQuestions", "shuffleOptions"] as const).map((key) => (
+          <div key={key} className="grid gap-3 border-t pt-3">
+            <div className="flex items-center gap-2">
+              <Switch
+                id={key}
+                checked={settings[key] ?? false}
+                onCheckedChange={(c) => updateSettings({ [key]: c })}
+              />
+              <Label htmlFor={key} className="font-normal">
+                {t(`builder.settings.${key}`)}
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">{t(`builder.settings.${key}Help`)}</p>
+          </div>
+        ))}
         <div className="flex items-center gap-2 border-t pt-3">
           <Switch
             id="allow-save-later"

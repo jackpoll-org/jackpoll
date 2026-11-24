@@ -89,6 +89,18 @@ export function GradingSettings({ surveyId, settings, onChange }: GradingSetting
         >
           <Plus className="size-4" /> {t("builder.grading.add")}
         </Button>
+        {settings.studentResults === true && (
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-grading-scale"
+              checked={settings.showGradingScale === true}
+              onCheckedChange={(c) => onChange({ showGradingScale: c })}
+            />
+            <Label htmlFor="show-grading-scale" className="font-normal">
+              {t("builder.grading.showScale")}
+            </Label>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-3">

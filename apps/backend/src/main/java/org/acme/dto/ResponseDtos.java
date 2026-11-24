@@ -120,7 +120,8 @@ public final class ResponseDtos {
         String feedback,
         String grade,
         String resultCode,
-        List<CorrectionDto> corrections
+        List<CorrectionDto> corrections,
+        String outcomeId
     ) {}
 
     public record CorrectionDto(

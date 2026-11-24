@@ -21,6 +21,7 @@ public class SurveySettings {
     public String redirectUrl;
     public boolean showProgressBar;
     public boolean shuffleQuestions;
+    public boolean shuffleOptions;
 
     /** Optional ISO-8601 instant before which the survey is not yet open (issue #39). */
     public String opensAt;
@@ -122,6 +123,7 @@ public class SurveySettings {
     public String ogStyle;
 
     public java.util.List<GradeStep> gradingScale;
+    public boolean showGradingScale;
     public boolean studentResults;
     public boolean resultsReleased;
     public boolean disableSaveLater;

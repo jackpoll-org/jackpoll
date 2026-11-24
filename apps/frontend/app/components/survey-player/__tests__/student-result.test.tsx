@@ -76,3 +76,48 @@ describe("StudentResultView", () => {
     expect(container.querySelector("#survey-q-c1")?.textContent).toBe("Context text");
   });
 });
+
+describe("StudentResultView grading scale", () => {
+  function result(settings: Record<string, unknown>, response: Record<string, unknown> = {}) {
+    return {
+      survey: {
+        title: "Quiz",
+        settings: {
+          gradingScale: [
+            { label: "C", minScore: 4 },
+            { label: "A", minScore: 9 },
+            { label: "", minScore: 2 },
+            { label: "F", minScore: 0 },
+            { label: "B", minScore: 7 },
+          ],
+          ...settings,
+        },
+        questions: [],
+      },
+      response: { score: 5, maxScore: 10, grade: "C", answers: [], ...response },
+    } as unknown as StudentResult;
+  }
+
+  it("is hidden unless the teacher shows it", () => {
+    render(<StudentResultView result={result({})} />);
+    expect(screen.queryByText("studentResult.scale")).toBeNull();
+  });
+
+  it("lists the grades best first, marks the student's grade and the points to the next one", () => {
+    render(<StudentResultView result={result({ showGradingScale: true })} />);
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows.map((r) => r.textContent)).toEqual(["A9", "B7", "C4", "F0"]);
+    expect(rows[2]).toHaveAttribute("aria-current", "true");
+    expect(screen.getByText("studentResult.nextGrade 2 B")).toBeTruthy();
+  });
+
+  it("marks nothing while grading is pending", () => {
+    render(
+      <StudentResultView
+        result={result({ showGradingScale: true }, { gradingPending: true, grade: null })}
+      />,
+    );
+    expect(screen.getAllByRole("row").some((r) => r.hasAttribute("aria-current"))).toBe(false);
+    expect(screen.queryByText(/studentResult.nextGrade/)).toBeNull();
+  });
+});
