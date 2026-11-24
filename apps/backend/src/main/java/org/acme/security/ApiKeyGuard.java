@@ -56,7 +56,7 @@ public class ApiKeyGuard {
             || next.postSubmitCombinedWordcloud() != current.postSubmitCombinedWordcloud
             || next.studentResults() != current.studentResults
             || next.resultsReleased() != current.resultsReleased
-            || next.showGradingScale() != current.showGradingScale
+            || (next.showGradingScale() && !current.showGradingScale)
             || !Objects.equals(next.retentionDays(), current.retentionDays)
             || next.retentionAnonymize() != current.retentionAnonymize
             || (next.isQuiz() && next.doNotStoreResponses()) == current.storesResponses()

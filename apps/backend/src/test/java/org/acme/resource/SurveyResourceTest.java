@@ -39,7 +39,9 @@ class SurveyResourceTest {
             .body("data.id", notNullValue())
             .body("data.title", is("Customer Feedback"))
             .body("data.status", is("draft"))
-            .body("data.ownerId", is("owner-1"));
+            .body("data.ownerId", is("owner-1"))
+            .body("data.settings.showProgressBar", is(true))
+            .body("data.settings.showGradingScale", is(true));
     }
 
     @Test

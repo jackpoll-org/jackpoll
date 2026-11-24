@@ -83,7 +83,7 @@ public class SurveyMapper {
     }
 
     private SurveySettingsDto toSettingsDto(SurveySettings v, boolean includeAnswers) {
-        var s = v != null ? v : SurveySettings.defaults();
+        var s = v != null ? v : new SurveySettings();
         return new SurveySettingsDto(
             s.allowMultipleResponses,
             s.confirmationMessage,

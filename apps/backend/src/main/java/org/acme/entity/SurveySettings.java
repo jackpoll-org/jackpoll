@@ -148,9 +148,10 @@ public class SurveySettings {
     public static SurveySettings defaults() {
         var s = new SurveySettings();
         s.allowMultipleResponses = false;
-        s.showProgressBar = false;
+        s.showProgressBar = true;
         s.shuffleQuestions = false;
         s.isQuiz = false;
+        s.showGradingScale = true;
         return s;
     }
 }

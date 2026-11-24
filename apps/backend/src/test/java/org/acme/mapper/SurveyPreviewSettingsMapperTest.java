@@ -82,4 +82,18 @@ class SurveyPreviewSettingsMapperTest {
         assertNull(settings.ogShowOwner());
         assertNull(dto.ownerName());
     }
+
+    @Test
+    void storedSurveysWithoutTheNewDefaultsKeepThemOff() throws Exception {
+        var stored = json.readValue("{\"isQuiz\":true}", SurveySettings.class);
+        assertEquals(false, stored.showProgressBar);
+        assertEquals(false, stored.showGradingScale);
+
+        var survey = new Survey();
+        survey.title = "Old";
+        survey.status = SurveyStatus.DRAFT;
+        var settings = mapper.toDto(survey).settings();
+        assertEquals(false, settings.showProgressBar());
+        assertEquals(false, settings.showGradingScale());
+    }
 }
